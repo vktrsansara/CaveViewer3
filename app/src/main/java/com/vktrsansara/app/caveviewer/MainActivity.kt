@@ -11,7 +11,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vktrsansara.app.caveviewer.domain.model.AppTheme
+import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
 import com.vktrsansara.app.caveviewer.presentation.main.MainScreen
 import com.vktrsansara.app.caveviewer.presentation.main.MainViewModel
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
@@ -28,13 +28,16 @@ class MainActivity : ComponentActivity() {
             val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
 
             val isDarkTheme = when (uiState.settings.theme) {
-                AppTheme.AUTO -> isSystemInDarkTheme()
-                AppTheme.LIGHT -> false
-                AppTheme.DARK -> true
+                ThemeMode.AUTO -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
             }
 
-            LaunchedEffect(uiState.settings.isFullscreen) {
+            LaunchedEffect(isDarkTheme, uiState.settings.isFullscreen) {
                 val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+                windowInsetsController.isAppearanceLightStatusBars = !isDarkTheme
+                windowInsetsController.isAppearanceLightNavigationBars = !isDarkTheme
+
                 if (uiState.settings.isFullscreen) {
                     windowInsetsController.systemBarsBehavior =
                         WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE

@@ -4,7 +4,7 @@ import com.vktrsansara.app.caveviewer.core.mvi.UiEffect
 import com.vktrsansara.app.caveviewer.core.mvi.UiIntent
 import com.vktrsansara.app.caveviewer.core.mvi.UiState
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
-import com.vktrsansara.app.caveviewer.domain.model.AppTheme
+import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
 
 enum class AppScreen {
     MAIN,
@@ -23,7 +23,7 @@ sealed interface MainUiIntent : UiIntent {
     data object ExitAppClicked : MainUiIntent
     data object OpenAppSettings : MainUiIntent
     data object NavigateBack : MainUiIntent
-    data class UpdateTheme(val theme: AppTheme) : MainUiIntent
+    data class UpdateTheme(val theme: ThemeMode) : MainUiIntent
     data class UpdateFullscreen(val enabled: Boolean) : MainUiIntent
 }
 

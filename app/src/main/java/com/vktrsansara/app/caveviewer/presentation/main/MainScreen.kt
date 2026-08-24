@@ -29,7 +29,7 @@ import com.vktrsansara.app.caveviewer.domain.model.AppSettings
 import com.vktrsansara.app.caveviewer.presentation.components.FloatingBottomBar
 import com.vktrsansara.app.caveviewer.presentation.components.MenuPopover
 import com.vktrsansara.app.caveviewer.presentation.settings.AppSettingsScreen
-import com.vktrsansara.app.caveviewer.ui.theme.BgSurface
+import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 import org.koin.androidx.compose.koinViewModel
 
@@ -94,7 +94,7 @@ fun MainScreenContent(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(BgSurface)
+            .background(AppColors.bgMain)
     ) {
         // Fullscreen transparent backdrop to dismiss menu on outside tap
         if (uiState.isMenuExpanded) {
@@ -134,9 +134,9 @@ fun MainScreenContent(
     }
 }
 
-@Preview(name = "Main Screen - Menu Closed", showBackground = true)
+@Preview(name = "Main Screen - Dark", showBackground = true)
 @Composable
-private fun MainScreenClosedPreview() {
+private fun MainScreenDarkPreview() {
     CaveViewerTheme(darkTheme = true) {
         MainScreenContent(
             uiState = MainUiState(isMenuExpanded = false),
@@ -145,10 +145,10 @@ private fun MainScreenClosedPreview() {
     }
 }
 
-@Preview(name = "Main Screen - Menu Opened", showBackground = true)
+@Preview(name = "Main Screen - Light", showBackground = true)
 @Composable
-private fun MainScreenOpenedPreview() {
-    CaveViewerTheme(darkTheme = true) {
+private fun MainScreenLightPreview() {
+    CaveViewerTheme(darkTheme = false) {
         MainScreenContent(
             uiState = MainUiState(isMenuExpanded = true),
             onIntent = {}

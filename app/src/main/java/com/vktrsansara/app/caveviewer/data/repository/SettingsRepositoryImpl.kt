@@ -9,7 +9,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
-import com.vktrsansara.app.caveviewer.domain.model.AppTheme
+import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
 import com.vktrsansara.app.caveviewer.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -36,11 +36,11 @@ class SettingsRepositoryImpl(
             }
         }
         .map { preferences ->
-            val themeName = preferences[PreferencesKeys.THEME_MODE] ?: AppTheme.AUTO.name
+            val themeName = preferences[PreferencesKeys.THEME_MODE] ?: ThemeMode.AUTO.name
             val theme = try {
-                AppTheme.valueOf(themeName)
+                ThemeMode.valueOf(themeName)
             } catch (e: IllegalArgumentException) {
-                AppTheme.AUTO
+                ThemeMode.AUTO
             }
             val isFullscreen = preferences[PreferencesKeys.FULLSCREEN_ENABLED] ?: false
             AppSettings(
@@ -49,7 +49,7 @@ class SettingsRepositoryImpl(
             )
         }
 
-    override suspend fun setTheme(theme: AppTheme) {
+    override suspend fun setTheme(theme: ThemeMode) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.THEME_MODE] = theme.name
         }

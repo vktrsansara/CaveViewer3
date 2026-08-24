@@ -14,8 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.vktrsansara.app.caveviewer.ui.theme.BarBackground
-import com.vktrsansara.app.caveviewer.ui.theme.BorderColor
+import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 /**
  * Floating bottom control bar with 8.dp rounded shape and menu button.
@@ -31,10 +30,10 @@ fun FloatingBottomBar(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(BarBackground)
+            .background(AppColors.barBackground)
             .border(
                 width = 1.dp,
-                color = BorderColor,
+                color = AppColors.borderColor,
                 shape = RoundedCornerShape(8.dp)
             )
             .padding(horizontal = 6.dp, vertical = 4.dp),

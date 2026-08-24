@@ -24,10 +24,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.vktrsansara.app.caveviewer.ui.theme.BgCard
-import com.vktrsansara.app.caveviewer.ui.theme.BorderColor
-import com.vktrsansara.app.caveviewer.ui.theme.PressedColor
-import com.vktrsansara.app.caveviewer.ui.theme.TextPrimary
+import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 /**
  * Control bar item button (34x34 dp) with smooth press scale down animation.
@@ -56,11 +53,11 @@ fun BarIconButton(
                 scaleY = scale
             }
             .clip(RoundedCornerShape(6.dp))
-            .background(BgCard)
-            .border(1.dp, BorderColor, RoundedCornerShape(6.dp))
+            .background(AppColors.bgCard)
+            .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(color = PressedColor),
+                indication = ripple(color = AppColors.pressedColor),
                 onClick = onClick
             ),
         contentAlignment = Alignment.Center
@@ -68,7 +65,7 @@ fun BarIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = TextPrimary,
+            tint = AppColors.textPrimary,
             modifier = Modifier.size(18.dp)
         )
     }

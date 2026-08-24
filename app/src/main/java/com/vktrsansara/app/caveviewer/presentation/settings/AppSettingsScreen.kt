@@ -40,28 +40,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
-import com.vktrsansara.app.caveviewer.domain.model.AppTheme
-import com.vktrsansara.app.caveviewer.ui.theme.BgCard
-import com.vktrsansara.app.caveviewer.ui.theme.BgMain
-import com.vktrsansara.app.caveviewer.ui.theme.BgSurface
-import com.vktrsansara.app.caveviewer.ui.theme.BorderColor
-import com.vktrsansara.app.caveviewer.ui.theme.PressedColor
-import com.vktrsansara.app.caveviewer.ui.theme.TextPrimary
-import com.vktrsansara.app.caveviewer.ui.theme.TextSecondary
+import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
+import com.vktrsansara.app.caveviewer.ui.theme.AppColors
+import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 
 /**
- * Screen displaying the application settings (Theme, Fullscreen mode).
+ * Screen displaying the application settings with H1/H2/H3 typography hierarchy and compact Speleo layout.
  */
 @Composable
 fun AppSettingsScreen(
     settings: AppSettings,
-    onThemeChanged: (AppTheme) -> Unit,
+    onThemeChanged: (ThemeMode) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -77,9 +72,9 @@ fun AppSettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(BgMain)
+            .background(AppColors.bgMain)
     ) {
-        // 1. Settings Header
+        // 1. Settings Header (H1)
         SettingsHeader(onNavigateBack = onNavigateBack)
 
         // 2. Settings Content Container
@@ -87,38 +82,42 @@ fun AppSettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
                 .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Block 1: Theme
             SettingsCard {
+                // H2: Section Title
                 Text(
                     text = "Тема оформления",
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
+                    color = AppColors.textPrimary
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-                ThemeOptionRow(
-                    title = "Авто",
-                    selected = settings.theme == AppTheme.AUTO,
-                    onClick = { onThemeChanged(AppTheme.AUTO) }
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    // H3: Options
+                    ThemeOptionRow(
+                        title = "Авто (системная)",
+                        selected = settings.theme == ThemeMode.AUTO,
+                        onClick = { onThemeChanged(ThemeMode.AUTO) }
+                    )
 
-                ThemeOptionRow(
-                    title = "Светлая",
-                    selected = settings.theme == AppTheme.LIGHT,
-                    onClick = { onThemeChanged(AppTheme.LIGHT) }
-                )
+                    ThemeOptionRow(
+                        title = "Светлая",
+                        selected = settings.theme == ThemeMode.LIGHT,
+                        onClick = { onThemeChanged(ThemeMode.LIGHT) }
+                    )
 
-                ThemeOptionRow(
-                    title = "Темная",
-                    selected = settings.theme == AppTheme.DARK,
-                    onClick = { onThemeChanged(AppTheme.DARK) }
-                )
+                    ThemeOptionRow(
+                        title = "Темная",
+                        selected = settings.theme == ThemeMode.DARK,
+                        onClick = { onThemeChanged(ThemeMode.DARK) }
+                    )
+                }
             }
 
             // Block 2: Interface
@@ -128,11 +127,12 @@ fun AppSettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // H2: Section Title
                     Text(
                         text = "Интерфейс",
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                        color = AppColors.textPrimary
                     )
 
                     IconButton(
@@ -142,43 +142,45 @@ fun AppSettingsScreen(
                         Icon(
                             imageVector = Icons.Rounded.Info,
                             contentDescription = "Справка по интерфейсу",
-                            tint = TextSecondary,
+                            tint = AppColors.textSecondary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
+                // H3: Item
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(6.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = PressedColor),
+                            indication = ripple(color = AppColors.pressedColor),
                             onClick = { onFullscreenChanged(!settings.isFullscreen) }
                         )
-                        .padding(vertical = 4.dp),
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "Во весь экран",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = TextPrimary
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AppColors.textPrimary
                     )
 
                     Switch(
                         checked = settings.isFullscreen,
                         onCheckedChange = onFullscreenChanged,
+                        modifier = Modifier.scale(0.85f),
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = TextPrimary,
-                            checkedTrackColor = Color(0xFF38BDF8),
-                            uncheckedThumbColor = TextSecondary,
-                            uncheckedTrackColor = BgSurface,
-                            uncheckedBorderColor = BorderColor
+                            checkedThumbColor = AppColors.textPrimary,
+                            checkedTrackColor = AppColors.accent,
+                            uncheckedThumbColor = AppColors.textSecondary,
+                            uncheckedTrackColor = AppColors.bgSurface,
+                            uncheckedBorderColor = AppColors.borderColor
                         )
                     )
                 }
@@ -194,13 +196,13 @@ private fun SettingsHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(BgSurface)
+            .background(AppColors.bgSurface)
             .statusBarsPadding()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Back Button: 32x32 dp
@@ -208,11 +210,11 @@ private fun SettingsHeader(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(BgCard)
-                    .border(width = 1.dp, color = BorderColor, shape = RoundedCornerShape(6.dp))
+                    .background(AppColors.bgCard)
+                    .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(color = PressedColor),
+                        indication = ripple(color = AppColors.pressedColor),
                         onClick = onNavigateBack
                     ),
                 contentAlignment = Alignment.Center
@@ -220,22 +222,23 @@ private fun SettingsHeader(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Назад",
-                    tint = TextPrimary,
+                    tint = AppColors.textPrimary,
                     modifier = Modifier.size(16.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
+            // H1: Screen Title
             Text(
                 text = "Настройки приложения",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.textPrimary
             )
         }
 
-        HorizontalDivider(thickness = 1.dp, color = BorderColor)
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
     }
 }
 
@@ -247,9 +250,9 @@ private fun SettingsCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(BgCard)
-            .border(width = 1.dp, color = BorderColor, shape = RoundedCornerShape(8.dp))
-            .padding(16.dp)
+            .background(AppColors.bgCard)
+            .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {
         content()
     }
@@ -268,39 +271,58 @@ private fun ThemeOptionRow(
             .clip(RoundedCornerShape(6.dp))
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(color = PressedColor),
+                indication = ripple(color = AppColors.pressedColor),
                 onClick = onClick
             )
-            .padding(vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(
             selected = selected,
             onClick = onClick,
+            modifier = Modifier
+                .size(20.dp)
+                .scale(0.85f),
             colors = RadioButtonDefaults.colors(
-                selectedColor = Color(0xFF38BDF8),
-                unselectedColor = TextSecondary
+                selectedColor = AppColors.accent,
+                unselectedColor = AppColors.textSecondary
             )
         )
 
         Spacer(modifier = Modifier.width(8.dp))
 
+        // H3: Option Label
         Text(
             text = title,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Normal,
-            color = TextPrimary
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = AppColors.textPrimary
         )
     }
 }
 
-@Preview
+@Preview(name = "Settings - Dark Mode", showBackground = true)
 @Composable
-private fun AppSettingsScreenPreview() {
-    AppSettingsScreen(
-        settings = AppSettings(),
-        onThemeChanged = {},
-        onFullscreenChanged = {},
-        onNavigateBack = {}
-    )
+private fun AppSettingsScreenDarkPreview() {
+    CaveViewerTheme(darkTheme = true) {
+        AppSettingsScreen(
+            settings = AppSettings(theme = ThemeMode.DARK),
+            onThemeChanged = {},
+            onFullscreenChanged = {},
+            onNavigateBack = {}
+        )
+    }
+}
+
+@Preview(name = "Settings - Light Mode", showBackground = true)
+@Composable
+private fun AppSettingsScreenLightPreview() {
+    CaveViewerTheme(darkTheme = false) {
+        AppSettingsScreen(
+            settings = AppSettings(theme = ThemeMode.LIGHT),
+            onThemeChanged = {},
+            onFullscreenChanged = {},
+            onNavigateBack = {}
+        )
+    }
 }

@@ -24,12 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.vktrsansara.app.caveviewer.ui.theme.BgCard
-import com.vktrsansara.app.caveviewer.ui.theme.BgSurface
-import com.vktrsansara.app.caveviewer.ui.theme.BorderColor
-import com.vktrsansara.app.caveviewer.ui.theme.PressedColor
-import com.vktrsansara.app.caveviewer.ui.theme.TextPrimary
-import com.vktrsansara.app.caveviewer.ui.theme.TextSecondary
+import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 /**
  * Information dialog for the "Interface" settings section.
@@ -43,37 +38,38 @@ fun InterfaceInfoDialog(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .clip(RoundedCornerShape(8.dp))
-                .background(BgCard)
-                .border(width = 1.dp, color = BorderColor, shape = RoundedCornerShape(8.dp))
+                .background(AppColors.bgCard)
+                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
                 .padding(16.dp)
         ) {
-            // Title
+            // H1: Dialog Title
             Text(
                 text = "Справка: Интерфейс",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.textPrimary
             )
 
             Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(thickness = 1.dp, color = BorderColor)
+            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Body
+            // H2: Section Title
             Text(
                 text = "Во весь экран",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = AppColors.textPrimary
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
+            // Description body
             Text(
                 text = "Скрывает верхнюю системную шторку и нижнюю панель навигации Android для максимального увеличения рабочей области карты.",
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                color = TextSecondary
+                fontSize = 13.5.sp,
+                lineHeight = 19.sp,
+                color = AppColors.textSecondary
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -83,20 +79,20 @@ fun InterfaceInfoDialog(
                 modifier = Modifier
                     .align(Alignment.End)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(BgSurface)
-                    .border(width = 1.dp, color = BorderColor, shape = RoundedCornerShape(6.dp))
+                    .background(AppColors.bgSurface)
+                    .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(color = PressedColor),
+                        indication = ripple(color = AppColors.pressedColor),
                         onClick = onDismiss
                     )
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
                     text = "Закрыть",
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = TextPrimary
+                    color = AppColors.textPrimary
                 )
             }
         }

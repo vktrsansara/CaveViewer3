@@ -1,12 +1,12 @@
 package com.vktrsansara.app.caveviewer.domain.model
 
-enum class AppTheme {
+enum class ThemeMode {
     AUTO,
     LIGHT,
     DARK
 }
 
 data class AppSettings(
-    val theme: AppTheme = AppTheme.AUTO,
+    val theme: ThemeMode = ThemeMode.AUTO,
     val isFullscreen: Boolean = false
 )

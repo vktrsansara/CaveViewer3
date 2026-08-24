@@ -48,12 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vktrsansara.app.caveviewer.ui.theme.BgCard
-import com.vktrsansara.app.caveviewer.ui.theme.BgSurface
-import com.vktrsansara.app.caveviewer.ui.theme.BorderColor
-import com.vktrsansara.app.caveviewer.ui.theme.PressedColor
-import com.vktrsansara.app.caveviewer.ui.theme.TextPrimary
-import com.vktrsansara.app.caveviewer.ui.theme.TextSecondary
+import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 enum class MenuLevel {
     MAIN,
@@ -95,8 +90,8 @@ fun MenuPopover(
                 .width(190.dp)
                 .shadow(elevation = 8.dp, shape = RoundedCornerShape(8.dp))
                 .clip(RoundedCornerShape(8.dp))
-                .background(BgCard)
-                .border(width = 1.dp, color = BorderColor, shape = RoundedCornerShape(8.dp))
+                .background(AppColors.bgCard)
+                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
         ) {
             AnimatedContent(
                 targetState = currentLevel,
@@ -141,7 +136,7 @@ private fun MainMenuContent(
         // Header
         MenuHeader(title = "Меню")
 
-        HorizontalDivider(thickness = 1.dp, color = BorderColor)
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
 
         // Item: Settings
         MenuItem(
@@ -168,7 +163,7 @@ private fun SettingsSubmenuContent(
         // Header
         MenuHeader(title = "Настройки")
 
-        HorizontalDivider(thickness = 1.dp, color = BorderColor)
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
 
         // Item: App Settings
         MenuItem(
@@ -191,14 +186,14 @@ private fun MenuHeader(title: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(BgSurface)
+            .background(AppColors.bgSurface)
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Text(
             text = title,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = TextSecondary
+            color = AppColors.textSecondary
         )
     }
 }
@@ -215,7 +210,7 @@ private fun MenuItem(
             .fillMaxWidth()
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(color = PressedColor),
+                indication = ripple(color = AppColors.pressedColor),
                 onClick = onClick
             )
             .padding(horizontal = 12.dp, vertical = 9.dp),
@@ -224,7 +219,7 @@ private fun MenuItem(
         Icon(
             imageVector = icon,
             contentDescription = title,
-            tint = TextPrimary,
+            tint = AppColors.textPrimary,
             modifier = Modifier.size(18.dp)
         )
 
@@ -234,7 +229,7 @@ private fun MenuItem(
             text = title,
             fontSize = 13.sp,
             fontWeight = FontWeight.Normal,
-            color = TextPrimary
+            color = AppColors.textPrimary
         )
     }
 }
