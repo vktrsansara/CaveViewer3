@@ -4,44 +4,49 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vktrsansara.app.caveviewer.domain.model.AppTheme
+import com.vktrsansara.app.caveviewer.presentation.main.MainScreen
+import com.vktrsansara.app.caveviewer.presentation.main.MainViewModel
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
+
+    private val mainViewModel: MainViewModel by viewModel()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            CaveViewerTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+            val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
+
+            val isDarkTheme = when (uiState.settings.theme) {
+                AppTheme.AUTO -> isSystemInDarkTheme()
+                AppTheme.LIGHT -> false
+                AppTheme.DARK -> true
+            }
+
+            LaunchedEffect(uiState.settings.isFullscreen) {
+                val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+                if (uiState.settings.isFullscreen) {
+                    windowInsetsController.systemBarsBehavior =
+                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+                } else {
+                    windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
                 }
             }
+
+            CaveViewerTheme(darkTheme = isDarkTheme) {
+                MainScreen(viewModel = mainViewModel)
+            }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    CaveViewerTheme {
-        Greeting("Android")
     }
 }
