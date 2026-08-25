@@ -4,8 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-// Accent Color
+// Accent Colors
 val AccentSkyBlue = Color(0xFF38BDF8)
+val AccentRed = Color(0xFFEF4444)
 
 // Dark Theme Colors (CaveViewer2 Spec)
 val BgMainDark = Color(0xFF121820)
@@ -87,6 +88,7 @@ data class CaveViewerColors(
     val textSecondary: Color,
     val pressedColor: Color,
     val accent: Color = AccentSkyBlue,
+    val accentRed: Color = AccentRed,
     val isDark: Boolean
 )
 
@@ -116,6 +118,8 @@ object AppColors {
         @Composable get() = LocalCaveViewerColors.current.pressedColor
     val accent: Color
         @Composable get() = LocalCaveViewerColors.current.accent
+    val accentRed: Color
+        @Composable get() = LocalCaveViewerColors.current.accentRed
     val isDark: Boolean
         @Composable get() = LocalCaveViewerColors.current.isDark
 }

@@ -76,6 +76,7 @@ fun CaveViewerTheme(
             textSecondary = TextSecondaryDark,
             pressedColor = PressedColorDark,
             accent = AccentSkyBlue,
+            accentRed = AccentRed,
             isDark = true
         )
     } else {
@@ -89,6 +90,7 @@ fun CaveViewerTheme(
             textSecondary = TextSecondaryLight,
             pressedColor = PressedColorLight,
             accent = PrimaryLight,
+            accentRed = AccentRed,
             isDark = false
         )
     }

@@ -1,4 +1,4 @@
-package com.vktrsansara.app.caveviewer.presentation.settings
+package com.vktrsansara.app.caveviewer.presentation.projects
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,54 +22,74 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
+import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 
 /**
- * Information dialog for the "Interface" settings section with standardized red close button.
+ * Information dialog for the raster project creation screen with standardized red close button.
  */
 @Composable
-fun InterfaceInfoDialog(
-    onDismiss: () -> Unit
+fun ProjectHelpDialog(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth(0.92f)
                 .clip(RoundedCornerShape(8.dp))
                 .background(AppColors.bgCard)
                 .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
                 .padding(16.dp)
         ) {
-            // H1: Dialog Title
+            // Dialog Title
             Text(
-                text = "Справка: Интерфейс",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.textPrimary
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // H2: Section Title
-            Text(
-                text = "Во весь экран",
-                fontSize = 15.sp,
+                text = "Справка: Новый проект",
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = AppColors.textPrimary
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Description body
+            // Section 1: Storage
             Text(
-                text = "Скрывает верхнюю системную шторку и нижнюю панель навигации Android для максимального увеличения рабочей области карты.",
-                fontSize = 13.5.sp,
-                lineHeight = 19.sp,
+                text = "Расположение проектов",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = AppColors.textPrimary
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Проекты хранятся в: Память телефона / Documents / CaveViewer / Projects /",
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
                 color = AppColors.textSecondary
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Section 2: Map file
+            Text(
+                text = "Файл карты",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = AppColors.textPrimary
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Исходное изображение плана или схемы пещеры конвертируется в формат image.png и помещается в папку map/ проекта для мгновенной загрузки.",
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                color = AppColors.textSecondary
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Close button with red border
             Row(
@@ -87,6 +107,8 @@ fun InterfaceInfoDialog(
 
 @Preview
 @Composable
-private fun InterfaceInfoDialogPreview() {
-    InterfaceInfoDialog(onDismiss = {})
+private fun ProjectHelpDialogPreview() {
+    CaveViewerTheme(darkTheme = true) {
+        ProjectHelpDialog(onDismiss = {})
+    }
 }

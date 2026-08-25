@@ -27,7 +27,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.AppSettingsAlt
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,22 +58,35 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 enum class MenuLevel {
     MAIN,
+    PROJECTS,
     SETTINGS
 }
 
 /**
- * Popover menu appearing above the bottom control bar with submenu support.
+ * Popover menu appearing above the bottom control bar with submenus for Project and Settings.
  *
  * @param isOpen Whether the menu is currently visible.
+ * @param hasActiveProject Whether an active project is currently loaded.
  * @param onOpenAppSettings Callback invoked when clicking "Application" inside Settings submenu.
  * @param onExitApp Callback invoked when clicking "Exit".
+ * @param onProjectListClick Callback for "List" inside Projects submenu.
+ * @param onNewProjectClick Callback for "New" inside Projects submenu.
+ * @param onImportProjectClick Callback for "Import" inside Projects submenu.
+ * @param onExportProjectClick Callback for "Export" inside Projects submenu.
+ * @param onCloseProject Callback for "Close" inside Projects submenu (unloads current project).
  * @param modifier Custom layout modifier.
  */
 @Composable
 fun MenuPopover(
     isOpen: Boolean,
+    hasActiveProject: Boolean = false,
     onOpenAppSettings: () -> Unit,
     onExitApp: () -> Unit,
+    onProjectListClick: () -> Unit = {},
+    onNewProjectClick: () -> Unit = {},
+    onImportProjectClick: () -> Unit = {},
+    onExportProjectClick: () -> Unit = {},
+    onCloseProject: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentLevel by remember { mutableStateOf(MenuLevel.MAIN) }
@@ -96,7 +115,7 @@ fun MenuPopover(
             AnimatedContent(
                 targetState = currentLevel,
                 transitionSpec = {
-                    if (targetState == MenuLevel.SETTINGS) {
+                    if (targetState != MenuLevel.MAIN) {
                         (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
                             slideOutHorizontally { width -> -width } + fadeOut()
                         )
@@ -111,8 +130,20 @@ fun MenuPopover(
                 when (level) {
                     MenuLevel.MAIN -> {
                         MainMenuContent(
+                            onProjectsClick = { currentLevel = MenuLevel.PROJECTS },
                             onSettingsClick = { currentLevel = MenuLevel.SETTINGS },
                             onExitClick = onExitApp
+                        )
+                    }
+                    MenuLevel.PROJECTS -> {
+                        ProjectsSubmenuContent(
+                            hasActiveProject = hasActiveProject,
+                            onListClick = onProjectListClick,
+                            onNewClick = onNewProjectClick,
+                            onImportClick = onImportProjectClick,
+                            onExportClick = onExportProjectClick,
+                            onCloseClick = onCloseProject,
+                            onBackClick = { currentLevel = MenuLevel.MAIN }
                         )
                     }
                     MenuLevel.SETTINGS -> {
@@ -129,6 +160,7 @@ fun MenuPopover(
 
 @Composable
 private fun MainMenuContent(
+    onProjectsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onExitClick: () -> Unit
 ) {
@@ -138,18 +170,87 @@ private fun MainMenuContent(
 
         HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
 
-        // Item: Settings
+        // Item 1: Projects
+        MenuItem(
+            icon = Icons.Rounded.Folder,
+            title = "Проект",
+            onClick = onProjectsClick
+        )
+
+        // Item 2: Settings
         MenuItem(
             icon = Icons.Rounded.Settings,
             title = "Настройки",
             onClick = onSettingsClick
         )
 
-        // Item: Exit
+        // Item 3: Exit
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ExitToApp,
             title = "Выход",
             onClick = onExitClick
+        )
+    }
+}
+
+@Composable
+private fun ProjectsSubmenuContent(
+    hasActiveProject: Boolean,
+    onListClick: () -> Unit,
+    onNewClick: () -> Unit,
+    onImportClick: () -> Unit,
+    onExportClick: () -> Unit,
+    onCloseClick: () -> Unit,
+    onBackClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Header
+        MenuHeader(title = "Проект")
+
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+
+        // Item: Список
+        MenuItem(
+            icon = Icons.AutoMirrored.Rounded.List,
+            title = "Список",
+            onClick = onListClick
+        )
+
+        // Item: Новый
+        MenuItem(
+            icon = Icons.Rounded.CreateNewFolder,
+            title = "Новый",
+            onClick = onNewClick
+        )
+
+        // Item: Импорт
+        MenuItem(
+            icon = Icons.Rounded.FileDownload,
+            title = "Импорт",
+            onClick = onImportClick
+        )
+
+        // Item: Экспорт
+        MenuItem(
+            icon = Icons.Rounded.FileUpload,
+            title = "Экспорт",
+            onClick = onExportClick
+        )
+
+        // Item: Закрыть (only when active project is open)
+        if (hasActiveProject) {
+            MenuItem(
+                icon = Icons.Rounded.Close,
+                title = "Закрыть",
+                onClick = onCloseClick
+            )
+        }
+
+        // Item: Назад
+        MenuItem(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            title = "Назад",
+            onClick = onBackClick
         )
     }
 }
@@ -239,6 +340,7 @@ private fun MenuItem(
 private fun MenuPopoverPreview() {
     MenuPopover(
         isOpen = true,
+        hasActiveProject = true,
         onOpenAppSettings = {},
         onExitApp = {}
     )

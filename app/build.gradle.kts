@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.koin.androidx.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)
+    implementation("org.maplibre.gl:android-sdk:11.8.0")
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
