@@ -26,11 +26,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.presentation.components.FloatingBottomBar
 import com.vktrsansara.app.caveviewer.presentation.components.MenuPopover
 import com.vktrsansara.app.caveviewer.presentation.main.components.NoProjectPlaceholder
 import com.vktrsansara.app.caveviewer.presentation.map.MapLibreViewer
 import com.vktrsansara.app.caveviewer.presentation.map.components.CompassWidget
+import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBarWidget
 import com.vktrsansara.app.caveviewer.presentation.metadata.MetadataEditorScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.CreateRasterProjectScreen
@@ -38,6 +40,7 @@ import com.vktrsansara.app.caveviewer.presentation.projects.FeatureUnderDevelopm
 import com.vktrsansara.app.caveviewer.presentation.projects.ProjectTypeDialog
 import com.vktrsansara.app.caveviewer.presentation.projects.ProjectsListScreen
 import com.vktrsansara.app.caveviewer.presentation.settings.AppSettingsScreen
+import com.vktrsansara.app.caveviewer.presentation.settings.ToolsSettingsScreen
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 
@@ -99,6 +102,17 @@ fun MainScreen(
                     settings = uiState.settings,
                     onThemeChanged = { viewModel.handleIntent(MainUiIntent.UpdateTheme(it)) },
                     onFullscreenChanged = { viewModel.handleIntent(MainUiIntent.UpdateFullscreen(it)) },
+                    onShowCompassChanged = { viewModel.handleIntent(MainUiIntent.OnShowCompassChanged(it)) },
+                    onShowScaleBarChanged = { viewModel.handleIntent(MainUiIntent.OnShowScaleBarChanged(it)) },
+                    onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
+                )
+            }
+            AppScreen.TOOLS_SETTINGS -> {
+                ToolsSettingsScreen(
+                    settings = uiState.settings,
+                    onCursorShowChanged = { viewModel.handleIntent(MainUiIntent.UpdateCursorShow(it)) },
+                    onCursorTypeChanged = { viewModel.handleIntent(MainUiIntent.UpdateCursorType(it)) },
+                    onCursorColorChanged = { viewModel.handleIntent(MainUiIntent.UpdateCursorColor(it)) },
                     onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
                 )
             }
@@ -187,7 +201,7 @@ fun MainScreenContent(
                     currentZoom = zoom
                     onIntent(
                         MainUiIntent.UpdateMapCameraPosition(
-                            com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition(
+                            MapCameraPosition(
                                 targetLat = lat,
                                 targetLon = lon,
                                 zoom = zoom,
@@ -201,8 +215,16 @@ fun MainScreenContent(
                 },
                 onMetadataLoaded = { meta ->
                     mapMetadata = meta
+                    onIntent(MainUiIntent.OnMetadataLoaded(meta))
                 },
                 modifier = Modifier.fillMaxSize()
+            )
+
+            // Central Cursor Overlay (Strictly centered on screen)
+            MapCursorOverlay(
+                cursorShow = uiState.settings.cursorShow,
+                cursorType = uiState.settings.cursorType,
+                cursorColor = uiState.settings.cursorColor
             )
 
             val meta = mapMetadata ?: uiState.activeProjectMetadata
@@ -260,6 +282,7 @@ fun MainScreenContent(
                 isOpen = uiState.isMenuExpanded,
                 hasActiveProject = uiState.hasActiveProject,
                 onOpenAppSettings = { onIntent(MainUiIntent.OpenAppSettings) },
+                onOpenToolsSettings = { onIntent(MainUiIntent.OpenToolsSettings) },
                 onExitApp = { onIntent(MainUiIntent.ExitAppClicked) },
                 onProjectListClick = { onIntent(MainUiIntent.ProjectListClicked) },
                 onNewProjectClick = { onIntent(MainUiIntent.NewProjectClicked) },

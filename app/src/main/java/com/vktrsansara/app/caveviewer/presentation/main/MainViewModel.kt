@@ -41,7 +41,7 @@ class MainViewModel(
             }
             .launchIn(viewModelScope)
 
-        // Observe active project changes
+        // Observe active project from DataStore
         projectRepository.activeProjectNameFlow
             .distinctUntilChanged()
             .onEach { activeName ->
@@ -51,11 +51,13 @@ class MainViewModel(
                     val mapFile = dir?.let { File(it, "map/image.png") }
                     if (dir != null && (sqliteFile?.exists() == true || mapFile?.exists() == true)) {
                         val savedPos = projectCameraPositions[activeName]
+                        val meta = projectRepository.getProjectMetadata(activeName)
                         _uiState.update {
                             it.copy(
                                 hasActiveProject = true,
                                 activeProjectName = activeName,
                                 activeProjectDir = dir,
+                                activeProjectMetadata = meta,
                                 activeProjectCameraPosition = savedPos
                             )
                         }
@@ -107,6 +109,14 @@ class MainViewModel(
                     )
                 }
             }
+            is MainUiIntent.OpenToolsSettings -> {
+                _uiState.update {
+                    it.copy(
+                        currentScreen = AppScreen.TOOLS_SETTINGS,
+                        isMenuExpanded = false
+                    )
+                }
+            }
             is MainUiIntent.NavigateBack -> {
                 _uiState.update { it.copy(currentScreen = AppScreen.MAIN) }
             }
@@ -118,6 +128,31 @@ class MainViewModel(
             is MainUiIntent.UpdateFullscreen -> {
                 viewModelScope.launch {
                     settingsRepository.setFullscreen(intent.enabled)
+                }
+            }
+            is MainUiIntent.OnShowCompassChanged -> {
+                viewModelScope.launch {
+                    settingsRepository.updateShowCompass(intent.enabled)
+                }
+            }
+            is MainUiIntent.OnShowScaleBarChanged -> {
+                viewModelScope.launch {
+                    settingsRepository.updateShowScaleBar(intent.enabled)
+                }
+            }
+            is MainUiIntent.UpdateCursorShow -> {
+                viewModelScope.launch {
+                    settingsRepository.setCursorShow(intent.show)
+                }
+            }
+            is MainUiIntent.UpdateCursorType -> {
+                viewModelScope.launch {
+                    settingsRepository.setCursorType(intent.type)
+                }
+            }
+            is MainUiIntent.UpdateCursorColor -> {
+                viewModelScope.launch {
+                    settingsRepository.setCursorColor(intent.color)
                 }
             }
             is MainUiIntent.ProjectListClicked -> {
@@ -143,8 +178,8 @@ class MainViewModel(
             is MainUiIntent.ImportProjectClicked -> {
                 _uiState.update {
                     it.copy(
-                        underDevelopmentFeatureName = "Импорт проекта",
                         currentScreen = AppScreen.FEATURE_UNDER_DEVELOPMENT,
+                        underDevelopmentFeatureName = "Импорт проекта",
                         isMenuExpanded = false
                     )
                 }
@@ -152,17 +187,17 @@ class MainViewModel(
             is MainUiIntent.ExportProjectClicked -> {
                 _uiState.update {
                     it.copy(
-                        underDevelopmentFeatureName = "Экспорт проекта",
                         currentScreen = AppScreen.FEATURE_UNDER_DEVELOPMENT,
+                        underDevelopmentFeatureName = "Экспорт проекта",
                         isMenuExpanded = false
                     )
                 }
             }
             is MainUiIntent.CloseActiveProject -> {
                 viewModelScope.launch {
-                    val currentName = _uiState.value.activeProjectName
-                    if (currentName != null) {
-                        projectCameraPositions.remove(currentName)
+                    val activeName = _uiState.value.activeProjectName
+                    if (activeName != null) {
+                        projectCameraPositions.remove(activeName)
                     }
                     projectRepository.setActiveProjectName(null)
                     _uiState.update {
@@ -171,9 +206,6 @@ class MainViewModel(
                             activeProjectName = null,
                             activeProjectDir = null,
                             activeProjectMetadata = null,
-                            activeProjectLocation = MapLocation(),
-                            activeProjectEntrances = emptyList(),
-                            activeProjectCadastralData = emptyMap(),
                             activeProjectCameraPosition = null,
                             isMenuExpanded = false
                         )
@@ -185,9 +217,6 @@ class MainViewModel(
                     projectRepository.setActiveProjectName(intent.projectName)
                     val dir = projectRepository.getProjectDir(intent.projectName)
                     val meta = projectRepository.getProjectMetadata(intent.projectName)
-                    val location = projectRepository.getProjectLocation(intent.projectName)
-                    val entrances = projectRepository.getProjectEntrances(intent.projectName)
-                    val cadastral = projectRepository.getProjectCadastralData(intent.projectName)
                     val savedPos = projectCameraPositions[intent.projectName]
                     _uiState.update {
                         it.copy(
@@ -195,43 +224,32 @@ class MainViewModel(
                             activeProjectName = intent.projectName,
                             activeProjectDir = dir,
                             activeProjectMetadata = meta,
-                            activeProjectLocation = location,
-                            activeProjectEntrances = entrances,
-                            activeProjectCadastralData = cadastral,
                             activeProjectCameraPosition = savedPos,
-                            currentScreen = AppScreen.MAIN,
-                            isMenuExpanded = false
+                            currentScreen = AppScreen.MAIN
                         )
                     }
                 }
             }
             is MainUiIntent.DeleteProject -> {
                 viewModelScope.launch {
-                    val result = projectRepository.deleteProject(intent.projectName)
-                    result.fold(
-                        onSuccess = {
-                            projectCameraPositions.remove(intent.projectName)
-                            val updatedList = projectRepository.getProjectsList()
-                            val isActive = _uiState.value.activeProjectName == intent.projectName
-                            _uiState.update {
-                                it.copy(
-                                    projectsList = updatedList,
-                                    hasActiveProject = if (isActive) false else it.hasActiveProject,
-                                    activeProjectName = if (isActive) null else it.activeProjectName,
-                                    activeProjectDir = if (isActive) null else it.activeProjectDir,
-                                    activeProjectMetadata = if (isActive) null else it.activeProjectMetadata,
-                                    activeProjectCameraPosition = if (isActive) null else it.activeProjectCameraPosition
-                                )
-                            }
-                            if (isActive) {
-                                projectRepository.setActiveProjectName(null)
-                            }
-                            _effect.send(MainUiEffect.ShowToast("Проект перемещен в корзину"))
-                        },
-                        onFailure = { error ->
-                            _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка удаления проекта"))
-                        }
-                    )
+                    val isActive = _uiState.value.activeProjectName == intent.projectName
+                    projectRepository.deleteProject(intent.projectName)
+                    projectCameraPositions.remove(intent.projectName)
+                    if (isActive) {
+                        projectRepository.setActiveProjectName(null)
+                    }
+                    val updatedList = projectRepository.getProjectsList()
+                    _uiState.update {
+                        it.copy(
+                            projectsList = updatedList,
+                            hasActiveProject = if (isActive) false else it.hasActiveProject,
+                            activeProjectName = if (isActive) null else it.activeProjectName,
+                            activeProjectDir = if (isActive) null else it.activeProjectDir,
+                            activeProjectMetadata = if (isActive) null else it.activeProjectMetadata,
+                            activeProjectCameraPosition = if (isActive) null else it.activeProjectCameraPosition
+                        )
+                    }
+                    _effect.send(MainUiEffect.ShowToast("Проект «${intent.projectName}» удален"))
                 }
             }
             is MainUiIntent.UpdateMapCameraPosition -> {
@@ -240,6 +258,9 @@ class MainViewModel(
                     projectCameraPositions[activeName] = intent.position
                 }
                 _uiState.update { it.copy(activeProjectCameraPosition = intent.position) }
+            }
+            is MainUiIntent.OnMetadataLoaded -> {
+                _uiState.update { it.copy(activeProjectMetadata = intent.metadata) }
             }
             is MainUiIntent.OpenMetadataEditor -> {
                 viewModelScope.launch {
@@ -287,18 +308,14 @@ class MainViewModel(
                                 }
                                 projectRepository.setActiveProjectName(cleanName)
                             }
-                            val updatedDir = projectRepository.getProjectDir(cleanName)
-                            val updatedLoc = intent.location ?: projectRepository.getProjectLocation(cleanName)
-                            val updatedEntr = intent.entrances ?: projectRepository.getProjectEntrances(cleanName)
-                            val updatedCadastral = intent.cadastralData ?: projectRepository.getProjectCadastralData(cleanName)
                             _uiState.update {
                                 it.copy(
                                     activeProjectName = cleanName,
-                                    activeProjectDir = updatedDir,
                                     activeProjectMetadata = updatedMeta,
-                                    activeProjectLocation = updatedLoc,
-                                    activeProjectEntrances = updatedEntr,
-                                    activeProjectCadastralData = updatedCadastral
+                                    activeProjectLocation = intent.location ?: it.activeProjectLocation,
+                                    activeProjectEntrances = intent.entrances ?: it.activeProjectEntrances,
+                                    activeProjectCadastralData = intent.cadastralData ?: it.activeProjectCadastralData,
+                                    currentScreen = AppScreen.MAIN
                                 )
                             }
                             _effect.send(MainUiEffect.ShowToast("Метаданные сохранены"))
@@ -324,8 +341,8 @@ class MainViewModel(
                 _uiState.update {
                     it.copy(
                         isProjectTypeDialogVisible = false,
-                        underDevelopmentFeatureName = "Топосъемка",
-                        currentScreen = AppScreen.FEATURE_UNDER_DEVELOPMENT
+                        currentScreen = AppScreen.FEATURE_UNDER_DEVELOPMENT,
+                        underDevelopmentFeatureName = "Топосъемка"
                     )
                 }
             }
@@ -333,8 +350,8 @@ class MainViewModel(
                 _uiState.update {
                     it.copy(
                         isProjectTypeDialogVisible = false,
-                        underDevelopmentFeatureName = "Therion",
-                        currentScreen = AppScreen.FEATURE_UNDER_DEVELOPMENT
+                        currentScreen = AppScreen.FEATURE_UNDER_DEVELOPMENT,
+                        underDevelopmentFeatureName = "Проект Therion"
                     )
                 }
             }
@@ -346,28 +363,25 @@ class MainViewModel(
                             isProjectSaving = true,
                             projectSavingName = intent.projectName,
                             projectSavingProgress = 0f,
-                            projectSavingStatusText = "Подготовка к нарезке тайлов..."
+                            projectSavingStatusText = "Инициализация проекта..."
                         )
                     }
-
                     val result = projectRepository.createRasterProject(
                         projectName = intent.projectName,
                         imageUri = intent.imageUri,
                         onProgress = { progress ->
-                            _uiState.update {
-                                it.copy(
+                            _uiState.update { state ->
+                                state.copy(
                                     projectSavingProgress = progress.progressFraction,
-                                    projectSavingStatusText = "Нарезка тайлов зума ${progress.currentZoom} (${progress.currentTile}/${progress.totalTiles})"
+                                    projectSavingStatusText = "Нарезка тайлов (Zoom ${progress.currentZoom}): ${progress.currentTile}/${progress.totalTiles}"
                                 )
                             }
                         }
                     )
-
                     result.fold(
                         onSuccess = { projectDir ->
-                            val cleanName = projectDir.name
+                            val cleanName = intent.projectName.trim().replace(Regex("[\\\\/:*?\"<>|]"), "_")
                             projectRepository.setActiveProjectName(cleanName)
-                            projectCameraPositions.remove(cleanName)
                             val meta = projectRepository.getProjectMetadata(cleanName)
                             _uiState.update {
                                 it.copy(
@@ -376,14 +390,11 @@ class MainViewModel(
                                     activeProjectName = cleanName,
                                     activeProjectDir = projectDir,
                                     activeProjectMetadata = meta,
-                                    activeProjectLocation = MapLocation(),
-                                    activeProjectEntrances = emptyList(),
-                                    activeProjectCadastralData = emptyMap(),
                                     activeProjectCameraPosition = null,
                                     currentScreen = AppScreen.MAIN
                                 )
                             }
-                            _effect.send(MainUiEffect.ShowToast("Проект успешно создан"))
+                            _effect.send(MainUiEffect.ShowToast("Проект «$cleanName» успешно создан"))
                         },
                         onFailure = { error ->
                             _uiState.update { it.copy(isProjectSaving = false) }
@@ -395,14 +406,7 @@ class MainViewModel(
             is MainUiIntent.CancelProjectCreation -> {
                 projectCreationJob?.cancel()
                 projectCreationJob = null
-                _uiState.update {
-                    it.copy(
-                        isProjectSaving = false,
-                        projectSavingProgress = 0f,
-                        projectSavingStatusText = "",
-                        currentScreen = AppScreen.MAIN
-                    )
-                }
+                _uiState.update { it.copy(isProjectSaving = false) }
             }
         }
     }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.AppSettingsAlt
+import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.DesignServices
@@ -57,9 +59,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vktrsansara.app.caveviewer.ui.theme.AccentRed
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
+import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 
 // Palette of semantic icon colors
 private val IconFolderColor = Color(0xFFF59E0B) // Amber
@@ -88,6 +90,7 @@ fun MenuPopover(
     isOpen: Boolean,
     hasActiveProject: Boolean = false,
     onOpenAppSettings: () -> Unit,
+    onOpenToolsSettings: () -> Unit = {},
     onExitApp: () -> Unit,
     onProjectListClick: () -> Unit = {},
     onNewProjectClick: () -> Unit = {},
@@ -165,6 +168,7 @@ fun MenuPopover(
                     MenuLevel.SETTINGS -> {
                         SettingsSubmenuContent(
                             onAppSettingsClick = onOpenAppSettings,
+                            onToolsSettingsClick = onOpenToolsSettings,
                             onBackClick = { currentLevel = MenuLevel.MAIN }
                         )
                     }
@@ -188,7 +192,7 @@ private fun MainMenuContent(
 
         HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
 
-        // Item 1: Projects (Amber Folder)
+        // Item 1: Проект (Amber Folder)
         MenuItem(
             icon = Icons.Rounded.Folder,
             iconTint = IconFolderColor,
@@ -196,7 +200,7 @@ private fun MainMenuContent(
             onClick = onProjectsClick
         )
 
-        // Item 2: Edit (Indigo Design - only when project is open)
+        // Item 2: Редактировать (Indigo Design/Edit) - active only if project is loaded
         if (hasActiveProject) {
             MenuItem(
                 icon = Icons.Rounded.DesignServices,
@@ -206,7 +210,7 @@ private fun MainMenuContent(
             )
         }
 
-        // Item 3: Settings (Sky Blue Settings)
+        // Item 3: Настройки (Sky Blue Settings)
         MenuItem(
             icon = Icons.Rounded.Settings,
             iconTint = IconSettingsColor,
@@ -214,7 +218,7 @@ private fun MainMenuContent(
             onClick = onSettingsClick
         )
 
-        // Item 4: Exit (Red Exit)
+        // Item 4: Выход (Red Exit)
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ExitToApp,
             iconTint = IconExitColor,
@@ -324,6 +328,7 @@ private fun ProjectsSubmenuContent(
 @Composable
 private fun SettingsSubmenuContent(
     onAppSettingsClick: () -> Unit,
+    onToolsSettingsClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -340,6 +345,14 @@ private fun SettingsSubmenuContent(
             onClick = onAppSettingsClick
         )
 
+        // Item: Tools Settings (Green Build)
+        MenuItem(
+            icon = Icons.Rounded.Build,
+            iconTint = Color(0xFF10B981),
+            title = "Инструменты",
+            onClick = onToolsSettingsClick
+        )
+
         // Item: Back
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
@@ -351,18 +364,20 @@ private fun SettingsSubmenuContent(
 }
 
 @Composable
-private fun MenuHeader(title: String) {
+private fun MenuHeader(
+    title: String
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AppColors.bgSurface)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 14.dp, vertical = 9.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
         Text(
             text = title,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = AppColors.textSecondary
+            color = AppColors.textPrimary,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
@@ -375,6 +390,7 @@ private fun MenuItem(
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -383,23 +399,22 @@ private fun MenuItem(
                 indication = ripple(color = AppColors.pressedColor),
                 onClick = onClick
             )
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
     ) {
         Icon(
             imageVector = icon,
             contentDescription = title,
             tint = iconTint,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(17.dp)
         )
-
         Spacer(modifier = Modifier.width(10.dp))
-
         Text(
             text = title,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Normal,
-            color = AppColors.textPrimary
+            color = AppColors.textPrimary,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.Normal
         )
     }
 }
@@ -407,10 +422,12 @@ private fun MenuItem(
 @Preview
 @Composable
 private fun MenuPopoverPreview() {
-    MenuPopover(
-        isOpen = true,
-        hasActiveProject = true,
-        onOpenAppSettings = {},
-        onExitApp = {}
-    )
+    CaveViewerTheme(darkTheme = true) {
+        MenuPopover(
+            isOpen = true,
+            hasActiveProject = true,
+            onOpenAppSettings = {},
+            onExitApp = {}
+        )
+    }
 }

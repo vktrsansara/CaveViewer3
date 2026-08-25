@@ -1,5 +1,6 @@
 package com.vktrsansara.app.caveviewer
 
+import com.vktrsansara.app.caveviewer.domain.model.AppSettings
 import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.CadastralSection
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
@@ -7,6 +8,7 @@ import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.pow
 
@@ -121,5 +123,22 @@ class MetadataTest {
         val zoomedOutDpPerMeter = pixelsPerMeter * 2.0.pow((zoomMax - 1.0) - zoomMax.toDouble() + 1.0)
         assertEquals(9.0, zoomedOutDpPerMeter, 0.0001)
         assertEquals(90.0, 10.0 * zoomedOutDpPerMeter, 0.0001)
+    }
+
+    @Test
+    fun testAppSettingsCursorDefaults() {
+        val settings = AppSettings()
+        assertTrue(settings.cursorShow)
+        assertEquals(1, settings.cursorType)
+        assertEquals(0xFFEF4444L, settings.cursorColor)
+
+        val custom = settings.copy(
+            cursorShow = false,
+            cursorType = 5,
+            cursorColor = 0xFF10B981L
+        )
+        assertEquals(false, custom.cursorShow)
+        assertEquals(5, custom.cursorType)
+        assertEquals(0xFF10B981L, custom.cursorColor)
     }
 }

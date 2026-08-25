@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
@@ -27,6 +29,9 @@ class SettingsRepositoryImpl(
         val FULLSCREEN_ENABLED = booleanPreferencesKey("fullscreen_enabled")
         val SHOW_COMPASS = booleanPreferencesKey("show_compass")
         val SHOW_SCALE_BAR = booleanPreferencesKey("show_scale_bar")
+        val CURSOR_SHOW = booleanPreferencesKey("cursor_show")
+        val CURSOR_TYPE = intPreferencesKey("cursor_type")
+        val CURSOR_COLOR = longPreferencesKey("cursor_color")
     }
 
     override val settingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -47,11 +52,18 @@ class SettingsRepositoryImpl(
             val isFullscreen = preferences[PreferencesKeys.FULLSCREEN_ENABLED] ?: false
             val showCompass = preferences[PreferencesKeys.SHOW_COMPASS] ?: true
             val showScaleBar = preferences[PreferencesKeys.SHOW_SCALE_BAR] ?: true
+            val cursorShow = preferences[PreferencesKeys.CURSOR_SHOW] ?: true
+            val cursorType = preferences[PreferencesKeys.CURSOR_TYPE] ?: 1
+            val cursorColor = preferences[PreferencesKeys.CURSOR_COLOR] ?: 0xFFEF4444L
+
             AppSettings(
                 theme = theme,
                 isFullscreen = isFullscreen,
                 showCompass = showCompass,
-                showScaleBar = showScaleBar
+                showScaleBar = showScaleBar,
+                cursorShow = cursorShow,
+                cursorType = cursorType,
+                cursorColor = cursorColor
             )
         }
 
@@ -64,6 +76,36 @@ class SettingsRepositoryImpl(
     override suspend fun setFullscreen(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.FULLSCREEN_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun updateShowCompass(show: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SHOW_COMPASS] = show
+        }
+    }
+
+    override suspend fun updateShowScaleBar(show: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SHOW_SCALE_BAR] = show
+        }
+    }
+
+    override suspend fun setCursorShow(show: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CURSOR_SHOW] = show
+        }
+    }
+
+    override suspend fun setCursorType(type: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CURSOR_TYPE] = type
+        }
+    }
+
+    override suspend fun setCursorColor(color: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CURSOR_COLOR] = color
         }
     }
 }

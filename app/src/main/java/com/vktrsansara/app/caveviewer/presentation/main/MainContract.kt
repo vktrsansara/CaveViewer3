@@ -17,6 +17,7 @@ import java.io.File
 enum class AppScreen {
     MAIN,
     APP_SETTINGS,
+    TOOLS_SETTINGS,
     PROJECTS_LIST,
     CREATE_RASTER_PROJECT,
     METADATA_EDITOR,
@@ -49,9 +50,15 @@ sealed interface MainUiIntent : UiIntent {
     data object DismissMenu : MainUiIntent
     data object ExitAppClicked : MainUiIntent
     data object OpenAppSettings : MainUiIntent
+    data object OpenToolsSettings : MainUiIntent
     data object NavigateBack : MainUiIntent
     data class UpdateTheme(val theme: ThemeMode) : MainUiIntent
     data class UpdateFullscreen(val enabled: Boolean) : MainUiIntent
+    data class OnShowCompassChanged(val enabled: Boolean) : MainUiIntent
+    data class OnShowScaleBarChanged(val enabled: Boolean) : MainUiIntent
+    data class UpdateCursorShow(val show: Boolean) : MainUiIntent
+    data class UpdateCursorType(val type: Int) : MainUiIntent
+    data class UpdateCursorColor(val color: Long) : MainUiIntent
 
     // Project Menu actions
     data object ProjectListClicked : MainUiIntent
@@ -61,6 +68,7 @@ sealed interface MainUiIntent : UiIntent {
     data object CloseActiveProject : MainUiIntent
 
     // Edit Menu actions
+    data class OnMetadataLoaded(val metadata: MapMetadata) : MainUiIntent
     data object OpenMetadataEditor : MainUiIntent
     data class SaveMetadata(
         val updatedMetadata: MapMetadata,

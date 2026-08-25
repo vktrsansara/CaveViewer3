@@ -41,11 +41,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
 import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
@@ -60,6 +60,8 @@ fun AppSettingsScreen(
     settings: AppSettings,
     onThemeChanged: (ThemeMode) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
+    onShowCompassChanged: (Boolean) -> Unit,
+    onShowScaleBarChanged: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -150,41 +152,103 @@ fun AppSettingsScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // H3: Item
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = AppColors.pressedColor),
-                            onClick = { onFullscreenChanged(!settings.isFullscreen) }
-                        )
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Во весь экран",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = AppColors.textPrimary
-                    )
+                val switchColors = SwitchDefaults.colors(
+                    checkedThumbColor = AppColors.textPrimary,
+                    checkedTrackColor = AppColors.accent,
+                    uncheckedThumbColor = AppColors.textSecondary,
+                    uncheckedTrackColor = AppColors.bgSurface,
+                    uncheckedBorderColor = AppColors.borderColor
+                )
 
-                    Switch(
-                        checked = settings.isFullscreen,
-                        onCheckedChange = onFullscreenChanged,
-                        modifier = Modifier.scale(0.85f),
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = AppColors.textPrimary,
-                            checkedTrackColor = AppColors.accent,
-                            uncheckedThumbColor = AppColors.textSecondary,
-                            uncheckedTrackColor = AppColors.bgSurface,
-                            uncheckedBorderColor = AppColors.borderColor
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    // 1. Во весь экран
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = { onFullscreenChanged(!settings.isFullscreen) }
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Во весь экран",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = AppColors.textPrimary
                         )
-                    )
+
+                        Switch(
+                            checked = settings.isFullscreen,
+                            onCheckedChange = onFullscreenChanged,
+                            modifier = Modifier.scale(0.85f),
+                            colors = switchColors
+                        )
+                    }
+
+                    // 2. Показывать компас
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = { onShowCompassChanged(!settings.showCompass) }
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Показывать компас",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = AppColors.textPrimary
+                        )
+
+                        Switch(
+                            checked = settings.showCompass,
+                            onCheckedChange = onShowCompassChanged,
+                            modifier = Modifier.scale(0.85f),
+                            colors = switchColors
+                        )
+                    }
+
+                    // 3. Полоска масштаба
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = { onShowScaleBarChanged(!settings.showScaleBar) }
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Полоска масштаба",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = AppColors.textPrimary
+                        )
+
+                        Switch(
+                            checked = settings.showScaleBar,
+                            onCheckedChange = onShowScaleBarChanged,
+                            modifier = Modifier.scale(0.85f),
+                            colors = switchColors
+                        )
+                    }
                 }
             }
         }
@@ -311,6 +375,8 @@ private fun AppSettingsScreenDarkPreview() {
             settings = AppSettings(theme = ThemeMode.DARK),
             onThemeChanged = {},
             onFullscreenChanged = {},
+            onShowCompassChanged = {},
+            onShowScaleBarChanged = {},
             onNavigateBack = {}
         )
     }
@@ -324,6 +390,8 @@ private fun AppSettingsScreenLightPreview() {
             settings = AppSettings(theme = ThemeMode.LIGHT),
             onThemeChanged = {},
             onFullscreenChanged = {},
+            onShowCompassChanged = {},
+            onShowScaleBarChanged = {},
             onNavigateBack = {}
         )
     }

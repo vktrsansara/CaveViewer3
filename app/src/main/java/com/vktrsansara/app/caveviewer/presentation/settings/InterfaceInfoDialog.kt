@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,25 +53,62 @@ fun InterfaceInfoDialog(
             HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
             Spacer(modifier = Modifier.height(12.dp))
 
-            // H2: Section Title
-            Text(
-                text = "Во весь экран",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // 1. Во весь экран
+                Text(
+                    text = "Во весь экран",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Скрывает верхнюю системную шторку и нижнюю панель навигации Android для максимального увеличения рабочей области карты.",
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp,
+                    color = AppColors.textSecondary
+                )
 
-            Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            // Description body
-            Text(
-                text = "Скрывает верхнюю системную шторку и нижнюю панель навигации Android для максимального увеличения рабочей области карты.",
-                fontSize = 13.5.sp,
-                lineHeight = 19.sp,
-                color = AppColors.textSecondary
-            )
+                // 2. Показывать компас
+                Text(
+                    text = "Показывать компас",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Отображает в левом верхнем углу виджет компаса с азимутом на север. Клик по компасу плавно возвращает карту в положение на север.",
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp,
+                    color = AppColors.textSecondary
+                )
 
-            Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 3. Полоска масштаба
+                Text(
+                    text = "Полоска масштаба",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Отображает в правом верхнем углу линейку реального масштаба в метрах с динамическим пересчетом при приближении и отдалении карты.",
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp,
+                    color = AppColors.textSecondary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Close button with red border
             Row(

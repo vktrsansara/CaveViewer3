@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +41,7 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -47,7 +49,7 @@ import java.io.File
 
 /**
  * Professional map viewer powered by MapLibre Native Android SDK in TextureView mode.
- * Renders Equator-centered 256x256 raster tile pyramid with free 360-degree panning, strict bounds,
+ * Renders Equator-centered 256x256 raster tile pyramid with free 360-degree panning, strict center-stopping bounds,
  * and seamless viewport state restoration.
  */
 @Composable
@@ -182,6 +184,10 @@ private fun MapLibreMapViewContainer(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var maplibreMapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+
+    val currentOnCameraPositionChanged by rememberUpdatedState(onCameraPositionChanged)
+    val currentOnResetBearingReady by rememberUpdatedState(onResetBearingReady)
 
     // 1. Calculate Bounds and Map Center using CaveMapBounds (Equator centered)
     val bounds = remember(meta) {
@@ -248,19 +254,30 @@ private fun MapLibreMapViewContainer(
             onCreate(null)
 
             getMapAsync { maplibreMap ->
+                maplibreMapInstance = maplibreMap
+
                 // Provide callback to reset rotation bearing smoothly to 0°
-                onResetBearingReady {
+                currentOnResetBearingReady {
                     val currentCam = maplibreMap.cameraPosition
                     val targetCam = CameraPosition.Builder(currentCam).bearing(0.0).build()
                     maplibreMap.easeCamera(CameraUpdateFactory.newCameraPosition(targetCam), 300)
                 }
 
-                // Track camera moves (target position, zoom and bearing)
+                // Track camera moves with strict boundary clamping:
+                // The center of the screen (cursor) cannot leave the raster rectangle [latitudeSouth..latitudeNorth, longitudeWest..longitudeEast]
                 maplibreMap.addOnCameraMoveListener {
                     val cam = maplibreMap.cameraPosition
                     val target = cam.target
                     if (target != null) {
-                        onCameraPositionChanged(target.latitude, target.longitude, cam.zoom, cam.bearing)
+                        val clampedLat = target.latitude.coerceIn(bounds.latitudeSouth, bounds.latitudeNorth)
+                        val clampedLon = target.longitude.coerceIn(bounds.longitudeWest, bounds.longitudeEast)
+                        if (clampedLat != target.latitude || clampedLon != target.longitude) {
+                            maplibreMap.moveCamera(
+                                CameraUpdateFactory.newLatLng(LatLng(clampedLat, clampedLon))
+                            )
+                        } else {
+                            currentOnCameraPositionChanged(target.latitude, target.longitude, cam.zoom, cam.bearing)
+                        }
                     }
                 }
 
@@ -275,28 +292,27 @@ private fun MapLibreMapViewContainer(
                     isQuickZoomGesturesEnabled = true
                 }
 
-                // Apply style and enforce native camera bounds
+                // Apply style
                 maplibreMap.setStyle(Style.Builder().fromJson(styleJson)) { _ ->
                     maplibreMap.setMinZoomPreference(meta.zoomMin.toDouble())
                     maplibreMap.setMaxZoomPreference(meta.zoomMax.toDouble() + 4.0)
 
-                    // Native bounds clamping (screen center cannot escape map rectangle)
-                    maplibreMap.setLatLngBoundsForCameraTarget(bounds)
-
-                    // Restore saved camera position or start at default map center
+                    // Restore saved camera position (clamped) or start at default map center
                     if (initialCameraPosition != null && initialCameraPosition.zoom > 0.0) {
+                        val clampedLat = initialCameraPosition.targetLat.coerceIn(bounds.latitudeSouth, bounds.latitudeNorth)
+                        val clampedLon = initialCameraPosition.targetLon.coerceIn(bounds.longitudeWest, bounds.longitudeEast)
                         maplibreMap.moveCamera(
                             CameraUpdateFactory.newCameraPosition(
                                 CameraPosition.Builder()
-                                    .target(LatLng(initialCameraPosition.targetLat, initialCameraPosition.targetLon))
+                                    .target(LatLng(clampedLat, clampedLon))
                                     .zoom(initialCameraPosition.zoom)
                                     .bearing(initialCameraPosition.bearing)
                                     .build()
                             )
                         )
-                        onCameraPositionChanged(
-                            initialCameraPosition.targetLat,
-                            initialCameraPosition.targetLon,
+                        currentOnCameraPositionChanged(
+                            clampedLat,
+                            clampedLon,
                             initialCameraPosition.zoom,
                             initialCameraPosition.bearing
                         )
@@ -307,7 +323,7 @@ private fun MapLibreMapViewContainer(
                                 meta.zoomDefault.toDouble()
                             )
                         )
-                        onCameraPositionChanged(
+                        currentOnCameraPositionChanged(
                             mapCenter.latitude,
                             mapCenter.longitude,
                             meta.zoomDefault.toDouble(),
