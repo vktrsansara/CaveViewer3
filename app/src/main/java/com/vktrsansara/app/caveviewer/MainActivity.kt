@@ -11,9 +11,16 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -47,8 +54,10 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(isDarkTheme, uiState.settings.isFullscreen) {
                 val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-                windowInsetsController.isAppearanceLightStatusBars = !isDarkTheme
-                windowInsetsController.isAppearanceLightNavigationBars = !isDarkTheme
+
+                // Status bar & Nav bar icons are crisp white
+                windowInsetsController.isAppearanceLightStatusBars = false
+                windowInsetsController.isAppearanceLightNavigationBars = false
 
                 if (uiState.settings.isFullscreen) {
                     windowInsetsController.systemBarsBehavior =
@@ -60,7 +69,19 @@ class MainActivity : ComponentActivity() {
             }
 
             CaveViewerTheme(darkTheme = isDarkTheme) {
-                MainScreen(viewModel = mainViewModel)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                        .then(
+                            if (uiState.settings.isFullscreen) Modifier
+                            else Modifier
+                                .statusBarsPadding()
+                                .navigationBarsPadding()
+                        )
+                ) {
+                    MainScreen(viewModel = mainViewModel)
+                }
             }
         }
     }
