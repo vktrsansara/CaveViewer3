@@ -13,7 +13,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,11 +24,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vktrsansara.app.caveviewer.domain.model.AppSettings
 import com.vktrsansara.app.caveviewer.presentation.components.FloatingBottomBar
 import com.vktrsansara.app.caveviewer.presentation.components.MenuPopover
 import com.vktrsansara.app.caveviewer.presentation.main.components.NoProjectPlaceholder
 import com.vktrsansara.app.caveviewer.presentation.map.MapLibreViewer
+import com.vktrsansara.app.caveviewer.presentation.metadata.MetadataEditorScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.CreateRasterProjectScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.FeatureUnderDevelopmentScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.ProjectTypeDialog
@@ -41,7 +40,7 @@ import org.koin.androidx.compose.koinViewModel
 
 /**
  * Root screen orchestrator for CaveViewer.
- * Manages transitions between the MapLibre map workspace, settings, project management, and creation screens.
+ * Manages transitions between the MapLibre map workspace, settings, project management, metadata editor, and creation screens.
  */
 @Composable
 fun MainScreen(
@@ -123,6 +122,28 @@ fun MainScreen(
                     onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
                 )
             }
+            AppScreen.METADATA_EDITOR -> {
+                val metadata = uiState.activeProjectMetadata
+                val activeName = uiState.activeProjectName
+                if (metadata != null && activeName != null) {
+                    MetadataEditorScreen(
+                        metadata = metadata,
+                        location = uiState.activeProjectLocation,
+                        entrances = uiState.activeProjectEntrances,
+                        onSaveMetadata = { updatedMeta, updatedLocation, updatedEntrances ->
+                            viewModel.handleIntent(
+                                MainUiIntent.SaveMetadata(
+                                    updatedMetadata = updatedMeta,
+                                    originalProjectName = activeName,
+                                    location = updatedLocation,
+                                    entrances = updatedEntrances
+                                )
+                            )
+                        },
+                        onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
+                    )
+                }
+            }
             AppScreen.FEATURE_UNDER_DEVELOPMENT -> {
                 FeatureUnderDevelopmentScreen(
                     featureTitle = uiState.underDevelopmentFeatureName,
@@ -187,6 +208,7 @@ fun MainScreenContent(
                 onImportProjectClick = { onIntent(MainUiIntent.ImportProjectClicked) },
                 onExportProjectClick = { onIntent(MainUiIntent.ExportProjectClicked) },
                 onCloseProject = { onIntent(MainUiIntent.CloseActiveProject) },
+                onEditMetadataClick = { onIntent(MainUiIntent.OpenMetadataEditor) },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 

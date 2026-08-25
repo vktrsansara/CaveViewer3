@@ -31,9 +31,11 @@ import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.AppSettingsAlt
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.DesignServices
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -49,32 +51,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vktrsansara.app.caveviewer.ui.theme.AccentRed
+import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
+
+// Palette of semantic icon colors
+private val IconFolderColor = Color(0xFFF59E0B) // Amber
+private val IconEditColor = Color(0xFF818CF8)   // Indigo
+private val IconSettingsColor = Color(0xFF38BDF8) // Sky Blue
+private val IconExitColor = Color(0xFFEF4444)   // Red
+private val IconListColor = Color(0xFFA78BFA)   // Purple
+private val IconNewColor = Color(0xFF10B981)    // Green
+private val IconImportColor = Color(0xFF06B6D4) // Cyan
+private val IconExportColor = Color(0xFFFB923C) // Orange
+private val IconCloseColor = Color(0xFFEF4444)  // Red
+private val IconBackArrowColor = AccentSkyBlue
 
 enum class MenuLevel {
     MAIN,
     PROJECTS,
+    EDIT,
     SETTINGS
 }
 
 /**
- * Popover menu appearing above the bottom control bar with submenus for Project and Settings.
- *
- * @param isOpen Whether the menu is currently visible.
- * @param hasActiveProject Whether an active project is currently loaded.
- * @param onOpenAppSettings Callback invoked when clicking "Application" inside Settings submenu.
- * @param onExitApp Callback invoked when clicking "Exit".
- * @param onProjectListClick Callback for "List" inside Projects submenu.
- * @param onNewProjectClick Callback for "New" inside Projects submenu.
- * @param onImportProjectClick Callback for "Import" inside Projects submenu.
- * @param onExportProjectClick Callback for "Export" inside Projects submenu.
- * @param onCloseProject Callback for "Close" inside Projects submenu (unloads current project).
- * @param modifier Custom layout modifier.
+ * Popover menu appearing above the bottom control bar with submenus for Project, Edit, and Settings.
  */
 @Composable
 fun MenuPopover(
@@ -87,6 +94,7 @@ fun MenuPopover(
     onImportProjectClick: () -> Unit = {},
     onExportProjectClick: () -> Unit = {},
     onCloseProject: () -> Unit = {},
+    onEditMetadataClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentLevel by remember { mutableStateOf(MenuLevel.MAIN) }
@@ -130,7 +138,9 @@ fun MenuPopover(
                 when (level) {
                     MenuLevel.MAIN -> {
                         MainMenuContent(
+                            hasActiveProject = hasActiveProject,
                             onProjectsClick = { currentLevel = MenuLevel.PROJECTS },
+                            onEditClick = { currentLevel = MenuLevel.EDIT },
                             onSettingsClick = { currentLevel = MenuLevel.SETTINGS },
                             onExitClick = onExitApp
                         )
@@ -143,6 +153,12 @@ fun MenuPopover(
                             onImportClick = onImportProjectClick,
                             onExportClick = onExportProjectClick,
                             onCloseClick = onCloseProject,
+                            onBackClick = { currentLevel = MenuLevel.MAIN }
+                        )
+                    }
+                    MenuLevel.EDIT -> {
+                        EditSubmenuContent(
+                            onMetadataClick = onEditMetadataClick,
                             onBackClick = { currentLevel = MenuLevel.MAIN }
                         )
                     }
@@ -160,7 +176,9 @@ fun MenuPopover(
 
 @Composable
 private fun MainMenuContent(
+    hasActiveProject: Boolean,
     onProjectsClick: () -> Unit,
+    onEditClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onExitClick: () -> Unit
 ) {
@@ -170,25 +188,67 @@ private fun MainMenuContent(
 
         HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
 
-        // Item 1: Projects
+        // Item 1: Projects (Amber Folder)
         MenuItem(
             icon = Icons.Rounded.Folder,
+            iconTint = IconFolderColor,
             title = "Проект",
             onClick = onProjectsClick
         )
 
-        // Item 2: Settings
+        // Item 2: Edit (Indigo Design - only when project is open)
+        if (hasActiveProject) {
+            MenuItem(
+                icon = Icons.Rounded.DesignServices,
+                iconTint = IconEditColor,
+                title = "Редактировать",
+                onClick = onEditClick
+            )
+        }
+
+        // Item 3: Settings (Sky Blue Settings)
         MenuItem(
             icon = Icons.Rounded.Settings,
+            iconTint = IconSettingsColor,
             title = "Настройки",
             onClick = onSettingsClick
         )
 
-        // Item 3: Exit
+        // Item 4: Exit (Red Exit)
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ExitToApp,
+            iconTint = IconExitColor,
             title = "Выход",
             onClick = onExitClick
+        )
+    }
+}
+
+@Composable
+private fun EditSubmenuContent(
+    onMetadataClick: () -> Unit,
+    onBackClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Header
+        MenuHeader(title = "Редактировать")
+
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+
+        // Item: Метаданные (Sky Blue Map)
+        MenuItem(
+            icon = Icons.Rounded.Map,
+            iconTint = AccentSkyBlue,
+            title = "Метаданные",
+            onClick = onMetadataClick
+        )
+
+        // Item: Назад (Sky Blue Arrow)
+        MenuItem(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            iconTint = IconBackArrowColor,
+            title = "Назад",
+            onClick = onBackClick
         )
     }
 }
@@ -209,38 +269,43 @@ private fun ProjectsSubmenuContent(
 
         HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
 
-        // Item: Список
+        // Item: Список (Purple List)
         MenuItem(
             icon = Icons.AutoMirrored.Rounded.List,
+            iconTint = IconListColor,
             title = "Список",
             onClick = onListClick
         )
 
-        // Item: Новый
+        // Item: Новый (Green Folder)
         MenuItem(
             icon = Icons.Rounded.CreateNewFolder,
+            iconTint = IconNewColor,
             title = "Новый",
             onClick = onNewClick
         )
 
-        // Item: Импорт
+        // Item: Импорт (Cyan Download)
         MenuItem(
             icon = Icons.Rounded.FileDownload,
+            iconTint = IconImportColor,
             title = "Импорт",
             onClick = onImportClick
         )
 
-        // Item: Экспорт
+        // Item: Экспорт (Orange Upload)
         MenuItem(
             icon = Icons.Rounded.FileUpload,
+            iconTint = IconExportColor,
             title = "Экспорт",
             onClick = onExportClick
         )
 
-        // Item: Закрыть (only when active project is open)
+        // Item: Закрыть (Red Close)
         if (hasActiveProject) {
             MenuItem(
                 icon = Icons.Rounded.Close,
+                iconTint = IconCloseColor,
                 title = "Закрыть",
                 onClick = onCloseClick
             )
@@ -249,6 +314,7 @@ private fun ProjectsSubmenuContent(
         // Item: Назад
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
+            iconTint = IconBackArrowColor,
             title = "Назад",
             onClick = onBackClick
         )
@@ -266,9 +332,10 @@ private fun SettingsSubmenuContent(
 
         HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
 
-        // Item: App Settings
+        // Item: App Settings (Indigo Settings)
         MenuItem(
             icon = Icons.Rounded.AppSettingsAlt,
+            iconTint = IconEditColor,
             title = "Приложение",
             onClick = onAppSettingsClick
         )
@@ -276,6 +343,7 @@ private fun SettingsSubmenuContent(
         // Item: Back
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
+            iconTint = IconBackArrowColor,
             title = "Назад",
             onClick = onBackClick
         )
@@ -302,6 +370,7 @@ private fun MenuHeader(title: String) {
 @Composable
 private fun MenuItem(
     icon: ImageVector,
+    iconTint: Color,
     title: String,
     onClick: () -> Unit
 ) {
@@ -320,7 +389,7 @@ private fun MenuItem(
         Icon(
             imageVector = icon,
             contentDescription = title,
-            tint = AppColors.textPrimary,
+            tint = iconTint,
             modifier = Modifier.size(18.dp)
         )
 

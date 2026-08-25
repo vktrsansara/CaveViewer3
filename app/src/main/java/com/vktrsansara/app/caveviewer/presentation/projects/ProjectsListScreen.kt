@@ -43,10 +43,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.ui.theme.AccentRed
+import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 import java.text.SimpleDateFormat
@@ -137,7 +139,7 @@ fun ProjectsListScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Назад",
-                        tint = AppColors.textPrimary,
+                        tint = AccentSkyBlue,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -169,7 +171,7 @@ fun ProjectsListScreen(
                     Icon(
                         imageVector = Icons.Rounded.Info,
                         contentDescription = "Справка",
-                        tint = AppColors.textSecondary,
+                        tint = Color(0xFF10B981),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -251,7 +253,7 @@ private fun ProjectItemCard(
         Icon(
             imageVector = Icons.Rounded.Folder,
             contentDescription = null,
-            tint = if (isActive) AppColors.accent else AppColors.textPrimary,
+            tint = if (isActive) AccentSkyBlue else Color(0xFFF59E0B),
             modifier = Modifier.size(22.dp)
         )
 

@@ -12,5 +12,9 @@ data class MapMetadata(
     val zoomMin: Int,
     val zoomMax: Int,
     val zoomDefault: Int,
+    val pixelsPerMeter: Double = 0.0,
+    val scaleMeters: Double = 0.0,
+    val angleNorth: Double = 0.0,
+    val crs: String = "Simple",
     val createdAt: Long = System.currentTimeMillis()
 )

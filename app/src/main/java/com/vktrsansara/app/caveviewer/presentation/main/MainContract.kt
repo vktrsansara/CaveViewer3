@@ -5,6 +5,9 @@ import com.vktrsansara.app.caveviewer.core.mvi.UiEffect
 import com.vktrsansara.app.caveviewer.core.mvi.UiIntent
 import com.vktrsansara.app.caveviewer.core.mvi.UiState
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
+import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.MapLocation
+import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
 import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
 import java.io.File
@@ -14,6 +17,7 @@ enum class AppScreen {
     APP_SETTINGS,
     PROJECTS_LIST,
     CREATE_RASTER_PROJECT,
+    METADATA_EDITOR,
     FEATURE_UNDER_DEVELOPMENT
 }
 
@@ -25,6 +29,9 @@ data class MainUiState(
     val hasActiveProject: Boolean = false,
     val activeProjectName: String? = null,
     val activeProjectDir: File? = null,
+    val activeProjectMetadata: MapMetadata? = null,
+    val activeProjectLocation: MapLocation = MapLocation(),
+    val activeProjectEntrances: List<EntranceCoordinate> = emptyList(),
     val projectsList: List<ProjectInfo> = emptyList(),
     val isProjectSaving: Boolean = false,
     val projectSavingName: String = "",
@@ -48,6 +55,15 @@ sealed interface MainUiIntent : UiIntent {
     data object ImportProjectClicked : MainUiIntent
     data object ExportProjectClicked : MainUiIntent
     data object CloseActiveProject : MainUiIntent
+
+    // Edit Menu actions
+    data object OpenMetadataEditor : MainUiIntent
+    data class SaveMetadata(
+        val updatedMetadata: MapMetadata,
+        val originalProjectName: String,
+        val location: MapLocation? = null,
+        val entrances: List<EntranceCoordinate>? = null
+    ) : MainUiIntent
 
     // Projects List actions
     data class SelectProject(val projectName: String) : MainUiIntent

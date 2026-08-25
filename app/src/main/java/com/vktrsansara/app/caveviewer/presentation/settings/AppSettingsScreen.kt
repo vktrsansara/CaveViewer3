@@ -45,8 +45,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
 import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
+import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 
@@ -142,7 +144,7 @@ fun AppSettingsScreen(
                         Icon(
                             imageVector = Icons.Rounded.Info,
                             contentDescription = "Справка по интерфейсу",
-                            tint = AppColors.textSecondary,
+                            tint = Color(0xFF10B981),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -222,7 +224,7 @@ private fun SettingsHeader(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Назад",
-                    tint = AppColors.textPrimary,
+                    tint = AccentSkyBlue,
                     modifier = Modifier.size(16.dp)
                 )
             }

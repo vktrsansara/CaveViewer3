@@ -55,9 +55,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.presentation.projects.components.TileGenerationProgressDialog
+import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 
@@ -170,7 +172,7 @@ fun CreateRasterProjectScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Назад",
-                        tint = AppColors.textPrimary,
+                        tint = AccentSkyBlue,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -205,7 +207,7 @@ fun CreateRasterProjectScreen(
                     Icon(
                         imageVector = Icons.Rounded.Info,
                         contentDescription = "Справка",
-                        tint = AppColors.textSecondary,
+                        tint = Color(0xFF10B981),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -243,7 +245,7 @@ fun CreateRasterProjectScreen(
                         Icon(
                             imageVector = Icons.Rounded.Check,
                             contentDescription = "Создать",
-                            tint = if (canCreate) AppColors.accent else AppColors.textSecondary,
+                            tint = if (canCreate) Color(0xFF10B981) else AppColors.textSecondary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -358,7 +360,7 @@ fun CreateRasterProjectScreen(
                     Icon(
                         imageVector = Icons.Rounded.FolderOpen,
                         contentDescription = "Выбрать файл",
-                        tint = if (selectedImageUri != null) AppColors.accent else AppColors.textSecondary,
+                        tint = if (selectedImageUri != null) Color(0xFFF59E0B) else AppColors.textSecondary,
                         modifier = Modifier.size(18.dp)
                     )
 

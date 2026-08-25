@@ -11,6 +11,10 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
+import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.MapLocation
+import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
 import com.vktrsansara.app.caveviewer.domain.repository.ProjectRepository
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutProgress
@@ -95,6 +99,92 @@ class ProjectRepositoryImpl(
         val baseDir = getProjectsBaseDir()
         val dir = File(baseDir, projectName)
         if (dir.exists() && dir.isDirectory) dir else null
+    }
+
+    override suspend fun getProjectMetadata(projectName: String): MapMetadata? = withContext(Dispatchers.IO) {
+        val dir = getProjectDir(projectName) ?: return@withContext null
+        val dbFile = File(dir, "thismap.sqlite")
+        if (!dbFile.exists()) return@withContext null
+        ProjectDatabase(dbFile).getMetadata()
+    }
+
+    override suspend fun updateProjectMetadata(
+        originalProjectName: String,
+        metadata: MapMetadata
+    ): Result<MapMetadata> = withContext(Dispatchers.IO) {
+        try {
+            val baseDir = getProjectsBaseDir()
+            val oldDir = File(baseDir, originalProjectName)
+            if (!oldDir.exists()) {
+                return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            }
+
+            val cleanNewName = metadata.projectName.trim().replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            if (cleanNewName.isBlank()) {
+                return@withContext Result.failure(IllegalArgumentException("Название проекта не может быть пустым"))
+            }
+
+            val targetDir = if (cleanNewName != originalProjectName) {
+                val newDir = File(baseDir, cleanNewName)
+                if (newDir.exists()) {
+                    return@withContext Result.failure(IllegalStateException("Проект с названием «$cleanNewName» уже существует"))
+                }
+                val renamed = oldDir.renameTo(newDir)
+                if (!renamed) {
+                    return@withContext Result.failure(IllegalStateException("Не удалось переименовать папку проекта"))
+                }
+                newDir
+            } else {
+                oldDir
+            }
+
+            val dbFile = File(targetDir, "thismap.sqlite")
+            val db = ProjectDatabase(dbFile)
+            val updated = metadata.copy(projectName = cleanNewName)
+            db.saveMetadata(updated)
+
+            Result.success(updated)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getProjectLocation(projectName: String): MapLocation = withContext(Dispatchers.IO) {
+        val dir = getProjectDir(projectName) ?: return@withContext MapLocation()
+        val dbFile = File(dir, "thismap.sqlite")
+        if (!dbFile.exists()) return@withContext MapLocation()
+        ProjectDatabase(dbFile).getLocation()
+    }
+
+    override suspend fun saveProjectLocation(projectName: String, location: MapLocation): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).saveLocation(location)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getProjectEntrances(projectName: String): List<EntranceCoordinate> = withContext(Dispatchers.IO) {
+        val dir = getProjectDir(projectName) ?: return@withContext emptyList()
+        val dbFile = File(dir, "thismap.sqlite")
+        if (!dbFile.exists()) return@withContext emptyList()
+        ProjectDatabase(dbFile).getEntrances()
+    }
+
+    override suspend fun saveProjectEntrances(projectName: String, entrances: List<EntranceCoordinate>): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).saveEntrances(entrances)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     override suspend fun deleteProject(projectName: String): Result<Unit> = withContext(Dispatchers.IO) {
