@@ -29,6 +29,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
+import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutter
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
@@ -38,6 +39,7 @@ import kotlinx.coroutines.withContext
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -45,11 +47,16 @@ import java.io.File
 
 /**
  * Professional map viewer powered by MapLibre Native Android SDK in TextureView mode.
- * Renders Equator-centered 256x256 raster tile pyramid with free 360-degree panning and strict bounds.
+ * Renders Equator-centered 256x256 raster tile pyramid with free 360-degree panning, strict bounds,
+ * and seamless viewport state restoration.
  */
 @Composable
 fun MapLibreViewer(
     projectDir: File,
+    initialCameraPosition: MapCameraPosition? = null,
+    onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit = { _, _, _, _ -> },
+    onResetBearingReady: (() -> Unit) -> Unit = {},
+    onMetadataLoaded: (MapMetadata) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -100,6 +107,7 @@ fun MapLibreViewer(
 
                 if (meta != null) {
                     metadata = meta
+                    onMetadataLoaded(meta)
                 } else {
                     loadError = "Файлы карты не найдены в проекте"
                 }
@@ -152,7 +160,10 @@ fun MapLibreViewer(
                 MapLibreMapViewContainer(
                     meta = meta,
                     tilesDir = tilesDir,
+                    initialCameraPosition = initialCameraPosition,
                     lifecycleOwner = lifecycleOwner,
+                    onCameraPositionChanged = onCameraPositionChanged,
+                    onResetBearingReady = onResetBearingReady,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -164,7 +175,10 @@ fun MapLibreViewer(
 private fun MapLibreMapViewContainer(
     meta: MapMetadata,
     tilesDir: File,
+    initialCameraPosition: MapCameraPosition?,
     lifecycleOwner: LifecycleOwner,
+    onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit,
+    onResetBearingReady: (() -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -188,7 +202,7 @@ private fun MapLibreMapViewContainer(
     }
     val tilesUrl = "$baseEncodedUri/{z}/{x}/{y}.png"
 
-    // 3. Style JSON with clean raster layer (without artificial polygon bounds clipping)
+    // 3. Style JSON with clean raster layer
     val styleJson = remember(tilesUrl, meta.zoomMin, meta.zoomMax) {
         """
         {
@@ -234,6 +248,22 @@ private fun MapLibreMapViewContainer(
             onCreate(null)
 
             getMapAsync { maplibreMap ->
+                // Provide callback to reset rotation bearing smoothly to 0°
+                onResetBearingReady {
+                    val currentCam = maplibreMap.cameraPosition
+                    val targetCam = CameraPosition.Builder(currentCam).bearing(0.0).build()
+                    maplibreMap.easeCamera(CameraUpdateFactory.newCameraPosition(targetCam), 300)
+                }
+
+                // Track camera moves (target position, zoom and bearing)
+                maplibreMap.addOnCameraMoveListener {
+                    val cam = maplibreMap.cameraPosition
+                    val target = cam.target
+                    if (target != null) {
+                        onCameraPositionChanged(target.latitude, target.longitude, cam.zoom, cam.bearing)
+                    }
+                }
+
                 // UI & Gesture Settings
                 maplibreMap.uiSettings.apply {
                     isLogoEnabled = false
@@ -253,13 +283,37 @@ private fun MapLibreMapViewContainer(
                     // Native bounds clamping (screen center cannot escape map rectangle)
                     maplibreMap.setLatLngBoundsForCameraTarget(bounds)
 
-                    // Position camera in center at default zoom
-                    maplibreMap.moveCamera(
-                        CameraUpdateFactory.newLatLngZoom(
-                            mapCenter,
-                            meta.zoomDefault.toDouble()
+                    // Restore saved camera position or start at default map center
+                    if (initialCameraPosition != null && initialCameraPosition.zoom > 0.0) {
+                        maplibreMap.moveCamera(
+                            CameraUpdateFactory.newCameraPosition(
+                                CameraPosition.Builder()
+                                    .target(LatLng(initialCameraPosition.targetLat, initialCameraPosition.targetLon))
+                                    .zoom(initialCameraPosition.zoom)
+                                    .bearing(initialCameraPosition.bearing)
+                                    .build()
+                            )
                         )
-                    )
+                        onCameraPositionChanged(
+                            initialCameraPosition.targetLat,
+                            initialCameraPosition.targetLon,
+                            initialCameraPosition.zoom,
+                            initialCameraPosition.bearing
+                        )
+                    } else {
+                        maplibreMap.moveCamera(
+                            CameraUpdateFactory.newLatLngZoom(
+                                mapCenter,
+                                meta.zoomDefault.toDouble()
+                            )
+                        )
+                        onCameraPositionChanged(
+                            mapCenter.latitude,
+                            mapCenter.longitude,
+                            meta.zoomDefault.toDouble(),
+                            0.0
+                        )
+                    }
                 }
             }
         }

@@ -7,6 +7,7 @@ import com.vktrsansara.app.caveviewer.core.mvi.UiState
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
 import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
@@ -34,6 +35,7 @@ data class MainUiState(
     val activeProjectLocation: MapLocation = MapLocation(),
     val activeProjectEntrances: List<EntranceCoordinate> = emptyList(),
     val activeProjectCadastralData: Map<String, List<CadastralItem>> = emptyMap(),
+    val activeProjectCameraPosition: MapCameraPosition? = null,
     val projectsList: List<ProjectInfo> = emptyList(),
     val isProjectSaving: Boolean = false,
     val projectSavingName: String = "",
@@ -71,6 +73,9 @@ sealed interface MainUiIntent : UiIntent {
     // Projects List actions
     data class SelectProject(val projectName: String) : MainUiIntent
     data class DeleteProject(val projectName: String) : MainUiIntent
+
+    // Camera viewport persistence
+    data class UpdateMapCameraPosition(val position: MapCameraPosition) : MainUiIntent
 
     // Project Type Selection
     data object DismissProjectTypeDialog : MainUiIntent

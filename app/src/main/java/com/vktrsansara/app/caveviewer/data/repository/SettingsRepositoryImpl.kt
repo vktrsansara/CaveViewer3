@@ -25,6 +25,8 @@ class SettingsRepositoryImpl(
     private object PreferencesKeys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val FULLSCREEN_ENABLED = booleanPreferencesKey("fullscreen_enabled")
+        val SHOW_COMPASS = booleanPreferencesKey("show_compass")
+        val SHOW_SCALE_BAR = booleanPreferencesKey("show_scale_bar")
     }
 
     override val settingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -43,9 +45,13 @@ class SettingsRepositoryImpl(
                 ThemeMode.AUTO
             }
             val isFullscreen = preferences[PreferencesKeys.FULLSCREEN_ENABLED] ?: false
+            val showCompass = preferences[PreferencesKeys.SHOW_COMPASS] ?: true
+            val showScaleBar = preferences[PreferencesKeys.SHOW_SCALE_BAR] ?: true
             AppSettings(
                 theme = theme,
-                isFullscreen = isFullscreen
+                isFullscreen = isFullscreen,
+                showCompass = showCompass,
+                showScaleBar = showScaleBar
             )
         }
 

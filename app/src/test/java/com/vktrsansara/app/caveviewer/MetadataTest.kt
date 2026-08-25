@@ -8,6 +8,7 @@ import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
+import kotlin.math.pow
 
 class MetadataTest {
 
@@ -100,5 +101,25 @@ class MetadataTest {
         assertEquals("classification", item.section)
         assertEquals("Генезис полости", item.title)
         assertEquals("Карстовая полость коррозионно-эрозионного типа", item.content)
+    }
+
+    @Test
+    fun testScaleBarMath() {
+        val pixelsPerMeter = 9.0
+        val zoomMax = 5
+        val currentZoom = 5.0 // at zoomMax
+
+        // At zoomMax in MapLibre with 256px tiles, 1 image pixel = 2.0 dp
+        val dpPerMeter = pixelsPerMeter * 2.0.pow(currentZoom - zoomMax.toDouble() + 1.0)
+        assertEquals(18.0, dpPerMeter, 0.0001)
+
+        // 10 meters on the map image = 90 pixels = 180 DP on screen
+        val tenMetersDp = 10.0 * dpPerMeter
+        assertEquals(180.0, tenMetersDp, 0.0001)
+
+        // At zoomMax - 1 (zoomed out by 1 level)
+        val zoomedOutDpPerMeter = pixelsPerMeter * 2.0.pow((zoomMax - 1.0) - zoomMax.toDouble() + 1.0)
+        assertEquals(9.0, zoomedOutDpPerMeter, 0.0001)
+        assertEquals(90.0, 10.0 * zoomedOutDpPerMeter, 0.0001)
     }
 }

@@ -2,14 +2,16 @@ package com.vktrsansara.app.caveviewer.presentation.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
+import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.repository.ProjectRepository
 import com.vktrsansara.app.caveviewer.domain.repository.SettingsRepository
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -23,39 +25,38 @@ class MainViewModel(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
-    val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+    val uiState = _uiState.asStateFlow()
 
-    private val _effect = Channel<MainUiEffect>(Channel.BUFFERED)
+    private val _effect = Channel<MainUiEffect>()
     val effect = _effect.receiveAsFlow()
 
     private var projectCreationJob: Job? = null
+    private val projectCameraPositions = mutableMapOf<String, MapCameraPosition>()
 
     init {
-        observeSettings()
-        observeActiveProject()
-    }
-
-    private fun observeSettings() {
+        // Collect app settings from DataStore
         settingsRepository.settingsFlow
             .onEach { settings ->
                 _uiState.update { it.copy(settings = settings) }
             }
             .launchIn(viewModelScope)
-    }
 
-    private fun observeActiveProject() {
+        // Observe active project changes
         projectRepository.activeProjectNameFlow
+            .distinctUntilChanged()
             .onEach { activeName ->
-                if (activeName != null && activeName.isNotBlank()) {
+                if (activeName != null) {
                     val dir = projectRepository.getProjectDir(activeName)
                     val sqliteFile = dir?.let { File(it, "thismap.sqlite") }
                     val mapFile = dir?.let { File(it, "map/image.png") }
                     if (dir != null && (sqliteFile?.exists() == true || mapFile?.exists() == true)) {
+                        val savedPos = projectCameraPositions[activeName]
                         _uiState.update {
                             it.copy(
                                 hasActiveProject = true,
                                 activeProjectName = activeName,
-                                activeProjectDir = dir
+                                activeProjectDir = dir,
+                                activeProjectCameraPosition = savedPos
                             )
                         }
                     } else {
@@ -64,7 +65,8 @@ class MainViewModel(
                                 hasActiveProject = false,
                                 activeProjectName = null,
                                 activeProjectDir = null,
-                                activeProjectMetadata = null
+                                activeProjectMetadata = null,
+                                activeProjectCameraPosition = null
                             )
                         }
                     }
@@ -74,7 +76,8 @@ class MainViewModel(
                             hasActiveProject = false,
                             activeProjectName = null,
                             activeProjectDir = null,
-                            activeProjectMetadata = null
+                            activeProjectMetadata = null,
+                            activeProjectCameraPosition = null
                         )
                     }
                 }
@@ -119,11 +122,59 @@ class MainViewModel(
             }
             is MainUiIntent.ProjectListClicked -> {
                 viewModelScope.launch {
-                    val list = projectRepository.getProjectsList()
+                    val projects = projectRepository.getProjectsList()
                     _uiState.update {
                         it.copy(
-                            projectsList = list,
+                            projectsList = projects,
                             currentScreen = AppScreen.PROJECTS_LIST,
+                            isMenuExpanded = false
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.NewProjectClicked -> {
+                _uiState.update {
+                    it.copy(
+                        isProjectTypeDialogVisible = true,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.ImportProjectClicked -> {
+                _uiState.update {
+                    it.copy(
+                        underDevelopmentFeatureName = "Импорт проекта",
+                        currentScreen = AppScreen.FEATURE_UNDER_DEVELOPMENT,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.ExportProjectClicked -> {
+                _uiState.update {
+                    it.copy(
+                        underDevelopmentFeatureName = "Экспорт проекта",
+                        currentScreen = AppScreen.FEATURE_UNDER_DEVELOPMENT,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.CloseActiveProject -> {
+                viewModelScope.launch {
+                    val currentName = _uiState.value.activeProjectName
+                    if (currentName != null) {
+                        projectCameraPositions.remove(currentName)
+                    }
+                    projectRepository.setActiveProjectName(null)
+                    _uiState.update {
+                        it.copy(
+                            hasActiveProject = false,
+                            activeProjectName = null,
+                            activeProjectDir = null,
+                            activeProjectMetadata = null,
+                            activeProjectLocation = MapLocation(),
+                            activeProjectEntrances = emptyList(),
+                            activeProjectCadastralData = emptyMap(),
+                            activeProjectCameraPosition = null,
                             isMenuExpanded = false
                         )
                     }
@@ -133,83 +184,62 @@ class MainViewModel(
                 viewModelScope.launch {
                     projectRepository.setActiveProjectName(intent.projectName)
                     val dir = projectRepository.getProjectDir(intent.projectName)
+                    val meta = projectRepository.getProjectMetadata(intent.projectName)
+                    val location = projectRepository.getProjectLocation(intent.projectName)
+                    val entrances = projectRepository.getProjectEntrances(intent.projectName)
+                    val cadastral = projectRepository.getProjectCadastralData(intent.projectName)
+                    val savedPos = projectCameraPositions[intent.projectName]
                     _uiState.update {
                         it.copy(
-                            hasActiveProject = dir != null,
+                            hasActiveProject = true,
                             activeProjectName = intent.projectName,
                             activeProjectDir = dir,
-                            currentScreen = AppScreen.MAIN
+                            activeProjectMetadata = meta,
+                            activeProjectLocation = location,
+                            activeProjectEntrances = entrances,
+                            activeProjectCadastralData = cadastral,
+                            activeProjectCameraPosition = savedPos,
+                            currentScreen = AppScreen.MAIN,
+                            isMenuExpanded = false
                         )
                     }
-                    _effect.send(MainUiEffect.ShowToast("Проект «${intent.projectName}» открыт"))
                 }
             }
             is MainUiIntent.DeleteProject -> {
-                // 1. Optimistic UI update: remove from list instantly (0 ms delay)
-                _uiState.update { state ->
-                    val isActive = state.activeProjectName == intent.projectName
-                    state.copy(
-                        projectsList = state.projectsList.filter { it.name != intent.projectName },
-                        hasActiveProject = if (isActive) false else state.hasActiveProject,
-                        activeProjectName = if (isActive) null else state.activeProjectName,
-                        activeProjectDir = if (isActive) null else state.activeProjectDir,
-                        activeProjectMetadata = if (isActive) null else state.activeProjectMetadata
-                    )
-                }
-
-                // 2. Perform background deletion
                 viewModelScope.launch {
                     val result = projectRepository.deleteProject(intent.projectName)
                     result.fold(
                         onSuccess = {
-                            if (_uiState.value.activeProjectName == intent.projectName) {
+                            projectCameraPositions.remove(intent.projectName)
+                            val updatedList = projectRepository.getProjectsList()
+                            val isActive = _uiState.value.activeProjectName == intent.projectName
+                            _uiState.update {
+                                it.copy(
+                                    projectsList = updatedList,
+                                    hasActiveProject = if (isActive) false else it.hasActiveProject,
+                                    activeProjectName = if (isActive) null else it.activeProjectName,
+                                    activeProjectDir = if (isActive) null else it.activeProjectDir,
+                                    activeProjectMetadata = if (isActive) null else it.activeProjectMetadata,
+                                    activeProjectCameraPosition = if (isActive) null else it.activeProjectCameraPosition
+                                )
+                            }
+                            if (isActive) {
                                 projectRepository.setActiveProjectName(null)
                             }
-                            _effect.send(MainUiEffect.ShowToast("Проект «${intent.projectName}» удален"))
+                            _effect.send(MainUiEffect.ShowToast("Проект перемещен в корзину"))
                         },
                         onFailure = { error ->
-                            // Rollback if deletion failed
-                            val actualList = projectRepository.getProjectsList()
-                            _uiState.update { it.copy(projectsList = actualList) }
-                            _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка удаления"))
+                            _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка удаления проекта"))
                         }
                     )
                 }
             }
-            is MainUiIntent.CloseActiveProject -> {
-                viewModelScope.launch {
-                    projectRepository.setActiveProjectName(null)
-                    _uiState.update {
-                        it.copy(
-                            hasActiveProject = false,
-                            activeProjectName = null,
-                            activeProjectDir = null,
-                            activeProjectMetadata = null,
-                            isMenuExpanded = false
-                        )
-                    }
-                    _effect.send(MainUiEffect.ShowToast("Проект закрыт"))
+            is MainUiIntent.UpdateMapCameraPosition -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    projectCameraPositions[activeName] = intent.position
                 }
-            }
-            is MainUiIntent.NewProjectClicked -> {
-                _uiState.update {
-                    it.copy(
-                        isMenuExpanded = false,
-                        isProjectTypeDialogVisible = true
-                    )
-                }
-            }
-            is MainUiIntent.ImportProjectClicked -> {
-                _uiState.update { it.copy(isMenuExpanded = false) }
-                viewModelScope.launch {
-                    _effect.send(MainUiEffect.ShowToast("Функция «Импорт» в разработке"))
-                }
-            }
-            is MainUiIntent.ExportProjectClicked -> {
-                _uiState.update { it.copy(isMenuExpanded = false) }
-                viewModelScope.launch {
-                    _effect.send(MainUiEffect.ShowToast("Функция «Экспорт» в разработке"))
-                }
+                _uiState.update { it.copy(activeProjectCameraPosition = intent.position) }
             }
             is MainUiIntent.OpenMetadataEditor -> {
                 viewModelScope.launch {
@@ -251,6 +281,10 @@ class MainViewModel(
                                 projectRepository.saveProjectCadastralData(cleanName, intent.cadastralData)
                             }
                             if (cleanName != intent.originalProjectName) {
+                                val oldPos = projectCameraPositions.remove(intent.originalProjectName)
+                                if (oldPos != null) {
+                                    projectCameraPositions[cleanName] = oldPos
+                                }
                                 projectRepository.setActiveProjectName(cleanName)
                             }
                             val updatedDir = projectRepository.getProjectDir(cleanName)
@@ -320,10 +354,10 @@ class MainViewModel(
                         projectName = intent.projectName,
                         imageUri = intent.imageUri,
                         onProgress = { progress ->
-                            _uiState.update { state ->
-                                state.copy(
+                            _uiState.update {
+                                it.copy(
                                     projectSavingProgress = progress.progressFraction,
-                                    projectSavingStatusText = "Нарезка тайлов: ${progress.currentTile}/${progress.totalTiles} (Зум ${progress.currentZoom})"
+                                    projectSavingStatusText = "Нарезка тайлов зума ${progress.currentZoom} (${progress.currentTile}/${progress.totalTiles})"
                                 )
                             }
                         }
@@ -333,37 +367,41 @@ class MainViewModel(
                         onSuccess = { projectDir ->
                             val cleanName = projectDir.name
                             projectRepository.setActiveProjectName(cleanName)
+                            projectCameraPositions.remove(cleanName)
+                            val meta = projectRepository.getProjectMetadata(cleanName)
                             _uiState.update {
                                 it.copy(
                                     isProjectSaving = false,
                                     hasActiveProject = true,
                                     activeProjectName = cleanName,
                                     activeProjectDir = projectDir,
+                                    activeProjectMetadata = meta,
+                                    activeProjectLocation = MapLocation(),
+                                    activeProjectEntrances = emptyList(),
+                                    activeProjectCadastralData = emptyMap(),
+                                    activeProjectCameraPosition = null,
                                     currentScreen = AppScreen.MAIN
                                 )
                             }
-                            _effect.send(MainUiEffect.ShowToast("Проект «$cleanName» успешно создан"))
+                            _effect.send(MainUiEffect.ShowToast("Проект успешно создан"))
                         },
                         onFailure = { error ->
-                            if (error !is CancellationException) {
-                                _uiState.update { it.copy(isProjectSaving = false) }
-                                _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка создания проекта"))
-                            }
+                            _uiState.update { it.copy(isProjectSaving = false) }
+                            _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка создания проекта"))
                         }
                     )
                 }
             }
             is MainUiIntent.CancelProjectCreation -> {
                 projectCreationJob?.cancel()
+                projectCreationJob = null
                 _uiState.update {
                     it.copy(
                         isProjectSaving = false,
                         projectSavingProgress = 0f,
-                        projectSavingStatusText = ""
+                        projectSavingStatusText = "",
+                        currentScreen = AppScreen.MAIN
                     )
-                }
-                viewModelScope.launch {
-                    _effect.send(MainUiEffect.ShowToast("Создание проекта отменено"))
                 }
             }
         }

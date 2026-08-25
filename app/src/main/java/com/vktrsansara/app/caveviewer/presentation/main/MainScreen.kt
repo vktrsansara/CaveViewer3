@@ -1,6 +1,5 @@
 package com.vktrsansara.app.caveviewer.presentation.main
 
-import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -17,7 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +30,8 @@ import com.vktrsansara.app.caveviewer.presentation.components.FloatingBottomBar
 import com.vktrsansara.app.caveviewer.presentation.components.MenuPopover
 import com.vktrsansara.app.caveviewer.presentation.main.components.NoProjectPlaceholder
 import com.vktrsansara.app.caveviewer.presentation.map.MapLibreViewer
+import com.vktrsansara.app.caveviewer.presentation.map.components.CompassWidget
+import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBarWidget
 import com.vktrsansara.app.caveviewer.presentation.metadata.MetadataEditorScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.CreateRasterProjectScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.FeatureUnderDevelopmentScreen
@@ -36,25 +40,24 @@ import com.vktrsansara.app.caveviewer.presentation.projects.ProjectsListScreen
 import com.vktrsansara.app.caveviewer.presentation.settings.AppSettingsScreen
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
-import org.koin.androidx.compose.koinViewModel
 
 /**
- * Root screen orchestrator for CaveViewer.
- * Manages transitions between the MapLibre map workspace, settings, project management, metadata editor, and creation screens.
+ * Root Composable host that reacts to MVI state and manages screen navigation.
  */
 @Composable
 fun MainScreen(
-    modifier: Modifier = Modifier,
-    viewModel: MainViewModel = koinViewModel()
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
-    LaunchedEffect(viewModel.effect) {
+    // Effect handling
+    LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
                 is MainUiEffect.ExitApp -> {
-                    (context as? Activity)?.finish()
+                    (context as? android.app.Activity)?.finish()
                 }
                 is MainUiEffect.ShowToast -> {
                     Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
@@ -162,6 +165,12 @@ fun MainScreenContent(
     onIntent: (MainUiIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val initialPos = uiState.activeProjectCameraPosition
+    var mapBearing by remember(initialPos) { mutableDoubleStateOf(initialPos?.bearing ?: 0.0) }
+    var currentZoom by remember(initialPos) { mutableDoubleStateOf(initialPos?.zoom ?: 0.0) }
+    var resetBearingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var mapMetadata by remember(uiState.activeProjectMetadata) { mutableStateOf(uiState.activeProjectMetadata) }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -172,8 +181,55 @@ fun MainScreenContent(
         if (activeDir != null && uiState.hasActiveProject) {
             MapLibreViewer(
                 projectDir = activeDir,
+                initialCameraPosition = initialPos,
+                onCameraPositionChanged = { lat, lon, zoom, bearing ->
+                    mapBearing = bearing
+                    currentZoom = zoom
+                    onIntent(
+                        MainUiIntent.UpdateMapCameraPosition(
+                            com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition(
+                                targetLat = lat,
+                                targetLon = lon,
+                                zoom = zoom,
+                                bearing = bearing
+                            )
+                        )
+                    )
+                },
+                onResetBearingReady = { action ->
+                    resetBearingAction = action
+                },
+                onMetadataLoaded = { meta ->
+                    mapMetadata = meta
+                },
                 modifier = Modifier.fillMaxSize()
             )
+
+            val meta = mapMetadata ?: uiState.activeProjectMetadata
+
+            // 1. Compass Widget (Top-Start: top = 15.dp, start = 15.dp)
+            if (uiState.settings.showCompass && meta != null) {
+                CompassWidget(
+                    angleNorth = meta.angleNorth.toFloat(),
+                    mapBearing = mapBearing,
+                    onResetBearing = { resetBearingAction?.invoke() },
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = 15.dp, start = 15.dp)
+                )
+            }
+
+            // 2. Scale Bar Widget (Top-End: top = 15.dp, end = 15.dp)
+            if (uiState.settings.showScaleBar && meta != null && meta.pixelsPerMeter > 0.0 && meta.scaleMeters > 0.0) {
+                ScaleBarWidget(
+                    pixelsPerMeter = meta.pixelsPerMeter,
+                    zoomMax = meta.zoomMax,
+                    currentZoom = currentZoom,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 15.dp, end = 15.dp)
+                )
+            }
         } else {
             NoProjectPlaceholder()
         }

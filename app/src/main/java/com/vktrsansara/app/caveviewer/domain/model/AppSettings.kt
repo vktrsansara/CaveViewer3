@@ -8,5 +8,7 @@ enum class ThemeMode {
 
 data class AppSettings(
     val theme: ThemeMode = ThemeMode.AUTO,
-    val isFullscreen: Boolean = false
+    val isFullscreen: Boolean = false,
+    val showCompass: Boolean = true,
+    val showScaleBar: Boolean = true
 )
