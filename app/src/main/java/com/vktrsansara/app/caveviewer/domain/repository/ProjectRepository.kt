@@ -1,6 +1,7 @@
 package com.vktrsansara.app.caveviewer.domain.repository
 
 import android.net.Uri
+import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
@@ -26,4 +27,6 @@ interface ProjectRepository {
     suspend fun saveProjectLocation(projectName: String, location: MapLocation): Result<Unit>
     suspend fun getProjectEntrances(projectName: String): List<EntranceCoordinate>
     suspend fun saveProjectEntrances(projectName: String, entrances: List<EntranceCoordinate>): Result<Unit>
+    suspend fun getProjectCadastralData(projectName: String): Map<String, List<CadastralItem>>
+    suspend fun saveProjectCadastralData(projectName: String, data: Map<String, List<CadastralItem>>): Result<Unit>
 }

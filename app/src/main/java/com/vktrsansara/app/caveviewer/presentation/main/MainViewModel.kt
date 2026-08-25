@@ -218,11 +218,13 @@ class MainViewModel(
                         val meta = projectRepository.getProjectMetadata(activeName)
                         val location = projectRepository.getProjectLocation(activeName)
                         val entrances = projectRepository.getProjectEntrances(activeName)
+                        val cadastral = projectRepository.getProjectCadastralData(activeName)
                         _uiState.update {
                             it.copy(
                                 activeProjectMetadata = meta,
                                 activeProjectLocation = location,
                                 activeProjectEntrances = entrances,
+                                activeProjectCadastralData = cadastral,
                                 currentScreen = AppScreen.METADATA_EDITOR,
                                 isMenuExpanded = false
                             )
@@ -245,19 +247,24 @@ class MainViewModel(
                             if (intent.entrances != null) {
                                 projectRepository.saveProjectEntrances(cleanName, intent.entrances)
                             }
+                            if (intent.cadastralData != null) {
+                                projectRepository.saveProjectCadastralData(cleanName, intent.cadastralData)
+                            }
                             if (cleanName != intent.originalProjectName) {
                                 projectRepository.setActiveProjectName(cleanName)
                             }
                             val updatedDir = projectRepository.getProjectDir(cleanName)
                             val updatedLoc = intent.location ?: projectRepository.getProjectLocation(cleanName)
                             val updatedEntr = intent.entrances ?: projectRepository.getProjectEntrances(cleanName)
+                            val updatedCadastral = intent.cadastralData ?: projectRepository.getProjectCadastralData(cleanName)
                             _uiState.update {
                                 it.copy(
                                     activeProjectName = cleanName,
                                     activeProjectDir = updatedDir,
                                     activeProjectMetadata = updatedMeta,
                                     activeProjectLocation = updatedLoc,
-                                    activeProjectEntrances = updatedEntr
+                                    activeProjectEntrances = updatedEntr,
+                                    activeProjectCadastralData = updatedCadastral
                                 )
                             }
                             _effect.send(MainUiEffect.ShowToast("Метаданные сохранены"))

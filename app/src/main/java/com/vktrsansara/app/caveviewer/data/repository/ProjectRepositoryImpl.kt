@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
+import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
@@ -181,6 +182,25 @@ class ProjectRepositoryImpl(
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
             ProjectDatabase(dbFile).saveEntrances(entrances)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getProjectCadastralData(projectName: String): Map<String, List<CadastralItem>> = withContext(Dispatchers.IO) {
+        val dir = getProjectDir(projectName) ?: return@withContext emptyMap()
+        val dbFile = File(dir, "thismap.sqlite")
+        if (!dbFile.exists()) return@withContext emptyMap()
+        ProjectDatabase(dbFile).getCadastralData()
+    }
+
+    override suspend fun saveProjectCadastralData(projectName: String, data: Map<String, List<CadastralItem>>): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).saveCadastralData(data)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

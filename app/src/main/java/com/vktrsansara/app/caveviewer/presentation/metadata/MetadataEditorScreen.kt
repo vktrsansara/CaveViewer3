@@ -56,6 +56,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
@@ -68,11 +69,11 @@ import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 private val LockGoldColor = Color(0xFFFBBF24)
 private val GreenInfoColor = Color(0xFF10B981)
 
-enum class MetadataTab(val title: String, val icon: ImageVector) {
-    MAIN("Основное", Icons.Rounded.Tune),
-    GEOLOCATION("Геолокация", Icons.Rounded.AddLocation),
-    CADASTRE("Кадастр", Icons.Rounded.Description),
-    LAYERS("Слои", Icons.Rounded.Layers)
+enum class MetadataTab(val title: String, val icon: ImageVector, val color: Color) {
+    MAIN("Основное", Icons.Rounded.Tune, Color(0xFF38BDF8)),
+    GEOLOCATION("Геолокация", Icons.Rounded.AddLocation, Color(0xFF10B981)),
+    CADASTRE("Кадастр", Icons.Rounded.Description, Color(0xFFA78BFA)),
+    LAYERS("Слои", Icons.Rounded.Layers, Color(0xFFF59E0B))
 }
 
 /**
@@ -83,7 +84,8 @@ fun MetadataEditorScreen(
     metadata: MapMetadata,
     location: MapLocation = MapLocation(),
     entrances: List<EntranceCoordinate> = emptyList(),
-    onSaveMetadata: (MapMetadata, MapLocation, List<EntranceCoordinate>) -> Unit,
+    cadastralData: Map<String, List<CadastralItem>> = emptyMap(),
+    onSaveMetadata: (MapMetadata, MapLocation, List<EntranceCoordinate>, Map<String, List<CadastralItem>>) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -105,6 +107,9 @@ fun MetadataEditorScreen(
     var locationState by remember(location) { mutableStateOf(location) }
     var entrancesState by remember(entrances) { mutableStateOf(entrances) }
 
+    // Cadastral data form fields
+    var cadastralState by remember(cadastralData) { mutableStateOf(cadastralData) }
+
     // Lock states (default locked)
     var isNameLocked by remember { mutableStateOf(true) }
     var isPpmLocked by remember { mutableStateOf(true) }
@@ -118,14 +123,15 @@ fun MetadataEditorScreen(
 
     val hasUnsavedChanges = remember(
         projectName, pixelsPerMeter, scaleMeters, angleNorth, metadata,
-        locationState, location, entrancesState, entrances
+        locationState, location, entrancesState, entrances, cadastralState, cadastralData
     ) {
         projectName.trim() != metadata.projectName ||
                 (pixelsPerMeter.toDoubleOrNull() ?: 0.0) != metadata.pixelsPerMeter ||
                 (scaleMeters.toDoubleOrNull() ?: 0.0) != metadata.scaleMeters ||
                 (angleNorth.toDoubleOrNull() ?: 0.0) != metadata.angleNorth ||
                 locationState != location ||
-                entrancesState != entrances
+                entrancesState != entrances ||
+                cadastralState != cadastralData
     }
 
     val handleBackPress = {
@@ -149,7 +155,7 @@ fun MetadataEditorScreen(
             angleNorth = angleVal,
             crs = "Simple"
         )
-        onSaveMetadata(updated, locationState, entrancesState)
+        onSaveMetadata(updated, locationState, entrancesState, cadastralState)
     }
 
     // Unsaved Changes Confirmation Dialog
@@ -178,11 +184,7 @@ fun MetadataEditorScreen(
                 GeolocationHelpDialog(onDismiss = { isHelpDialogVisible = false })
             }
             MetadataTab.CADASTRE -> {
-                UnderDevelopmentHelpDialog(
-                    title = "Справка: Кадастр",
-                    description = "Раздел кадастровой информации пещеры находится в разработке.",
-                    onDismiss = { isHelpDialogVisible = false }
-                )
+                CadastralHelpDialog(onDismiss = { isHelpDialogVisible = false })
             }
             MetadataTab.LAYERS -> {
                 UnderDevelopmentHelpDialog(
@@ -246,7 +248,13 @@ fun MetadataEditorScreen(
                     onEntrancesChange = { entrancesState = it }
                 )
             }
-            MetadataTab.CADASTRE, MetadataTab.LAYERS -> {
+            MetadataTab.CADASTRE -> {
+                CadastralTab(
+                    cadastralData = cadastralState,
+                    onCadastralDataChange = { cadastralState = it }
+                )
+            }
+            MetadataTab.LAYERS -> {
                 TabUnderDevelopmentContent(tabTitle = selectedTab.title)
             }
         }
@@ -388,7 +396,7 @@ private fun MetadataTabBar(
                     Icon(
                         imageVector = tab.icon,
                         contentDescription = tab.title,
-                        tint = if (isSelected) AccentSkyBlue else AppColors.textSecondary,
+                        tint = if (isSelected) tab.color else tab.color.copy(alpha = 0.5f),
                         modifier = Modifier.size(20.dp)
                     )
 
@@ -398,7 +406,7 @@ private fun MetadataTabBar(
                         text = tab.title,
                         fontSize = 12.sp,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (isSelected) AccentSkyBlue else AppColors.textSecondary
+                        color = if (isSelected) tab.color else AppColors.textSecondary
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -408,7 +416,7 @@ private fun MetadataTabBar(
                         modifier = Modifier
                             .fillMaxWidth(0.85f)
                             .height(2.dp)
-                            .background(if (isSelected) AccentSkyBlue else Color.Transparent)
+                            .background(if (isSelected) tab.color else Color.Transparent)
                     )
                 }
             }
@@ -1079,7 +1087,8 @@ private fun MetadataEditorScreenPreview() {
             entrances = listOf(
                 EntranceCoordinate(pointIndex = 0, name = "Главный вход", lat = 43.456, lon = 40.123, alt = 1250.0)
             ),
-            onSaveMetadata = { _, _, _ -> },
+            cadastralData = emptyMap(),
+            onSaveMetadata = { _, _, _, _ -> },
             onNavigateBack = {}
         )
     }

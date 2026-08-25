@@ -1,5 +1,7 @@
 package com.vktrsansara.app.caveviewer
 
+import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
+import com.vktrsansara.app.caveviewer.domain.model.CadastralSection
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
@@ -76,5 +78,27 @@ class MetadataTest {
         assertEquals(1, reindexed.size)
         assertEquals(0, reindexed[0].pointIndex)
         assertEquals("Провал №2", reindexed[0].name)
+    }
+
+    @Test
+    fun testCadastralModels() {
+        assertEquals(7, CadastralSection.entries.size)
+        assertEquals("classification", CadastralSection.CLASSIFICATION.key)
+        assertEquals("topology", CadastralSection.TOPOLOGY.key)
+        assertEquals("morphology", CadastralSection.MORPHOLOGY.key)
+        assertEquals("climate", CadastralSection.CLIMATE.key)
+        assertEquals("hydrology", CadastralSection.HYDROLOGY.key)
+        assertEquals("biota", CadastralSection.BIOTA.key)
+        assertEquals("description", CadastralSection.DESCRIPTION.key)
+
+        val item = CadastralItem(
+            id = 1,
+            section = CadastralSection.CLASSIFICATION.key,
+            title = "Генезис полости",
+            content = "Карстовая полость коррозионно-эрозионного типа"
+        )
+        assertEquals("classification", item.section)
+        assertEquals("Генезис полости", item.title)
+        assertEquals("Карстовая полость коррозионно-эрозионного типа", item.content)
     }
 }

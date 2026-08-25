@@ -130,13 +130,15 @@ fun MainScreen(
                         metadata = metadata,
                         location = uiState.activeProjectLocation,
                         entrances = uiState.activeProjectEntrances,
-                        onSaveMetadata = { updatedMeta, updatedLocation, updatedEntrances ->
+                        cadastralData = uiState.activeProjectCadastralData,
+                        onSaveMetadata = { updatedMeta, updatedLocation, updatedEntrances, updatedCadastral ->
                             viewModel.handleIntent(
                                 MainUiIntent.SaveMetadata(
                                     updatedMetadata = updatedMeta,
                                     originalProjectName = activeName,
                                     location = updatedLocation,
-                                    entrances = updatedEntrances
+                                    entrances = updatedEntrances,
+                                    cadastralData = updatedCadastral
                                 )
                             )
                         },

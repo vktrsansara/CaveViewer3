@@ -5,6 +5,7 @@ import com.vktrsansara.app.caveviewer.core.mvi.UiEffect
 import com.vktrsansara.app.caveviewer.core.mvi.UiIntent
 import com.vktrsansara.app.caveviewer.core.mvi.UiState
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
+import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
@@ -32,6 +33,7 @@ data class MainUiState(
     val activeProjectMetadata: MapMetadata? = null,
     val activeProjectLocation: MapLocation = MapLocation(),
     val activeProjectEntrances: List<EntranceCoordinate> = emptyList(),
+    val activeProjectCadastralData: Map<String, List<CadastralItem>> = emptyMap(),
     val projectsList: List<ProjectInfo> = emptyList(),
     val isProjectSaving: Boolean = false,
     val projectSavingName: String = "",
@@ -62,7 +64,8 @@ sealed interface MainUiIntent : UiIntent {
         val updatedMetadata: MapMetadata,
         val originalProjectName: String,
         val location: MapLocation? = null,
-        val entrances: List<EntranceCoordinate>? = null
+        val entrances: List<EntranceCoordinate>? = null,
+        val cadastralData: Map<String, List<CadastralItem>>? = null
     ) : MainUiIntent
 
     // Projects List actions

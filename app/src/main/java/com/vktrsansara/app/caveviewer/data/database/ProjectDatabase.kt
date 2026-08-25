@@ -2,6 +2,7 @@ package com.vktrsansara.app.caveviewer.data.database
 
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
+import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
@@ -73,6 +74,19 @@ class ProjectDatabase(private val dbFile: File) {
                     lat REAL,
                     lon REAL,
                     alt REAL
+                );
+                """.trimIndent()
+            )
+
+            // Cadastral documentation records table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS cadastral_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    section TEXT NOT NULL,
+                    record_order INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL
                 );
                 """.trimIndent()
             )
@@ -224,6 +238,52 @@ class ProjectDatabase(private val dbFile: File) {
             }
         } catch (_: Exception) {
             emptyList()
+        }
+    }
+
+    fun saveCadastralData(data: Map<String, List<CadastralItem>>) {
+        openDatabase().use { db ->
+            db.beginTransaction()
+            try {
+                db.execSQL("DELETE FROM cadastral_records")
+                data.forEach { (section, items) ->
+                    items.forEachIndexed { index, item ->
+                        val values = ContentValues().apply {
+                            put("section", section)
+                            put("record_order", index)
+                            put("title", item.title)
+                            put("content", item.content)
+                        }
+                        db.insert("cadastral_records", null, values)
+                    }
+                }
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+        }
+    }
+
+    fun getCadastralData(): Map<String, List<CadastralItem>> {
+        if (!dbFile.exists()) return emptyMap()
+        return try {
+            openDatabase().use { db ->
+                val cursor = db.rawQuery("SELECT id, section, record_order, title, content FROM cadastral_records ORDER BY section ASC, record_order ASC", null)
+                val map = mutableMapOf<String, MutableList<CadastralItem>>()
+                cursor.use { c ->
+                    while (c.moveToNext()) {
+                        val id = c.getLong(0)
+                        val section = c.getString(1) ?: ""
+                        val title = c.getString(3) ?: ""
+                        val content = c.getString(4) ?: ""
+                        val list = map.getOrPut(section) { mutableListOf() }
+                        list.add(CadastralItem(id = id, section = section, title = title, content = content))
+                    }
+                }
+                map
+            }
+        } catch (_: Exception) {
+            emptyMap()
         }
     }
 }
