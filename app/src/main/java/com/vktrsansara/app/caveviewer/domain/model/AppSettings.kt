@@ -6,11 +6,17 @@ enum class ThemeMode {
     DARK
 }
 
+enum class CompassTapMode {
+    HORIZONTAL,   // Выравнивание по горизонтали (растр 0°)
+    SCREEN_NORTH  // Выравнивание по экрану (Север строго вверх)
+}
+
 data class AppSettings(
     val theme: ThemeMode = ThemeMode.AUTO,
     val isFullscreen: Boolean = false,
-    val showCompass: Boolean = true,
     val showScaleBar: Boolean = true,
+    val showCompass: Boolean = true,
+    val compassTapMode: CompassTapMode = CompassTapMode.HORIZONTAL,
     val cursorShow: Boolean = true,
     val cursorType: Int = 1,              // 1..6 cursor presets
     val cursorColor: Long = 0xFFEF4444L,  // Cursor color (with alpha)

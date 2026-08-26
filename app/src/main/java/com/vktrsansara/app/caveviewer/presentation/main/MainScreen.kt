@@ -37,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vktrsansara.app.caveviewer.domain.model.CompassTapMode
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.ToolType
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
@@ -279,6 +280,7 @@ fun MainScreen(
                     onThemeChanged = { viewModel.handleIntent(MainUiIntent.UpdateTheme(it)) },
                     onFullscreenChanged = { viewModel.handleIntent(MainUiIntent.UpdateFullscreen(it)) },
                     onShowCompassChanged = { viewModel.handleIntent(MainUiIntent.OnShowCompassChanged(it)) },
+                    onCompassTapModeChanged = { viewModel.handleIntent(MainUiIntent.UpdateCompassTapMode(it)) },
                     onShowScaleBarChanged = { viewModel.handleIntent(MainUiIntent.OnShowScaleBarChanged(it)) },
                     onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
                 )
@@ -382,7 +384,7 @@ fun MainScreenContent(
     var currentZoom by remember(initialPos) { mutableDoubleStateOf(initialPos?.zoom ?: 0.0) }
     var currentTargetLat by remember(initialPos) { mutableDoubleStateOf(initialPos?.targetLat ?: 0.0) }
     var currentTargetLon by remember(initialPos) { mutableDoubleStateOf(initialPos?.targetLon ?: 0.0) }
-    var resetBearingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var resetBearingAction by remember { mutableStateOf<((Double) -> Unit)?>(null) }
     var mapMetadata by remember(uiState.activeProjectMetadata) { mutableStateOf(uiState.activeProjectMetadata) }
     var bindingScreenPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
     var projector by remember { mutableStateOf<((LatLng) -> Offset)?>(null) }
@@ -621,7 +623,16 @@ fun MainScreenContent(
                 CompassWidget(
                     angleNorth = meta.angleNorth.toFloat(),
                     mapBearing = mapBearing,
-                    onResetBearing = { resetBearingAction?.invoke() },
+                    onResetBearing = {
+                        val targetBearing = when (uiState.settings.compassTapMode) {
+                            CompassTapMode.HORIZONTAL -> 0.0 // Горизонтальное выравнивание растра
+                            CompassTapMode.SCREEN_NORTH -> {
+                                // Поворот карты так, чтобы стрелка севера смотрела строго в верх экрана
+                                (meta.angleNorth % 360.0 + 360.0) % 360.0
+                            }
+                        }
+                        resetBearingAction?.invoke(targetBearing)
+                    },
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(top = 15.dp, start = 15.dp)

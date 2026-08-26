@@ -6,6 +6,7 @@ import com.vktrsansara.app.caveviewer.core.mvi.UiIntent
 import com.vktrsansara.app.caveviewer.core.mvi.UiState
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
 import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
+import com.vktrsansara.app.caveviewer.domain.model.CompassTapMode
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
@@ -105,6 +106,7 @@ sealed interface MainUiIntent : UiIntent {
     data class UpdateTheme(val theme: ThemeMode) : MainUiIntent
     data class UpdateFullscreen(val enabled: Boolean) : MainUiIntent
     data class OnShowCompassChanged(val enabled: Boolean) : MainUiIntent
+    data class UpdateCompassTapMode(val mode: CompassTapMode) : MainUiIntent
     data class OnShowScaleBarChanged(val enabled: Boolean) : MainUiIntent
     data class UpdateCursorShow(val show: Boolean) : MainUiIntent
     data class UpdateCursorType(val type: Int) : MainUiIntent

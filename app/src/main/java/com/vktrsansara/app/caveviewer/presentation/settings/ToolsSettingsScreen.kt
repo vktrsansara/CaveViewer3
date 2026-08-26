@@ -156,20 +156,31 @@ fun ToolsSettingsScreen(
                         color = AppColors.textPrimary
                     )
 
-                    IconButton(
-                        onClick = { isCursorHelpDialogVisible = true },
-                        modifier = Modifier.size(24.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.bgSurface)
+                            .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = { isCursorHelpDialogVisible = true }
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Info,
                             contentDescription = "Справка по курсору",
                             tint = GreenInfoColor,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+                Spacer(modifier = Modifier.height(8.dp))
 
                 val switchColors = SwitchDefaults.colors(
                     checkedThumbColor = AppColors.textPrimary,
@@ -323,20 +334,31 @@ fun ToolsSettingsScreen(
                         color = AppColors.textPrimary
                     )
 
-                    IconButton(
-                        onClick = { isGridHelpDialogVisible = true },
-                        modifier = Modifier.size(24.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.bgSurface)
+                            .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = { isGridHelpDialogVisible = true }
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Info,
                             contentDescription = "Справка по сетке",
                             tint = GreenInfoColor,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+                Spacer(modifier = Modifier.height(8.dp))
 
                 val radioButtonColors = RadioButtonDefaults.colors(
                     selectedColor = AccentSkyBlue,
@@ -526,20 +548,31 @@ fun ToolsSettingsScreen(
                         color = AppColors.textPrimary
                     )
 
-                    IconButton(
-                        onClick = { isColorPaletteHelpDialogVisible = true },
-                        modifier = Modifier.size(24.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.bgSurface)
+                            .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = { isColorPaletteHelpDialogVisible = true }
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Info,
                             contentDescription = "Справка по цветам колорпикера",
                             tint = GreenInfoColor,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+                Spacer(modifier = Modifier.height(8.dp))
 
                 val radioButtonColors = RadioButtonDefaults.colors(
                     selectedColor = AccentSkyBlue,

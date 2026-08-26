@@ -25,7 +25,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
@@ -47,6 +46,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
+import com.vktrsansara.app.caveviewer.domain.model.CompassTapMode
 import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
@@ -61,6 +61,7 @@ fun AppSettingsScreen(
     onThemeChanged: (ThemeMode) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
     onShowCompassChanged: (Boolean) -> Unit,
+    onCompassTapModeChanged: (CompassTapMode) -> Unit,
     onShowScaleBarChanged: (Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -100,7 +101,9 @@ fun AppSettingsScreen(
                     color = AppColors.textPrimary
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     // H3: Options
@@ -131,28 +134,36 @@ fun AppSettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // H2: Section Title
                     Text(
                         text = "Интерфейс",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = AppColors.textPrimary
                     )
-
-                    IconButton(
-                        onClick = { isInfoDialogVisible = true },
-                        modifier = Modifier.size(24.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.bgSurface)
+                            .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = { isInfoDialogVisible = true }
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Info,
                             contentDescription = "Справка по интерфейсу",
                             tint = Color(0xFF10B981),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+                Spacer(modifier = Modifier.height(6.dp))
 
                 val switchColors = SwitchDefaults.colors(
                     checkedThumbColor = AppColors.textPrimary,
@@ -183,7 +194,6 @@ fun AppSettingsScreen(
                             fontWeight = FontWeight.Medium,
                             color = AppColors.textPrimary
                         )
-
                         Switch(
                             checked = settings.isFullscreen,
                             onCheckedChange = onFullscreenChanged,
@@ -192,36 +202,7 @@ fun AppSettingsScreen(
                         )
                     }
 
-                    // 2. Показывать компас
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(color = AppColors.pressedColor),
-                                onClick = { onShowCompassChanged(!settings.showCompass) }
-                            )
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Показывать компас",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = AppColors.textPrimary
-                        )
-
-                        Switch(
-                            checked = settings.showCompass,
-                            onCheckedChange = onShowCompassChanged,
-                            modifier = Modifier.scale(0.85f),
-                            colors = switchColors
-                        )
-                    }
-
-                    // 3. Полоска масштаба
+                    // 2. Полоска масштаба
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -241,13 +222,128 @@ fun AppSettingsScreen(
                             fontWeight = FontWeight.Medium,
                             color = AppColors.textPrimary
                         )
-
                         Switch(
                             checked = settings.showScaleBar,
                             onCheckedChange = onShowScaleBarChanged,
                             modifier = Modifier.scale(0.85f),
                             colors = switchColors
                         )
+                    }
+
+                    // 3. Показывать компас
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = { onShowCompassChanged(!settings.showCompass) }
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Показывать компас",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = AppColors.textPrimary
+                        )
+                        Switch(
+                            checked = settings.showCompass,
+                            onCheckedChange = onShowCompassChanged,
+                            modifier = Modifier.scale(0.85f),
+                            colors = switchColors
+                        )
+                    }
+
+                    // 4. Подблок: Нажатие на компас (показывается, если компас включен)
+                    if (settings.showCompass) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = "Нажатие на компас",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = AppColors.textPrimary,
+                            modifier = Modifier.padding(horizontal = 6.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                            modifier = Modifier.padding(start = 2.dp)
+                        ) {
+                            // Вариант 1: Выравнивание по горизонтали
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = ripple(color = AppColors.pressedColor),
+                                        onClick = { onCompassTapModeChanged(CompassTapMode.HORIZONTAL) }
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = settings.compassTapMode == CompassTapMode.HORIZONTAL,
+                                    onClick = { onCompassTapModeChanged(CompassTapMode.HORIZONTAL) },
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .scale(0.85f),
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = AppColors.accent,
+                                        unselectedColor = AppColors.textSecondary
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Выравнивание по горизонтали",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = AppColors.textPrimary
+                                )
+                            }
+
+                            // Вариант 2: Выравнивание по экрану
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = ripple(color = AppColors.pressedColor),
+                                        onClick = { onCompassTapModeChanged(CompassTapMode.SCREEN_NORTH) }
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = settings.compassTapMode == CompassTapMode.SCREEN_NORTH,
+                                    onClick = { onCompassTapModeChanged(CompassTapMode.SCREEN_NORTH) },
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .scale(0.85f),
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = AppColors.accent,
+                                        unselectedColor = AppColors.textSecondary
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Выравнивание по экрану",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = AppColors.textPrimary
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -376,6 +472,7 @@ private fun AppSettingsScreenDarkPreview() {
             onThemeChanged = {},
             onFullscreenChanged = {},
             onShowCompassChanged = {},
+            onCompassTapModeChanged = {},
             onShowScaleBarChanged = {},
             onNavigateBack = {}
         )
@@ -391,6 +488,7 @@ private fun AppSettingsScreenLightPreview() {
             onThemeChanged = {},
             onFullscreenChanged = {},
             onShowCompassChanged = {},
+            onCompassTapModeChanged = {},
             onShowScaleBarChanged = {},
             onNavigateBack = {}
         )

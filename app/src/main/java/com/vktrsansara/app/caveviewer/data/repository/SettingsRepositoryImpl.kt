@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
+import com.vktrsansara.app.caveviewer.domain.model.CompassTapMode
 import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
 import com.vktrsansara.app.caveviewer.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +30,7 @@ class SettingsRepositoryImpl(
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val FULLSCREEN_ENABLED = booleanPreferencesKey("fullscreen_enabled")
         val SHOW_COMPASS = booleanPreferencesKey("show_compass")
+        val COMPASS_TAP_MODE = stringPreferencesKey("compass_tap_mode")
         val SHOW_SCALE_BAR = booleanPreferencesKey("show_scale_bar")
         val CURSOR_SHOW = booleanPreferencesKey("cursor_show")
         val CURSOR_TYPE = intPreferencesKey("cursor_type")
@@ -59,6 +61,12 @@ class SettingsRepositoryImpl(
             }
             val isFullscreen = preferences[PreferencesKeys.FULLSCREEN_ENABLED] ?: false
             val showCompass = preferences[PreferencesKeys.SHOW_COMPASS] ?: true
+            val compassTapModeName = preferences[PreferencesKeys.COMPASS_TAP_MODE] ?: CompassTapMode.HORIZONTAL.name
+            val compassTapMode = try {
+                CompassTapMode.valueOf(compassTapModeName)
+            } catch (e: IllegalArgumentException) {
+                CompassTapMode.HORIZONTAL
+            }
             val showScaleBar = preferences[PreferencesKeys.SHOW_SCALE_BAR] ?: true
             val cursorShow = preferences[PreferencesKeys.CURSOR_SHOW] ?: true
             val cursorType = preferences[PreferencesKeys.CURSOR_TYPE] ?: 1
@@ -82,6 +90,7 @@ class SettingsRepositoryImpl(
                 isFullscreen = isFullscreen,
                 showCompass = showCompass,
                 showScaleBar = showScaleBar,
+                compassTapMode = compassTapMode,
                 cursorShow = cursorShow,
                 cursorType = cursorType,
                 cursorColor = cursorColor,
@@ -110,6 +119,12 @@ class SettingsRepositoryImpl(
     override suspend fun updateShowCompass(show: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.SHOW_COMPASS] = show
+        }
+    }
+
+    override suspend fun setCompassTapMode(mode: CompassTapMode) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.COMPASS_TAP_MODE] = mode.name
         }
     }
 

@@ -33,58 +33,50 @@ fun InterfaceInfoDialog(
             )
         }
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // 1. Во весь экран
-            Column {
-                Text(
-                    text = "Во весь экран",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AccentSkyBlue
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "Скрывает верхнюю системную шторку и нижнюю панель навигации Android для максимального увеличения рабочей области карты.",
-                    fontSize = 12.5.sp,
-                    lineHeight = 17.sp,
-                    color = AppColors.textSecondary
-                )
-            }
-
-            // 2. Показывать компас
-            Column {
-                Text(
-                    text = "Показывать компас",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AccentSkyBlue
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "Отображает в левом верхнем углу виджет компаса с азимутом на север. Клик по компасу плавно возвращает карту в положение на север.",
-                    fontSize = 12.5.sp,
-                    lineHeight = 17.sp,
-                    color = AppColors.textSecondary
-                )
-            }
-
-            // 3. Полоска масштаба
-            Column {
-                Text(
-                    text = "Полоска масштаба",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AccentSkyBlue
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "Отображает в правом верхнем углу линейку реального масштаба в метрах с динамическим пересчетом при приближении и отдалении карты.",
-                    fontSize = 12.5.sp,
-                    lineHeight = 17.sp,
-                    color = AppColors.textSecondary
-                )
-            }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            HelpItem(
+                title = "Во весь экран",
+                desc = "Скрывает системные панели Android для максимального расширения рабочей области карты."
+            )
+            HelpItem(
+                title = "Полоска масштаба",
+                desc = "Отображает в правом верхнем углу линейку реального масштаба в метрах с динамическим пересчетом при зуме."
+            )
+            HelpItem(
+                title = "Показывать компас",
+                desc = "Отображает в левом верхнем углу виджет компаса с азимутом направления на север."
+            )
+            HelpItem(
+                title = "Нажатие на компас: Выравнивание по горизонтали",
+                desc = "Клик по компасу плавно возвращает карту в исходную ориентацию растрового скана (поворот 0°)."
+            )
+            HelpItem(
+                title = "Нажатие на компас: Выравнивание по экрану",
+                desc = "Клик по компасу плавно поворачивает карту так, чтобы истинный север пещеры (angle_north) смотрел строго в верхний край экрана смартфона."
+            )
         }
+    }
+}
+
+@Composable
+private fun HelpItem(
+    title: String,
+    desc: String
+) {
+    Column {
+        Text(
+            text = title,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AccentSkyBlue
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = desc,
+            fontSize = 12.5.sp,
+            lineHeight = 17.sp,
+            color = AppColors.textSecondary
+        )
     }
 }
 

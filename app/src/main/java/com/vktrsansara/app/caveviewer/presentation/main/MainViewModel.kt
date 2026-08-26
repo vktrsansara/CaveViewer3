@@ -150,6 +150,11 @@ class MainViewModel(
                     settingsRepository.updateShowCompass(intent.enabled)
                 }
             }
+            is MainUiIntent.UpdateCompassTapMode -> {
+                viewModelScope.launch {
+                    settingsRepository.setCompassTapMode(intent.mode)
+                }
+            }
             is MainUiIntent.OnShowScaleBarChanged -> {
                 viewModelScope.launch {
                     settingsRepository.updateShowScaleBar(intent.enabled)

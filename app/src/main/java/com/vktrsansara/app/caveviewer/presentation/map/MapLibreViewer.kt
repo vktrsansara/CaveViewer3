@@ -70,7 +70,7 @@ fun MapLibreViewer(
     onBindingScreenPointsChanged: (List<Offset>) -> Unit = {},
     onProjectorReady: (((LatLng) -> Offset) -> Unit)? = null,
     onMapCenterClick: (LatLng) -> Unit = {},
-    onResetBearingReady: (() -> Unit) -> Unit = {},
+    onResetBearingReady: ((Double) -> Unit) -> Unit = {},
     onMetadataLoaded: (MapMetadata) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -203,7 +203,7 @@ private fun MapLibreMapViewContainer(
     onBindingScreenPointsChanged: (List<Offset>) -> Unit,
     onProjectorReady: (((LatLng) -> Offset) -> Unit)? = null,
     onMapCenterClick: (LatLng) -> Unit,
-    onResetBearingReady: (() -> Unit) -> Unit,
+    onResetBearingReady: ((Double) -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -302,11 +302,11 @@ private fun MapLibreMapViewContainer(
             getMapAsync { maplibreMap ->
                 maplibreMapInstance = maplibreMap
 
-                // Provide callback to reset rotation bearing smoothly to 0°
-                currentOnResetBearingReady {
+                // Provide callback to reset rotation bearing smoothly to specified target bearing
+                currentOnResetBearingReady { targetBearing ->
                     val currentCam = maplibreMap.cameraPosition
-                    val targetCam = CameraPosition.Builder(currentCam).bearing(0.0).build()
-                    maplibreMap.easeCamera(CameraUpdateFactory.newCameraPosition(targetCam), 300)
+                    val targetCam = CameraPosition.Builder(currentCam).bearing(targetBearing).build()
+                    maplibreMap.easeCamera(CameraUpdateFactory.newCameraPosition(targetCam), 350)
                 }
 
                 // Handle single tap click on map -> provides map center (under cursor)
