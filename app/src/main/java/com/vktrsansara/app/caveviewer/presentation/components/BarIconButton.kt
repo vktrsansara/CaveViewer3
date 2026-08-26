@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -67,6 +68,52 @@ fun BarIconButton(
     ) {
         Icon(
             imageVector = icon,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+/**
+ * Overload of BarIconButton accepting Painter (for custom vector drawables like R.drawable.undo_24).
+ */
+@Composable
+fun BarIconButton(
+    painter: Painter,
+    contentDescription: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tint: Color = AccentSkyBlue
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 600f),
+        label = "BarButtonScalePainter"
+    )
+
+    Box(
+        modifier = modifier
+            .size(34.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(RoundedCornerShape(6.dp))
+            .background(AppColors.bgCard)
+            .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(color = AppColors.pressedColor),
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painter,
             contentDescription = contentDescription,
             tint = tint,
             modifier = Modifier.size(18.dp)

@@ -122,4 +122,21 @@ object CaveMapBounds {
         val pixelY = worldY - imageTopPx
         return Pair(pixelX, pixelY)
     }
+
+    /**
+     * Вычисляет азимут направления на север в градусах (0.00..360.00°)
+     * p1 - основание стрелки (Юг), p2 - острие стрелки (Север) в пикселях изображения.
+     */
+    fun calculateNorthAngle(
+        p1: Pair<Double, Double>,
+        p2: Pair<Double, Double>
+    ): Double {
+        val dx = p2.first - p1.first
+        // Так как ось Y изображения направлена вниз, направление вверх - это (p1.second - p2.second)
+        val dy = p1.second - p2.second
+        
+        var angleDeg = Math.toDegrees(kotlin.math.atan2(dx, dy))
+        angleDeg = (angleDeg + 360.0) % 360.0
+        return angleDeg
+    }
 }

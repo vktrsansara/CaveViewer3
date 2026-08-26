@@ -62,6 +62,7 @@ import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
+import com.vktrsansara.app.caveviewer.presentation.components.DialogSaveButton
 import com.vktrsansara.app.caveviewer.ui.theme.AccentRed
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
@@ -92,24 +93,32 @@ fun MetadataEditorScreen(
 ) {
     var selectedTab by remember { mutableStateOf(MetadataTab.MAIN) }
 
+    val initialProjectName = remember(metadata) { metadata.projectName }
+    val initialPpm = remember(metadata) {
+        if (metadata.pixelsPerMeter > 0.0) String.format(Locale.US, "%.4f", metadata.pixelsPerMeter) else "0.0"
+    }
+    val initialScale = remember(metadata) {
+        if (metadata.scaleMeters > 0.0) metadata.scaleMeters.toString() else "0.0"
+    }
+    val initialAngle = remember(metadata) {
+        if (metadata.angleNorth > 0.0) metadata.angleNorth.toString() else "0.0"
+    }
+    val initialLocation = remember(location) { location }
+    val initialEntrances = remember(entrances) { entrances }
+    val initialCadastral = remember(cadastralData) { cadastralData }
+
     // Form fields initialized with current metadata
-    var projectName by remember(metadata) { mutableStateOf(metadata.projectName) }
-    var pixelsPerMeter by remember(metadata) {
-        mutableStateOf(if (metadata.pixelsPerMeter > 0.0) String.format(Locale.US, "%.4f", metadata.pixelsPerMeter) else "0.0")
-    }
-    var scaleMeters by remember(metadata) {
-        mutableStateOf(if (metadata.scaleMeters > 0.0) metadata.scaleMeters.toString() else "0.0")
-    }
-    var angleNorth by remember(metadata) {
-        mutableStateOf(if (metadata.angleNorth > 0.0) metadata.angleNorth.toString() else "0.0")
-    }
+    var projectName by remember(metadata) { mutableStateOf(initialProjectName) }
+    var pixelsPerMeter by remember(metadata) { mutableStateOf(initialPpm) }
+    var scaleMeters by remember(metadata) { mutableStateOf(initialScale) }
+    var angleNorth by remember(metadata) { mutableStateOf(initialAngle) }
 
     // Geolocation form fields
-    var locationState by remember(location) { mutableStateOf(location) }
-    var entrancesState by remember(entrances) { mutableStateOf(entrances) }
+    var locationState by remember(location) { mutableStateOf(initialLocation) }
+    var entrancesState by remember(entrances) { mutableStateOf(initialEntrances) }
 
     // Cadastral data form fields
-    var cadastralState by remember(cadastralData) { mutableStateOf(cadastralData) }
+    var cadastralState by remember(cadastralData) { mutableStateOf(initialCadastral) }
 
     // Lock states (default locked)
     var isNameLocked by remember { mutableStateOf(true) }
@@ -123,16 +132,17 @@ fun MetadataEditorScreen(
     var isUnsavedChangesDialogVisible by remember { mutableStateOf(false) }
 
     val hasUnsavedChanges = remember(
-        projectName, pixelsPerMeter, scaleMeters, angleNorth, metadata,
-        locationState, location, entrancesState, entrances, cadastralState, cadastralData
+        projectName, pixelsPerMeter, scaleMeters, angleNorth,
+        initialProjectName, initialPpm, initialScale, initialAngle,
+        locationState, initialLocation, entrancesState, initialEntrances, cadastralState, initialCadastral
     ) {
-        projectName.trim() != metadata.projectName ||
-                (pixelsPerMeter.toDoubleOrNull() ?: 0.0) != metadata.pixelsPerMeter ||
-                (scaleMeters.toDoubleOrNull() ?: 0.0) != metadata.scaleMeters ||
-                (angleNorth.toDoubleOrNull() ?: 0.0) != metadata.angleNorth ||
-                locationState != location ||
-                entrancesState != entrances ||
-                cadastralState != cadastralData
+        projectName.trim() != initialProjectName.trim() ||
+                pixelsPerMeter.trim() != initialPpm.trim() ||
+                scaleMeters.trim() != initialScale.trim() ||
+                angleNorth.trim() != initialAngle.trim() ||
+                locationState != initialLocation ||
+                entrancesState != initialEntrances ||
+                cadastralState != initialCadastral
     }
 
     val handleBackPress = {
@@ -855,78 +865,41 @@ private fun UnsavedChangesDialog(
                 .clip(RoundedCornerShape(8.dp))
                 .background(AppColors.bgCard)
                 .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(16.dp)
         ) {
             Text(
                 text = "Несохраненные изменения",
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.textPrimary,
-                textAlign = TextAlign.Center
+                fontWeight = FontWeight.SemiBold,
+                color = AppColors.textPrimary
             )
 
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = "Вы внесли изменения, которые не были сохранены. Хотите сохранить их перед выходом?",
                 fontSize = 13.sp,
                 color = AppColors.textSecondary,
-                textAlign = TextAlign.Center,
                 lineHeight = 18.sp
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.End
             ) {
-                // Save Button (Blue Solid)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF007AFF))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = Color.White.copy(alpha = 0.3f)),
-                            onClick = onSaveAndExit
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Сохранить",
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-
-                // Discard Button (Red Border)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(38.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color.Transparent)
-                        .border(width = 1.dp, color = AccentRed, shape = RoundedCornerShape(6.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = AccentRed.copy(alpha = 0.2f)),
-                            onClick = onDiscardAndExit
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Без сохран.",
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AccentRed
-                    )
-                }
+                DialogCancelButton(
+                    text = "Без сохран.",
+                    onClick = onDiscardAndExit
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                DialogSaveButton(
+                    text = "Сохранить",
+                    onClick = onSaveAndExit
+                )
             }
         }
     }

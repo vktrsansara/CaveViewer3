@@ -173,4 +173,32 @@ class MetadataTest {
         val formattedPpm = String.format(java.util.Locale.US, "%.4f", ppm)
         assertEquals("14.2385", formattedPpm)
     }
+
+    @Test
+    fun testNorthAngleCalculation() {
+        // Pointing straight UP -> North (0°)
+        val pSouth = Pair(100.0, 200.0)
+        val pNorth = Pair(100.0, 100.0)
+        val angleNorth = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.calculateNorthAngle(pSouth, pNorth)
+        assertEquals(0.0, angleNorth, 0.01)
+
+        // Pointing RIGHT -> East (90°)
+        val pEast = Pair(200.0, 200.0)
+        val angleEast = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.calculateNorthAngle(pSouth, pEast)
+        assertEquals(90.0, angleEast, 0.01)
+
+        // Pointing DOWN -> South (180°)
+        val angleSouth = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.calculateNorthAngle(pNorth, pSouth)
+        assertEquals(180.0, angleSouth, 0.01)
+
+        // Pointing LEFT -> West (270°)
+        val pWest = Pair(0.0, 200.0)
+        val angleWest = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.calculateNorthAngle(pSouth, pWest)
+        assertEquals(270.0, angleWest, 0.01)
+
+        // Pointing UP-RIGHT -> North-East (45°)
+        val pNorthEast = Pair(200.0, 100.0)
+        val angleNE = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.calculateNorthAngle(pSouth, pNorthEast)
+        assertEquals(45.0, angleNE, 0.01)
+    }
 }

@@ -213,6 +213,10 @@ class MainViewModel(
                             scaleBindingPoints = emptyList(),
                             isScaleBindingHelpVisible = false,
                             isScaleBindingInputVisible = false,
+                            isNorthBindingMode = false,
+                            northBindingPoints = emptyList(),
+                            isNorthBindingHelpVisible = false,
+                            isNorthBindingInputVisible = false,
                             isMenuExpanded = false
                         )
                     }
@@ -235,6 +239,10 @@ class MainViewModel(
                             scaleBindingPoints = emptyList(),
                             isScaleBindingHelpVisible = false,
                             isScaleBindingInputVisible = false,
+                            isNorthBindingMode = false,
+                            northBindingPoints = emptyList(),
+                            isNorthBindingHelpVisible = false,
+                            isNorthBindingInputVisible = false,
                             currentScreen = AppScreen.MAIN
                         )
                     }
@@ -346,6 +354,10 @@ class MainViewModel(
                             isScaleBindingMode = true,
                             scaleBindingPoints = emptyList(),
                             isScaleBindingHelpVisible = true,
+                            isNorthBindingMode = false,
+                            northBindingPoints = emptyList(),
+                            isNorthBindingHelpVisible = false,
+                            isNorthBindingInputVisible = false,
                             isMenuExpanded = false
                         )
                     }
@@ -439,6 +451,112 @@ class MainViewModel(
                     }
                 }
             }
+            is MainUiIntent.StartNorthBinding -> {
+                viewModelScope.launch {
+                    val activeName = _uiState.value.activeProjectName
+                    val meta = if (activeName != null) projectRepository.getProjectMetadata(activeName) else _uiState.value.activeProjectMetadata
+                    _uiState.update {
+                        it.copy(
+                            activeProjectMetadata = meta ?: it.activeProjectMetadata,
+                            isNorthBindingMode = true,
+                            northBindingPoints = emptyList(),
+                            isNorthBindingHelpVisible = true,
+                            isScaleBindingMode = false,
+                            scaleBindingPoints = emptyList(),
+                            isScaleBindingHelpVisible = false,
+                            isScaleBindingInputVisible = false,
+                            isMenuExpanded = false
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.DismissNorthBindingHelp -> {
+                _uiState.update { it.copy(isNorthBindingHelpVisible = false) }
+            }
+            is MainUiIntent.AddNorthBindingPoint -> {
+                viewModelScope.launch {
+                    val currentPoints = _uiState.value.northBindingPoints
+                    if (currentPoints.size >= 2) return@launch
+                    val meta = _uiState.value.activeProjectMetadata
+                        ?: _uiState.value.activeProjectName?.let { projectRepository.getProjectMetadata(it) }
+                        ?: return@launch
+
+                    val (pxX, pxY) = CaveMapBounds.latLngToImagePixels(
+                        latLng = intent.latLng,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        maxZoom = meta.zoomMax
+                    )
+                    val newPoint = ScaleBindingPoint(latLng = intent.latLng, imagePx = Pair(pxX, pxY))
+                    val newPoints = currentPoints + newPoint
+                    val isInputVisible = newPoints.size == 2
+
+                    _uiState.update {
+                        it.copy(
+                            northBindingPoints = newPoints,
+                            isNorthBindingInputVisible = isInputVisible
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.UndoNorthBindingPoint -> {
+                _uiState.update {
+                    if (it.northBindingPoints.isNotEmpty()) {
+                        it.copy(
+                            northBindingPoints = it.northBindingPoints.dropLast(1),
+                            isNorthBindingInputVisible = false
+                        )
+                    } else {
+                        it
+                    }
+                }
+            }
+            is MainUiIntent.CancelNorthBinding -> {
+                _uiState.update {
+                    it.copy(
+                        isNorthBindingMode = false,
+                        northBindingPoints = emptyList(),
+                        isNorthBindingHelpVisible = false,
+                        isNorthBindingInputVisible = false
+                    )
+                }
+            }
+            is MainUiIntent.DismissNorthBindingInput -> {
+                _uiState.update {
+                    it.copy(
+                        northBindingPoints = it.northBindingPoints.dropLast(1),
+                        isNorthBindingInputVisible = false
+                    )
+                }
+            }
+            is MainUiIntent.SaveNorthBinding -> {
+                viewModelScope.launch {
+                    val activeName = _uiState.value.activeProjectName
+                    if (activeName != null) {
+                        val result = projectRepository.saveNorthBinding(
+                            projectName = activeName,
+                            angleNorth = intent.angle
+                        )
+                        result.fold(
+                            onSuccess = { updatedMeta ->
+                                _uiState.update {
+                                    it.copy(
+                                        activeProjectMetadata = updatedMeta,
+                                        isNorthBindingMode = false,
+                                        northBindingPoints = emptyList(),
+                                        isNorthBindingHelpVisible = false,
+                                        isNorthBindingInputVisible = false
+                                    )
+                                }
+                                _effect.send(MainUiEffect.ShowToast("Привязка направления севера сохранена"))
+                            },
+                            onFailure = { error ->
+                                _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка сохранения направления севера"))
+                            }
+                        )
+                    }
+                }
+            }
             is MainUiIntent.DismissProjectTypeDialog -> {
                 _uiState.update { it.copy(isProjectTypeDialogVisible = false) }
             }
@@ -508,6 +626,10 @@ class MainViewModel(
                                     scaleBindingPoints = emptyList(),
                                     isScaleBindingHelpVisible = false,
                                     isScaleBindingInputVisible = false,
+                                    isNorthBindingMode = false,
+                                    northBindingPoints = emptyList(),
+                                    isNorthBindingHelpVisible = false,
+                                    isNorthBindingInputVisible = false,
                                     currentScreen = AppScreen.MAIN
                                 )
                             }

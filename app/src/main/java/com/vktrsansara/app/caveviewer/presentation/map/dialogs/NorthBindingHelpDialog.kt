@@ -25,10 +25,10 @@ import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 /**
- * Onboarding dialog explaining the scale binding process in standard app dialog style.
+ * Onboarding dialog explaining North / Compass calibration in standard app dialog style.
  */
 @Composable
-fun ScaleBindingHelpDialog(
+fun NorthBindingHelpDialog(
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -42,7 +42,7 @@ fun ScaleBindingHelpDialog(
         ) {
             // Dialog Title
             Text(
-                text = "Справка: Привязка к масштабу",
+                text = "Справка: Привязка к Северу",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = AppColors.textPrimary
@@ -59,18 +59,23 @@ fun ScaleBindingHelpDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 HelpItem(
-                    title = "Шаг 1. Начало отрезка:",
-                    description = "Наведите перекрестие курсора на начало шкалы масштаба и коснитесь экрана для установки Точки 1."
+                    title = "Шаг 1. Ориентир на карте:",
+                    description = "Найдите на плане или схеме розу ветров, стрелку направления на север или ось координат."
                 )
 
                 HelpItem(
-                    title = "Шаг 2. Конец отрезка:",
-                    description = "Наведите перекрестие курсора на отметку деления шкалы (например, 10 м) и коснитесь экрана для установки Точки 2."
+                    title = "Шаг 2. Основание стрелки (Юг):",
+                    description = "Наведите перекрестие курсора на основание стрелки (Юг) и коснитесь экрана для установки Точки 1."
                 )
 
                 HelpItem(
-                    title = "Шаг 3. Длина в метрах:",
-                    description = "В появившемся окне введите длину этого отрезка в реальных метрах и сохраните значение."
+                    title = "Шаг 3. Острие стрелки (Север):",
+                    description = "Наведите перекрестие курсора на острие стрелки (Север) и коснитесь экрана для установки Точки 2."
+                )
+
+                HelpItem(
+                    title = "Шаг 4. Сохранение азимута:",
+                    description = "В появившемся окне проверьте вычисленный угол и сохраните его для калибровки компаса."
                 )
             }
 

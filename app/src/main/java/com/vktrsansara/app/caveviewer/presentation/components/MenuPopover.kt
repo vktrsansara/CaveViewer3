@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.DesignServices
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
@@ -102,6 +103,7 @@ fun MenuPopover(
     onCloseProject: () -> Unit = {},
     onEditMetadataClick: () -> Unit = {},
     onScaleBindingClick: () -> Unit = {},
+    onNorthBindingClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentLevel by remember { mutableStateOf(MenuLevel.MAIN) }
@@ -173,6 +175,7 @@ fun MenuPopover(
                     MenuLevel.BINDING -> {
                         BindingSubmenuContent(
                             onScaleClick = onScaleBindingClick,
+                            onNorthClick = onNorthBindingClick,
                             onBackClick = { currentLevel = MenuLevel.EDIT }
                         )
                     }
@@ -280,6 +283,7 @@ private fun EditSubmenuContent(
 @Composable
 private fun BindingSubmenuContent(
     onScaleClick: () -> Unit,
+    onNorthClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -288,18 +292,26 @@ private fun BindingSubmenuContent(
 
         HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
 
-        // Item: Масштаб (Sky Blue Straighten)
+        // 1. Масштаб
         MenuItem(
             icon = Icons.Rounded.Straighten,
-            iconTint = AccentSkyBlue,
+            iconTint = Color(0xFFF59E0B), // Amber
             title = "Масштаб",
             onClick = onScaleClick
         )
 
-        // Item: Назад (Sky Blue Arrow)
+        // 2. Север (Compass)
+        MenuItem(
+            icon = Icons.Rounded.Explore,
+            iconTint = Color(0xFF38BDF8), // Sky Blue
+            title = "Север",
+            onClick = onNorthClick
+        )
+
+        // 3. Назад
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
-            iconTint = IconBackArrowColor,
+            iconTint = AccentSkyBlue,
             title = "Назад",
             onClick = onBackClick
         )

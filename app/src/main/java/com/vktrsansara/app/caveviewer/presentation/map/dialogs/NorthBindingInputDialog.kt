@@ -35,26 +35,22 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import java.util.Locale
 
 /**
- * Input modal dialog for measured scale calibration parameters with standardized styling.
+ * Input modal dialog for North / Compass calibration azimuth parameters with standardized styling.
  */
 @Composable
-fun ScaleBindingInputDialog(
-    measuredPixels: Double,
-    onSave: (pixelsPerMeter: Double, scaleMeters: Double) -> Unit,
+fun NorthBindingInputDialog(
+    measuredAngle: Double,
+    onSave: (angleNorth: Double) -> Unit,
     onCancel: () -> Unit
 ) {
-    var metersText by remember { mutableStateOf("") }
-    val metersVal = metersText.replace(',', '.').toDoubleOrNull()
-    val isMetersValid = metersVal != null && metersVal > 0.0
-
-    val calculatedPpm = if (isMetersValid && metersVal != null) {
-        measuredPixels / metersVal
-    } else {
-        0.0
+    var angleText by remember(measuredAngle) {
+        mutableStateOf(String.format(Locale.US, "%.2f", measuredAngle))
     }
+    val angleVal = angleText.replace(',', '.').toDoubleOrNull()
+    val isAngleValid = angleVal != null && angleVal in 0.0..360.0
 
-    val measuredPxFormatted = remember(measuredPixels) {
-        String.format(Locale.US, "%.4f", measuredPixels)
+    val measuredAngleFormatted = remember(measuredAngle) {
+        String.format(Locale.US, "%.2f", measuredAngle)
     }
 
     Dialog(onDismissRequest = onCancel) {
@@ -68,7 +64,7 @@ fun ScaleBindingInputDialog(
         ) {
             // Dialog Title
             Text(
-                text = "Параметры масштаба",
+                text = "Параметры компаса",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = AppColors.textPrimary
@@ -78,9 +74,9 @@ fun ScaleBindingInputDialog(
             HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Measured pixels info
+            // Measured angle info
             Text(
-                text = "Длина отрезка на карте: $measuredPxFormatted px",
+                text = "Измеренный угол севера: $measuredAngleFormatted°",
                 fontSize = 13.5.sp,
                 fontWeight = FontWeight.Medium,
                 color = AppColors.textPrimary
@@ -88,9 +84,9 @@ fun ScaleBindingInputDialog(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Real-world meters input label
+            // Angle input field label
             Text(
-                text = "Чему равен отрезок в метрах (м):",
+                text = "Угол направления на север (0..360°):",
                 fontSize = 12.5.sp,
                 color = AppColors.textSecondary
             )
@@ -98,10 +94,10 @@ fun ScaleBindingInputDialog(
             Spacer(modifier = Modifier.height(6.dp))
 
             OutlinedTextField(
-                value = metersText,
-                onValueChange = { metersText = it },
+                value = angleText,
+                onValueChange = { angleText = it },
                 placeholder = {
-                    Text("Например: 10", color = AppColors.textSecondary.copy(alpha = 0.5f), fontSize = 13.sp)
+                    Text("0.00", color = AppColors.textSecondary.copy(alpha = 0.5f), fontSize = 13.sp)
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -118,19 +114,14 @@ fun ScaleBindingInputDialog(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Dynamic scale ratio hint
-            val ppmString = if (isMetersValid) {
-                String.format(Locale.US, "%.4f", calculatedPpm)
-            } else {
-                "—"
-            }
+            // Orientation hint
             Text(
-                text = "Рассчитанный масштаб: 1 м = $ppmString px",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (isMetersValid) AccentSkyBlue else AppColors.textSecondary
+                text = "0° — верх карты, 90° — восток, 180° — юг, 270° — запад.",
+                fontSize = 11.5.sp,
+                lineHeight = 16.sp,
+                color = AppColors.textSecondary
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -147,10 +138,10 @@ fun ScaleBindingInputDialog(
                 Spacer(modifier = Modifier.width(8.dp))
                 DialogSaveButton(
                     text = "Сохранить",
-                    enabled = isMetersValid,
+                    enabled = isAngleValid,
                     onClick = {
-                        if (isMetersValid && metersVal != null) {
-                            onSave(calculatedPpm, metersVal)
+                        if (isAngleValid && angleVal != null) {
+                            onSave(angleVal)
                         }
                     }
                 )

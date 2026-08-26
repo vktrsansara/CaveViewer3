@@ -49,7 +49,12 @@ data class MainUiState(
     val isScaleBindingMode: Boolean = false,
     val scaleBindingPoints: List<ScaleBindingPoint> = emptyList(),
     val isScaleBindingHelpVisible: Boolean = false,
-    val isScaleBindingInputVisible: Boolean = false
+    val isScaleBindingInputVisible: Boolean = false,
+    // North Calibration Mode State
+    val isNorthBindingMode: Boolean = false,
+    val northBindingPoints: List<ScaleBindingPoint> = emptyList(),
+    val isNorthBindingHelpVisible: Boolean = false,
+    val isNorthBindingInputVisible: Boolean = false
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -93,6 +98,15 @@ sealed interface MainUiIntent : UiIntent {
     data object CancelScaleBinding : MainUiIntent
     data object DismissScaleBindingInput : MainUiIntent
     data class SaveScaleBinding(val pixelsPerMeter: Double, val scaleMeters: Double) : MainUiIntent
+
+    // North Binding actions
+    data object StartNorthBinding : MainUiIntent
+    data object DismissNorthBindingHelp : MainUiIntent
+    data class AddNorthBindingPoint(val latLng: LatLng) : MainUiIntent
+    data object UndoNorthBindingPoint : MainUiIntent
+    data object CancelNorthBinding : MainUiIntent
+    data object DismissNorthBindingInput : MainUiIntent
+    data class SaveNorthBinding(val angle: Double) : MainUiIntent
 
     // Projects List actions
     data class SelectProject(val projectName: String) : MainUiIntent

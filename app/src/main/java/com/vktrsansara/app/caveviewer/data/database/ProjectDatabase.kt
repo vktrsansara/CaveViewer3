@@ -109,6 +109,15 @@ class ProjectDatabase(private val dbFile: File) {
         return updated
     }
 
+    fun updateNorthBinding(angleNorth: Double): MapMetadata? {
+        val current = getMetadata() ?: return null
+        val updated = current.copy(
+            angleNorth = angleNorth
+        )
+        saveMetadata(updated)
+        return updated
+    }
+
     fun saveMetadata(metadata: MapMetadata) {
         openDatabase().use { db ->
             val values = ContentValues().apply {

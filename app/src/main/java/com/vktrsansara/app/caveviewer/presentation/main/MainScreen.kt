@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -36,8 +37,11 @@ import com.vktrsansara.app.caveviewer.presentation.map.MapLibreViewer
 import com.vktrsansara.app.caveviewer.presentation.map.components.BindingSideControl
 import com.vktrsansara.app.caveviewer.presentation.map.components.CompassWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.components.NorthBindingOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBarWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBindingOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingHelpDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingInputDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingInputDialog
 import com.vktrsansara.app.caveviewer.presentation.metadata.MetadataEditorScreen
@@ -50,7 +54,6 @@ import com.vktrsansara.app.caveviewer.presentation.settings.ToolsSettingsScreen
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 import org.maplibre.android.geometry.LatLng
-import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
@@ -114,12 +117,40 @@ fun MainScreen(
         )
     }
 
+    // North Binding Help Dialog
+    if (uiState.isNorthBindingHelpVisible) {
+        NorthBindingHelpDialog(
+            onDismiss = { viewModel.handleIntent(MainUiIntent.DismissNorthBindingHelp) }
+        )
+    }
+
+    // North Binding Input Dialog
+    if (uiState.isNorthBindingInputVisible && uiState.northBindingPoints.size >= 2) {
+        val p1 = uiState.northBindingPoints[0].imagePx
+        val p2 = uiState.northBindingPoints[1].imagePx
+        val measuredAngle = CaveMapBounds.calculateNorthAngle(p1, p2)
+
+        NorthBindingInputDialog(
+            measuredAngle = measuredAngle,
+            onSave = { angle ->
+                viewModel.handleIntent(MainUiIntent.SaveNorthBinding(angle))
+            },
+            onCancel = {
+                viewModel.handleIntent(MainUiIntent.DismissNorthBindingInput)
+            }
+        )
+    }
+
     // Handle system back gesture
-    BackHandler(enabled = uiState.currentScreen != AppScreen.MAIN || uiState.isScaleBindingMode) {
-        if (uiState.isScaleBindingMode) {
-            viewModel.handleIntent(MainUiIntent.CancelScaleBinding)
-        } else {
-            viewModel.handleIntent(MainUiIntent.NavigateBack)
+    BackHandler(
+        enabled = uiState.currentScreen != AppScreen.MAIN ||
+                uiState.isScaleBindingMode ||
+                uiState.isNorthBindingMode
+    ) {
+        when {
+            uiState.isScaleBindingMode -> viewModel.handleIntent(MainUiIntent.CancelScaleBinding)
+            uiState.isNorthBindingMode -> viewModel.handleIntent(MainUiIntent.CancelNorthBinding)
+            else -> viewModel.handleIntent(MainUiIntent.NavigateBack)
         }
     }
 
@@ -227,18 +258,23 @@ fun MainScreenContent(
     var mapMetadata by remember(uiState.activeProjectMetadata) { mutableStateOf(uiState.activeProjectMetadata) }
     var bindingScreenPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
-    Box(
+    val isAnyCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode
+    val activeBindingPoints = if (uiState.isNorthBindingMode) uiState.northBindingPoints else uiState.scaleBindingPoints
+
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(AppColors.bgMain)
     ) {
+        val oneThirdFromBottom = maxHeight / 3
+
         // Main content: active MapLibreViewer or NoProjectPlaceholder
         val activeDir = uiState.activeProjectDir
         if (activeDir != null && uiState.hasActiveProject) {
             MapLibreViewer(
                 projectDir = activeDir,
                 initialCameraPosition = initialPos,
-                bindingPoints = uiState.scaleBindingPoints,
+                bindingPoints = activeBindingPoints,
                 onCameraPositionChanged = { lat, lon, zoom, bearing ->
                     currentTargetLat = lat
                     currentTargetLon = lon
@@ -259,8 +295,9 @@ fun MainScreenContent(
                     bindingScreenPoints = points
                 },
                 onMapCenterClick = { centerLatLng ->
-                    if (uiState.isScaleBindingMode) {
-                        onIntent(MainUiIntent.AddScaleBindingPoint(centerLatLng))
+                    when {
+                        uiState.isScaleBindingMode -> onIntent(MainUiIntent.AddScaleBindingPoint(centerLatLng))
+                        uiState.isNorthBindingMode -> onIntent(MainUiIntent.AddNorthBindingPoint(centerLatLng))
                     }
                 },
                 onResetBearingReady = { action ->
@@ -290,15 +327,30 @@ fun MainScreenContent(
                 )
             }
 
+            // North Calibration Overlay
+            if (uiState.isNorthBindingMode && meta != null) {
+                val centerPx = CaveMapBounds.latLngToImagePixels(
+                    latLng = LatLng(currentTargetLat, currentTargetLon),
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    maxZoom = meta.zoomMax
+                )
+                NorthBindingOverlay(
+                    points = uiState.northBindingPoints,
+                    screenPoints = bindingScreenPoints,
+                    currentCenterPx = centerPx
+                )
+            }
+
             // Central Cursor Overlay (Strictly centered on screen; always visible in calibration mode)
             MapCursorOverlay(
-                cursorShow = uiState.isScaleBindingMode || uiState.settings.cursorShow,
+                cursorShow = isAnyCalibrationMode || uiState.settings.cursorShow,
                 cursorType = uiState.settings.cursorType,
                 cursorColor = uiState.settings.cursorColor
             )
 
             // 1. Compass Widget (Top-Start: top = 15.dp, start = 15.dp)
-            if (uiState.settings.showCompass && meta != null && !uiState.isScaleBindingMode) {
+            if (uiState.settings.showCompass && meta != null && !isAnyCalibrationMode) {
                 CompassWidget(
                     angleNorth = meta.angleNorth.toFloat(),
                     mapBearing = mapBearing,
@@ -310,7 +362,7 @@ fun MainScreenContent(
             }
 
             // 2. Scale Bar Widget (Top-End: top = 15.dp, end = 15.dp)
-            if (uiState.settings.showScaleBar && meta != null && meta.pixelsPerMeter > 0.0 && meta.scaleMeters > 0.0 && !uiState.isScaleBindingMode) {
+            if (uiState.settings.showScaleBar && meta != null && meta.pixelsPerMeter > 0.0 && meta.scaleMeters > 0.0 && !isAnyCalibrationMode) {
                 ScaleBarWidget(
                     pixelsPerMeter = meta.pixelsPerMeter,
                     zoomMax = meta.zoomMax,
@@ -321,15 +373,27 @@ fun MainScreenContent(
                 )
             }
 
-            // 3. Side Control Button for Scale Calibration
-            if (uiState.isScaleBindingMode) {
+            // 3. Side Control Bar for Calibration Mode (positioned at 1/3 height from bottom)
+            if (isAnyCalibrationMode) {
                 BindingSideControl(
-                    pointsCount = uiState.scaleBindingPoints.size,
-                    onClose = { onIntent(MainUiIntent.CancelScaleBinding) },
-                    onUndo = { onIntent(MainUiIntent.UndoScaleBindingPoint) },
+                    pointsCount = activeBindingPoints.size,
+                    onClose = {
+                        if (uiState.isNorthBindingMode) {
+                            onIntent(MainUiIntent.CancelNorthBinding)
+                        } else {
+                            onIntent(MainUiIntent.CancelScaleBinding)
+                        }
+                    },
+                    onUndo = {
+                        if (uiState.isNorthBindingMode) {
+                            onIntent(MainUiIntent.UndoNorthBindingPoint)
+                        } else {
+                            onIntent(MainUiIntent.UndoScaleBindingPoint)
+                        }
+                    },
                     modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 15.dp)
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 15.dp, bottom = oneThirdFromBottom)
                 )
             }
         } else {
@@ -371,6 +435,7 @@ fun MainScreenContent(
                 onCloseProject = { onIntent(MainUiIntent.CloseActiveProject) },
                 onEditMetadataClick = { onIntent(MainUiIntent.OpenMetadataEditor) },
                 onScaleBindingClick = { onIntent(MainUiIntent.StartScaleBinding) },
+                onNorthBindingClick = { onIntent(MainUiIntent.StartNorthBinding) },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
