@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.AddLocation
 import androidx.compose.material.icons.rounded.AppSettingsAlt
+import androidx.compose.material.icons.rounded.Architecture
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -42,9 +43,11 @@ import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SquareFoot
 import androidx.compose.material.icons.rounded.Straighten
+import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -103,6 +106,10 @@ fun MenuPopover(
     onToggleGrid: () -> Unit = {},
     onStartRulerClick: () -> Unit = {},
     onStartAreaMeasureClick: () -> Unit = {},
+    onStartAngleMeasureClick: () -> Unit = {},
+    onStartAzimuthClick: () -> Unit = {},
+    onStartFaultLineClick: () -> Unit = {},
+    onStartRadiusMeasureClick: () -> Unit = {},
     onOpenAppSettings: () -> Unit,
     onOpenToolsSettings: () -> Unit = {},
     onExitApp: () -> Unit,
@@ -198,6 +205,10 @@ fun MenuPopover(
                             onToggleGrid = onToggleGrid,
                             onStartRulerClick = onStartRulerClick,
                             onStartAreaMeasureClick = onStartAreaMeasureClick,
+                            onStartAngleMeasureClick = onStartAngleMeasureClick,
+                            onStartAzimuthClick = onStartAzimuthClick,
+                            onStartFaultLineClick = onStartFaultLineClick,
+                            onStartRadiusMeasureClick = onStartRadiusMeasureClick,
                             onBackClick = { currentLevel = MenuLevel.MAIN }
                         )
                     }
@@ -279,6 +290,10 @@ private fun ToolsSubmenuContent(
     onToggleGrid: () -> Unit,
     onStartRulerClick: () -> Unit,
     onStartAreaMeasureClick: () -> Unit,
+    onStartAngleMeasureClick: () -> Unit,
+    onStartAzimuthClick: () -> Unit,
+    onStartFaultLineClick: () -> Unit,
+    onStartRadiusMeasureClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -340,7 +355,39 @@ private fun ToolsSubmenuContent(
             onClick = onStartAreaMeasureClick
         )
 
-        // 4. Назад
+        // 4. Угол (Иконка Architecture)
+        MenuItem(
+            icon = Icons.Rounded.Architecture,
+            iconTint = Color(0xFFF59E0B), // Amber Gold
+            title = "Угол",
+            onClick = onStartAngleMeasureClick
+        )
+
+        // 5. Азимут (Иконка Explore / Cyan)
+        MenuItem(
+            icon = Icons.Rounded.Explore,
+            iconTint = Color(0xFF06B6D4), // Cyan
+            title = "Азимут",
+            onClick = onStartAzimuthClick
+        )
+
+        // 6. Ось разломов (Иконка Timeline / Pink)
+        MenuItem(
+            icon = Icons.Rounded.Timeline,
+            iconTint = Color(0xFFEC4899), // Pink
+            title = "Ось разломов",
+            onClick = onStartFaultLineClick
+        )
+
+        // 7. Радиус (Иконка RadioButtonUnchecked / Emerald)
+        MenuItem(
+            icon = Icons.Rounded.RadioButtonUnchecked,
+            iconTint = Color(0xFF10B981), // Emerald
+            title = "Радиус",
+            onClick = onStartRadiusMeasureClick
+        )
+
+        // 8. Назад
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             iconTint = AccentSkyBlue,

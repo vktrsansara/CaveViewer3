@@ -830,6 +830,222 @@ class MainViewModel(
                     it.copy(isAreaMeasureMode = false, areaPoints = emptyList())
                 }
             }
+
+            // Angle Measure Handlers
+            is MainUiIntent.StartAngleMeasureMode -> {
+                _uiState.update {
+                    it.copy(
+                        isAngleMeasureMode = true,
+                        anglePoints = emptyList(),
+                        isRulerMode = false,
+                        rulerPoints = emptyList(),
+                        isAreaMeasureMode = false,
+                        areaPoints = emptyList(),
+                        isScaleBindingMode = false,
+                        isNorthBindingMode = false,
+                        isEntranceCavePickMode = false,
+                        isOsmEntranceBindingMode = false,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.AddAnglePoint -> {
+                viewModelScope.launch {
+                    val currentPoints = _uiState.value.anglePoints
+                    if (currentPoints.size >= 2) return@launch
+
+                    val meta = _uiState.value.activeProjectMetadata
+                        ?: _uiState.value.activeProjectName?.let { projectRepository.getProjectMetadata(it) }
+                        ?: return@launch
+
+                    val (pxX, pxY) = CaveMapBounds.latLngToImagePixels(
+                        latLng = intent.latLng,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        maxZoom = meta.zoomMax
+                    )
+                    val newPoint = ScaleBindingPoint(latLng = intent.latLng, imagePx = Pair(pxX, pxY))
+                    _uiState.update {
+                        it.copy(anglePoints = it.anglePoints + newPoint)
+                    }
+                }
+            }
+            is MainUiIntent.UndoAnglePoint -> {
+                _uiState.update {
+                    if (it.anglePoints.isNotEmpty()) {
+                        it.copy(anglePoints = it.anglePoints.dropLast(1))
+                    } else {
+                        it.copy(isAngleMeasureMode = false, anglePoints = emptyList())
+                    }
+                }
+            }
+            is MainUiIntent.CloseAngleMeasureMode -> {
+                _uiState.update {
+                    it.copy(isAngleMeasureMode = false, anglePoints = emptyList())
+                }
+            }
+
+            // Azimuth Handlers
+            is MainUiIntent.StartAzimuthMode -> {
+                _uiState.update {
+                    it.copy(
+                        isAzimuthMode = true,
+                        azimuthOriginPoint = null,
+                        isRulerMode = false,
+                        rulerPoints = emptyList(),
+                        isAreaMeasureMode = false,
+                        areaPoints = emptyList(),
+                        isAngleMeasureMode = false,
+                        anglePoints = emptyList(),
+                        isScaleBindingMode = false,
+                        isNorthBindingMode = false,
+                        isEntranceCavePickMode = false,
+                        isOsmEntranceBindingMode = false,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.SetAzimuthOriginPoint -> {
+                viewModelScope.launch {
+                    val meta = _uiState.value.activeProjectMetadata
+                        ?: _uiState.value.activeProjectName?.let { projectRepository.getProjectMetadata(it) }
+                        ?: return@launch
+
+                    val (pxX, pxY) = CaveMapBounds.latLngToImagePixels(
+                        latLng = intent.latLng,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        maxZoom = meta.zoomMax
+                    )
+                    val originPoint = ScaleBindingPoint(latLng = intent.latLng, imagePx = Pair(pxX, pxY))
+                    _uiState.update {
+                        it.copy(azimuthOriginPoint = originPoint)
+                    }
+                }
+            }
+            is MainUiIntent.ResetAzimuthOriginPoint -> {
+                _uiState.update {
+                    it.copy(azimuthOriginPoint = null)
+                }
+            }
+            is MainUiIntent.CloseAzimuthMode -> {
+                _uiState.update {
+                    it.copy(isAzimuthMode = false, azimuthOriginPoint = null)
+                }
+            }
+
+            // Fault Line Handlers
+            is MainUiIntent.StartFaultLineMode -> {
+                _uiState.update {
+                    it.copy(
+                        isFaultLineMode = true,
+                        faultLinePoints = emptyList(),
+                        isRadiusMeasureMode = false,
+                        radiusCenterPoint = null,
+                        isAzimuthMode = false,
+                        azimuthOriginPoint = null,
+                        isRulerMode = false,
+                        rulerPoints = emptyList(),
+                        isAreaMeasureMode = false,
+                        areaPoints = emptyList(),
+                        isAngleMeasureMode = false,
+                        anglePoints = emptyList(),
+                        isScaleBindingMode = false,
+                        isNorthBindingMode = false,
+                        isEntranceCavePickMode = false,
+                        isOsmEntranceBindingMode = false,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.AddFaultLinePoint -> {
+                viewModelScope.launch {
+                    val currentPoints = _uiState.value.faultLinePoints
+                    if (currentPoints.size >= 2) return@launch
+
+                    val meta = _uiState.value.activeProjectMetadata
+                        ?: _uiState.value.activeProjectName?.let { projectRepository.getProjectMetadata(it) }
+                        ?: return@launch
+
+                    val (pxX, pxY) = CaveMapBounds.latLngToImagePixels(
+                        latLng = intent.latLng,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        maxZoom = meta.zoomMax
+                    )
+                    val newPoint = ScaleBindingPoint(latLng = intent.latLng, imagePx = Pair(pxX, pxY))
+                    _uiState.update {
+                        it.copy(faultLinePoints = it.faultLinePoints + newPoint)
+                    }
+                }
+            }
+            is MainUiIntent.UndoFaultLinePoint -> {
+                _uiState.update {
+                    if (it.faultLinePoints.isNotEmpty()) {
+                        it.copy(faultLinePoints = it.faultLinePoints.dropLast(1))
+                    } else {
+                        it.copy(isFaultLineMode = false, faultLinePoints = emptyList())
+                    }
+                }
+            }
+            is MainUiIntent.CloseFaultLineMode -> {
+                _uiState.update {
+                    it.copy(isFaultLineMode = false, faultLinePoints = emptyList())
+                }
+            }
+
+            // Radius Measure Handlers
+            is MainUiIntent.StartRadiusMeasureMode -> {
+                _uiState.update {
+                    it.copy(
+                        isRadiusMeasureMode = true,
+                        radiusCenterPoint = null,
+                        isFaultLineMode = false,
+                        faultLinePoints = emptyList(),
+                        isAzimuthMode = false,
+                        azimuthOriginPoint = null,
+                        isRulerMode = false,
+                        rulerPoints = emptyList(),
+                        isAreaMeasureMode = false,
+                        areaPoints = emptyList(),
+                        isAngleMeasureMode = false,
+                        anglePoints = emptyList(),
+                        isScaleBindingMode = false,
+                        isNorthBindingMode = false,
+                        isEntranceCavePickMode = false,
+                        isOsmEntranceBindingMode = false,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.SetRadiusCenterPoint -> {
+                viewModelScope.launch {
+                    val meta = _uiState.value.activeProjectMetadata
+                        ?: _uiState.value.activeProjectName?.let { projectRepository.getProjectMetadata(it) }
+                        ?: return@launch
+
+                    val (pxX, pxY) = CaveMapBounds.latLngToImagePixels(
+                        latLng = intent.latLng,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        maxZoom = meta.zoomMax
+                    )
+                    val centerPoint = ScaleBindingPoint(latLng = intent.latLng, imagePx = Pair(pxX, pxY))
+                    _uiState.update {
+                        it.copy(radiusCenterPoint = centerPoint)
+                    }
+                }
+            }
+            is MainUiIntent.ResetRadiusCenterPoint -> {
+                _uiState.update {
+                    it.copy(radiusCenterPoint = null)
+                }
+            }
+            is MainUiIntent.CloseRadiusMeasureMode -> {
+                _uiState.update {
+                    it.copy(isRadiusMeasureMode = false, radiusCenterPoint = null)
+                }
+            }
             is MainUiIntent.DismissProjectTypeDialog -> {
                 _uiState.update { it.copy(isProjectTypeDialogVisible = false) }
             }

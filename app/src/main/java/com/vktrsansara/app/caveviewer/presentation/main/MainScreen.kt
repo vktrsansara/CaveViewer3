@@ -42,11 +42,15 @@ import com.vktrsansara.app.caveviewer.presentation.components.MenuPopover
 import com.vktrsansara.app.caveviewer.presentation.main.components.NoProjectPlaceholder
 import com.vktrsansara.app.caveviewer.presentation.map.MapLibreViewer
 import com.vktrsansara.app.caveviewer.presentation.map.OsmEntranceBindingViewer
+import com.vktrsansara.app.caveviewer.presentation.map.components.AngleMeasureOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.AreaMeasureOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.components.AzimuthOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.BindingSideControl
 import com.vktrsansara.app.caveviewer.presentation.map.components.CompassWidget
+import com.vktrsansara.app.caveviewer.presentation.map.components.FaultLineOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.NorthBindingOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.components.RadiusMeasureOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.RulerOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBarWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBindingOverlay
@@ -190,7 +194,11 @@ fun MainScreen(
                 uiState.isEntranceCavePickMode ||
                 uiState.isOsmEntranceBindingMode ||
                 uiState.isRulerMode ||
-                uiState.isAreaMeasureMode
+                uiState.isAreaMeasureMode ||
+                uiState.isAngleMeasureMode ||
+                uiState.isAzimuthMode ||
+                uiState.isFaultLineMode ||
+                uiState.isRadiusMeasureMode
     ) {
         when {
             uiState.isOsmEntranceBindingMode -> viewModel.handleIntent(MainUiIntent.CloseOsmEntranceBinding)
@@ -199,6 +207,10 @@ fun MainScreen(
             uiState.isNorthBindingMode -> viewModel.handleIntent(MainUiIntent.CancelNorthBinding)
             uiState.isRulerMode -> viewModel.handleIntent(MainUiIntent.CloseRulerMode)
             uiState.isAreaMeasureMode -> viewModel.handleIntent(MainUiIntent.CloseAreaMeasureMode)
+            uiState.isAngleMeasureMode -> viewModel.handleIntent(MainUiIntent.CloseAngleMeasureMode)
+            uiState.isAzimuthMode -> viewModel.handleIntent(MainUiIntent.CloseAzimuthMode)
+            uiState.isFaultLineMode -> viewModel.handleIntent(MainUiIntent.CloseFaultLineMode)
+            uiState.isRadiusMeasureMode -> viewModel.handleIntent(MainUiIntent.CloseRadiusMeasureMode)
             else -> viewModel.handleIntent(MainUiIntent.NavigateBack)
         }
     }
@@ -329,12 +341,16 @@ fun MainScreenContent(
     var mapMetadata by remember(uiState.activeProjectMetadata) { mutableStateOf(uiState.activeProjectMetadata) }
     var bindingScreenPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
-    val isAnyCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode || uiState.isEntranceCavePickMode || uiState.isRulerMode || uiState.isAreaMeasureMode
+    val isAnyCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode || uiState.isEntranceCavePickMode || uiState.isRulerMode || uiState.isAreaMeasureMode || uiState.isAngleMeasureMode || uiState.isAzimuthMode || uiState.isFaultLineMode || uiState.isRadiusMeasureMode
     val activeBindingPoints = when {
         uiState.isNorthBindingMode -> uiState.northBindingPoints
         uiState.isScaleBindingMode -> uiState.scaleBindingPoints
         uiState.isRulerMode -> uiState.rulerPoints
         uiState.isAreaMeasureMode -> uiState.areaPoints
+        uiState.isAngleMeasureMode -> uiState.anglePoints
+        uiState.isAzimuthMode -> listOfNotNull(uiState.azimuthOriginPoint)
+        uiState.isFaultLineMode -> uiState.faultLinePoints
+        uiState.isRadiusMeasureMode -> listOfNotNull(uiState.radiusCenterPoint)
         else -> emptyList()
     }
 
@@ -379,6 +395,10 @@ fun MainScreenContent(
                         uiState.isNorthBindingMode -> onIntent(MainUiIntent.AddNorthBindingPoint(centerLatLng))
                         uiState.isRulerMode -> onIntent(MainUiIntent.AddRulerPoint(centerLatLng))
                         uiState.isAreaMeasureMode -> onIntent(MainUiIntent.AddAreaPoint(centerLatLng))
+                        uiState.isAngleMeasureMode -> onIntent(MainUiIntent.AddAnglePoint(centerLatLng))
+                        uiState.isAzimuthMode -> onIntent(MainUiIntent.SetAzimuthOriginPoint(centerLatLng))
+                        uiState.isFaultLineMode -> onIntent(MainUiIntent.AddFaultLinePoint(centerLatLng))
+                        uiState.isRadiusMeasureMode -> onIntent(MainUiIntent.SetRadiusCenterPoint(centerLatLng))
                     }
                 },
                 onResetBearingReady = { action ->
@@ -455,6 +475,73 @@ fun MainScreenContent(
                 )
             }
 
+            // Angle Measure Overlay
+            if (uiState.isAngleMeasureMode && meta != null) {
+                val centerPx = CaveMapBounds.latLngToImagePixels(
+                    latLng = LatLng(currentTargetLat, currentTargetLon),
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    maxZoom = meta.zoomMax
+                )
+                AngleMeasureOverlay(
+                    points = uiState.anglePoints,
+                    screenPoints = bindingScreenPoints,
+                    currentCenterPx = centerPx,
+                    ppm = meta.pixelsPerMeter
+                )
+            }
+
+            // Azimuth Overlay
+            if (uiState.isAzimuthMode && meta != null) {
+                val centerPx = CaveMapBounds.latLngToImagePixels(
+                    latLng = LatLng(currentTargetLat, currentTargetLon),
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    maxZoom = meta.zoomMax
+                )
+                AzimuthOverlay(
+                    originPoint = uiState.azimuthOriginPoint,
+                    originScreenPoint = bindingScreenPoints.firstOrNull(),
+                    currentCenterPx = centerPx,
+                    angleNorth = meta.angleNorth,
+                    ppm = meta.pixelsPerMeter
+                )
+            }
+
+            // Fault Line Overlay
+            if (uiState.isFaultLineMode && meta != null) {
+                val centerPx = CaveMapBounds.latLngToImagePixels(
+                    latLng = LatLng(currentTargetLat, currentTargetLon),
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    maxZoom = meta.zoomMax
+                )
+                FaultLineOverlay(
+                    points = uiState.faultLinePoints,
+                    screenPoints = bindingScreenPoints,
+                    infiniteEndPoints = null,
+                    currentCenterPx = centerPx,
+                    angleNorth = meta.angleNorth,
+                    ppm = meta.pixelsPerMeter
+                )
+            }
+
+            // Radius Measure Overlay
+            if (uiState.isRadiusMeasureMode && meta != null) {
+                val centerPx = CaveMapBounds.latLngToImagePixels(
+                    latLng = LatLng(currentTargetLat, currentTargetLon),
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    maxZoom = meta.zoomMax
+                )
+                RadiusMeasureOverlay(
+                    centerPoint = uiState.radiusCenterPoint,
+                    centerScreenPoint = bindingScreenPoints.firstOrNull(),
+                    currentCenterPx = centerPx,
+                    ppm = meta.pixelsPerMeter
+                )
+            }
+
             // Step 1: Cave Entrance Pick Banner
             if (uiState.isEntranceCavePickMode) {
                 Box(
@@ -510,13 +597,22 @@ fun MainScreenContent(
             // 3. Floating Action Control Bar during active Calibration / Measurement Mode
             if (isAnyCalibrationMode) {
                 BindingSideControl(
-                    pointsCount = if (uiState.isEntranceCavePickMode) 0 else activeBindingPoints.size,
+                    pointsCount = when {
+                        uiState.isEntranceCavePickMode -> 0
+                        uiState.isAzimuthMode -> if (uiState.azimuthOriginPoint != null) 1 else 0
+                        uiState.isRadiusMeasureMode -> if (uiState.radiusCenterPoint != null) 1 else 0
+                        else -> activeBindingPoints.size
+                    },
                     onUndo = {
                         when {
                             uiState.isScaleBindingMode -> onIntent(MainUiIntent.UndoScaleBindingPoint)
                             uiState.isNorthBindingMode -> onIntent(MainUiIntent.UndoNorthBindingPoint)
                             uiState.isRulerMode -> onIntent(MainUiIntent.UndoRulerPoint)
                             uiState.isAreaMeasureMode -> onIntent(MainUiIntent.UndoAreaPoint)
+                            uiState.isAngleMeasureMode -> onIntent(MainUiIntent.UndoAnglePoint)
+                            uiState.isAzimuthMode -> onIntent(MainUiIntent.ResetAzimuthOriginPoint)
+                            uiState.isFaultLineMode -> onIntent(MainUiIntent.UndoFaultLinePoint)
+                            uiState.isRadiusMeasureMode -> onIntent(MainUiIntent.ResetRadiusCenterPoint)
                         }
                     },
                     onClose = {
@@ -526,6 +622,10 @@ fun MainScreenContent(
                             uiState.isNorthBindingMode -> onIntent(MainUiIntent.CancelNorthBinding)
                             uiState.isRulerMode -> onIntent(MainUiIntent.CloseRulerMode)
                             uiState.isAreaMeasureMode -> onIntent(MainUiIntent.CloseAreaMeasureMode)
+                            uiState.isAngleMeasureMode -> onIntent(MainUiIntent.CloseAngleMeasureMode)
+                            uiState.isAzimuthMode -> onIntent(MainUiIntent.CloseAzimuthMode)
+                            uiState.isFaultLineMode -> onIntent(MainUiIntent.CloseFaultLineMode)
+                            uiState.isRadiusMeasureMode -> onIntent(MainUiIntent.CloseRadiusMeasureMode)
                         }
                     },
                     modifier = Modifier
@@ -566,6 +666,10 @@ fun MainScreenContent(
                 onToggleGrid = { onIntent(MainUiIntent.ToggleGrid) },
                 onStartRulerClick = { onIntent(MainUiIntent.StartRulerMode) },
                 onStartAreaMeasureClick = { onIntent(MainUiIntent.StartAreaMeasureMode) },
+                onStartAngleMeasureClick = { onIntent(MainUiIntent.StartAngleMeasureMode) },
+                onStartAzimuthClick = { onIntent(MainUiIntent.StartAzimuthMode) },
+                onStartFaultLineClick = { onIntent(MainUiIntent.StartFaultLineMode) },
+                onStartRadiusMeasureClick = { onIntent(MainUiIntent.StartRadiusMeasureMode) },
                 onOpenAppSettings = { onIntent(MainUiIntent.OpenAppSettings) },
                 onOpenToolsSettings = { onIntent(MainUiIntent.OpenToolsSettings) },
                 onExitApp = { onIntent(MainUiIntent.ExitAppClicked) },

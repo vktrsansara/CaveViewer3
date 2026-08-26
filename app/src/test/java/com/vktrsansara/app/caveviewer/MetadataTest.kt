@@ -302,5 +302,96 @@ class MetadataTest {
         assertEquals(400.0, perimPx, 0.001)
         val formattedPerim = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.formatDistance(perimPx, ppm)
         assertEquals("40.00 м", formattedPerim)
+
+        // 3. Angle tests
+        // Right 90° angle at vertex (0, 0) between (100, 0) and (0, 100)
+        val vertex = Pair(0.0, 0.0)
+        val ptA = Pair(100.0, 0.0)
+        val ptB = Pair(0.0, 100.0)
+        val angle90 = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateAngleDegrees(ptA, vertex, ptB)
+        assertEquals(90.0, angle90, 0.001)
+
+        // Straight 180° angle
+        val ptC = Pair(-100.0, 0.0)
+        val angle180 = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateAngleDegrees(ptA, vertex, ptC)
+        assertEquals(180.0, angle180, 0.001)
+
+        // 45° angle
+        val ptD = Pair(100.0, 100.0)
+        val angle45 = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateAngleDegrees(ptA, vertex, ptD)
+        assertEquals(45.0, angle45, 0.001)
+
+        // 4. Azimuth & Rumb tests
+        val origin = Pair(100.0, 100.0)
+        // Straight North on raster (dx = 0, dy = -100): azimuth 0° (when angleNorth = 0)
+        val northPt = Pair(100.0, 0.0)
+        val azNorth = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateAzimuthDegrees(origin, northPt, 0.0)
+        assertEquals(0.0, azNorth, 0.001)
+
+        // East on raster (dx = 100, dy = 0): azimuth 90°
+        val eastPt = Pair(200.0, 100.0)
+        val azEast = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateAzimuthDegrees(origin, eastPt, 0.0)
+        assertEquals(90.0, azEast, 0.001)
+
+        // South on raster (dx = 0, dy = 100): azimuth 180°
+        val southPt = Pair(100.0, 200.0)
+        val azSouth = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateAzimuthDegrees(origin, southPt, 0.0)
+        assertEquals(180.0, azSouth, 0.001)
+
+        // West on raster (dx = -100, dy = 0): azimuth 270°
+        val westPt = Pair(0.0, 100.0)
+        val azWest = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateAzimuthDegrees(origin, westPt, 0.0)
+        assertEquals(270.0, azWest, 0.001)
+
+        // Azimuth with angleNorth correction (map angleNorth = 45°)
+        val azNorthCorrected = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateAzimuthDegrees(origin, northPt, 45.0)
+        assertEquals(315.0, azNorthCorrected, 0.001)
+
+        // Back azimuth
+        assertEquals(180.0, com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateBackAzimuth(0.0), 0.001)
+        assertEquals(270.0, com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateBackAzimuth(90.0), 0.001)
+        assertEquals(45.0, com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateBackAzimuth(225.0), 0.001)
+
+        // Rumb tests
+        val rumbNE = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateRumb(42.5)
+        assertEquals("СВ", rumbNE.first)
+        assertEquals(42.5, rumbNE.second, 0.001)
+
+        val rumbSE = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateRumb(135.0)
+        assertEquals("ЮВ", rumbSE.first)
+        assertEquals(45.0, rumbSE.second, 0.001)
+
+        val rumbSW = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateRumb(215.0)
+        assertEquals("ЮЗ", rumbSW.first)
+        assertEquals(35.0, rumbSW.second, 0.001)
+
+        val rumbNW = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateRumb(310.0)
+        assertEquals("СЗ", rumbNW.first)
+        assertEquals(50.0, rumbNW.second, 0.001)
+
+        // 5. Infinite Line Bounds tests
+        // Line passing through (50, 50) and (150, 150) diagonal across 200x200 map
+        val lineBounds = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateInfiniteLineBounds(
+            p1 = Pair(50.0, 50.0),
+            p2 = Pair(150.0, 150.0),
+            mapWidth = 200.0,
+            mapHeight = 200.0
+        )
+        // Should intersect at (0, 0) and (200, 200)
+        assertEquals(0.0, lineBounds.first.first, 0.001)
+        assertEquals(0.0, lineBounds.first.second, 0.001)
+        assertEquals(200.0, lineBounds.second.first, 0.001)
+        assertEquals(200.0, lineBounds.second.second, 0.001)
+
+        // 6. Circle Metrics tests
+        // Radius = 100 px with ppm = 10.0 px/m => R = 10.00 m, D = 20.00 m, S = pi * 100 = 314.16 m2, C = 2 * pi * 10 = 62.83 m
+        val circleMetrics = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateCircleMetrics(
+            radiusPx = 100.0,
+            ppm = 10.0
+        )
+        assertEquals("10.00 м", circleMetrics.radiusText)
+        assertEquals("20.00 м", circleMetrics.diameterText)
+        assertEquals("314.16 м²", circleMetrics.areaText)
+        assertEquals("62.83 м", circleMetrics.perimeterText)
     }
 }

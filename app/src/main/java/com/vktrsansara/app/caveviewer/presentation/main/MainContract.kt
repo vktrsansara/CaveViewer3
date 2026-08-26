@@ -67,7 +67,19 @@ data class MainUiState(
     val rulerPoints: List<ScaleBindingPoint> = emptyList(),
     // Area (Polygon Measurement) State
     val isAreaMeasureMode: Boolean = false,
-    val areaPoints: List<ScaleBindingPoint> = emptyList()
+    val areaPoints: List<ScaleBindingPoint> = emptyList(),
+    // Angle (Live Dynamic Ray) State
+    val isAngleMeasureMode: Boolean = false,
+    val anglePoints: List<ScaleBindingPoint> = emptyList(),
+    // Azimuth & Rumb (Live Ray & Horizon Direction) State
+    val isAzimuthMode: Boolean = false,
+    val azimuthOriginPoint: ScaleBindingPoint? = null,
+    // Fault Line (Tectonic Axis) State
+    val isFaultLineMode: Boolean = false,
+    val faultLinePoints: List<ScaleBindingPoint> = emptyList(),
+    // Radius (Circular Zone) State
+    val isRadiusMeasureMode: Boolean = false,
+    val radiusCenterPoint: ScaleBindingPoint? = null
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -148,6 +160,30 @@ sealed interface MainUiIntent : UiIntent {
     data class AddAreaPoint(val latLng: LatLng) : MainUiIntent
     data object UndoAreaPoint : MainUiIntent
     data object CloseAreaMeasureMode : MainUiIntent
+
+    // Angle (Live Dynamic Ray) actions
+    data object StartAngleMeasureMode : MainUiIntent
+    data class AddAnglePoint(val latLng: LatLng) : MainUiIntent
+    data object UndoAnglePoint : MainUiIntent
+    data object CloseAngleMeasureMode : MainUiIntent
+
+    // Azimuth (Live Ray & Horizon Direction) actions
+    data object StartAzimuthMode : MainUiIntent
+    data class SetAzimuthOriginPoint(val latLng: LatLng) : MainUiIntent
+    data object ResetAzimuthOriginPoint : MainUiIntent
+    data object CloseAzimuthMode : MainUiIntent
+
+    // Fault Line (Tectonic Axis) actions
+    data object StartFaultLineMode : MainUiIntent
+    data class AddFaultLinePoint(val latLng: LatLng) : MainUiIntent
+    data object UndoFaultLinePoint : MainUiIntent
+    data object CloseFaultLineMode : MainUiIntent
+
+    // Radius (Circular Zone) actions
+    data object StartRadiusMeasureMode : MainUiIntent
+    data class SetRadiusCenterPoint(val latLng: LatLng) : MainUiIntent
+    data object ResetRadiusCenterPoint : MainUiIntent
+    data object CloseRadiusMeasureMode : MainUiIntent
 
     // Projects List actions
     data class SelectProject(val projectName: String) : MainUiIntent
