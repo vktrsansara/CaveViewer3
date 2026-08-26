@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import com.vktrsansara.app.caveviewer.presentation.components.FloatingBottomBar
 import com.vktrsansara.app.caveviewer.presentation.components.MenuPopover
 import com.vktrsansara.app.caveviewer.presentation.main.components.NoProjectPlaceholder
@@ -47,6 +48,7 @@ import com.vktrsansara.app.caveviewer.presentation.map.components.AreaMeasureOve
 import com.vktrsansara.app.caveviewer.presentation.map.components.AzimuthOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.BindingSideControl
 import com.vktrsansara.app.caveviewer.presentation.map.components.CompassWidget
+import com.vktrsansara.app.caveviewer.presentation.map.components.DeltaOffsetOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.FaultLineOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.NorthBindingOverlay
@@ -54,12 +56,16 @@ import com.vktrsansara.app.caveviewer.presentation.map.components.RadiusMeasureO
 import com.vktrsansara.app.caveviewer.presentation.map.components.RulerOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBarWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBindingOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.DeltaOffsetHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EntranceBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EntranceNameDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MapFilterDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MapFilterHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingInputDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingInputDialog
+import com.vktrsansara.app.caveviewer.presentation.map.filters.MapFilterUtils
 import com.vktrsansara.app.caveviewer.presentation.metadata.MetadataEditorScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.CreateRasterProjectScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.FeatureUnderDevelopmentScreen
@@ -186,6 +192,40 @@ fun MainScreen(
         )
     }
 
+    // Map Filter Dialog
+    if (uiState.isMapFilterDialogVisible) {
+        MapFilterDialog(
+            currentFilter = uiState.settings.mapFilter,
+            onFilterSelected = { mode ->
+                viewModel.handleIntent(MainUiIntent.SetMapFilterMode(mode))
+            },
+            onOpenHelp = {
+                viewModel.handleIntent(MainUiIntent.OpenMapFilterHelpDialog)
+            },
+            onDismiss = {
+                viewModel.handleIntent(MainUiIntent.DismissMapFilterDialog)
+            }
+        )
+    }
+
+    // Map Filter Help Dialog
+    if (uiState.isMapFilterHelpDialogVisible) {
+        MapFilterHelpDialog(
+            onDismiss = {
+                viewModel.handleIntent(MainUiIntent.DismissMapFilterHelpDialog)
+            }
+        )
+    }
+
+    // Delta Offset Help Dialog
+    if (uiState.isDeltaOffsetHelpVisible) {
+        DeltaOffsetHelpDialog(
+            onDismiss = {
+                viewModel.handleIntent(MainUiIntent.DismissDeltaOffsetHelp)
+            }
+        )
+    }
+
     // Handle system back gesture
     BackHandler(
         enabled = uiState.currentScreen != AppScreen.MAIN ||
@@ -198,7 +238,8 @@ fun MainScreen(
                 uiState.isAngleMeasureMode ||
                 uiState.isAzimuthMode ||
                 uiState.isFaultLineMode ||
-                uiState.isRadiusMeasureMode
+                uiState.isRadiusMeasureMode ||
+                uiState.isDeltaOffsetMode
     ) {
         when {
             uiState.isOsmEntranceBindingMode -> viewModel.handleIntent(MainUiIntent.CloseOsmEntranceBinding)
@@ -211,6 +252,7 @@ fun MainScreen(
             uiState.isAzimuthMode -> viewModel.handleIntent(MainUiIntent.CloseAzimuthMode)
             uiState.isFaultLineMode -> viewModel.handleIntent(MainUiIntent.CloseFaultLineMode)
             uiState.isRadiusMeasureMode -> viewModel.handleIntent(MainUiIntent.CloseRadiusMeasureMode)
+            uiState.isDeltaOffsetMode -> viewModel.handleIntent(MainUiIntent.CloseDeltaOffsetMode)
             else -> viewModel.handleIntent(MainUiIntent.NavigateBack)
         }
     }
@@ -341,7 +383,7 @@ fun MainScreenContent(
     var mapMetadata by remember(uiState.activeProjectMetadata) { mutableStateOf(uiState.activeProjectMetadata) }
     var bindingScreenPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
-    val isAnyCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode || uiState.isEntranceCavePickMode || uiState.isRulerMode || uiState.isAreaMeasureMode || uiState.isAngleMeasureMode || uiState.isAzimuthMode || uiState.isFaultLineMode || uiState.isRadiusMeasureMode
+    val isAnyCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode || uiState.isEntranceCavePickMode || uiState.isRulerMode || uiState.isAreaMeasureMode || uiState.isAngleMeasureMode || uiState.isAzimuthMode || uiState.isFaultLineMode || uiState.isRadiusMeasureMode || uiState.isDeltaOffsetMode
     val activeBindingPoints = when {
         uiState.isNorthBindingMode -> uiState.northBindingPoints
         uiState.isScaleBindingMode -> uiState.scaleBindingPoints
@@ -351,7 +393,12 @@ fun MainScreenContent(
         uiState.isAzimuthMode -> listOfNotNull(uiState.azimuthOriginPoint)
         uiState.isFaultLineMode -> uiState.faultLinePoints
         uiState.isRadiusMeasureMode -> listOfNotNull(uiState.radiusCenterPoint)
+        uiState.isDeltaOffsetMode -> listOfNotNull(uiState.deltaOffsetOriginPoint)
         else -> emptyList()
+    }
+
+    val colorFilter = remember(uiState.settings.mapFilter) {
+        MapFilterUtils.getColorFilter(uiState.settings.mapFilter)
     }
 
     BoxWithConstraints(
@@ -364,52 +411,61 @@ fun MainScreenContent(
         // Main content: active MapLibreViewer or NoProjectPlaceholder
         val activeDir = uiState.activeProjectDir
         if (activeDir != null && uiState.hasActiveProject) {
-            MapLibreViewer(
-                projectDir = activeDir,
-                initialCameraPosition = initialPos,
-                settings = uiState.settings,
-                bindingPoints = activeBindingPoints,
-                onCameraPositionChanged = { lat, lon, zoom, bearing ->
-                    currentTargetLat = lat
-                    currentTargetLon = lon
-                    mapBearing = bearing
-                    currentZoom = zoom
-                    onIntent(
-                        MainUiIntent.UpdateMapCameraPosition(
-                            MapCameraPosition(
-                                targetLat = lat,
-                                targetLon = lon,
-                                zoom = zoom,
-                                bearing = bearing
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        this.colorFilter = colorFilter
+                    }
+            ) {
+                MapLibreViewer(
+                    projectDir = activeDir,
+                    initialCameraPosition = initialPos,
+                    settings = uiState.settings,
+                    bindingPoints = activeBindingPoints,
+                    onCameraPositionChanged = { lat, lon, zoom, bearing ->
+                        currentTargetLat = lat
+                        currentTargetLon = lon
+                        mapBearing = bearing
+                        currentZoom = zoom
+                        onIntent(
+                            MainUiIntent.UpdateMapCameraPosition(
+                                MapCameraPosition(
+                                    targetLat = lat,
+                                    targetLon = lon,
+                                    zoom = zoom,
+                                    bearing = bearing
+                                )
                             )
                         )
-                    )
-                },
-                onBindingScreenPointsChanged = { points ->
-                    bindingScreenPoints = points
-                },
-                onMapCenterClick = { centerLatLng ->
-                    when {
-                        uiState.isEntranceCavePickMode -> onIntent(MainUiIntent.OnEntrancePlanPicked(centerLatLng))
-                        uiState.isScaleBindingMode -> onIntent(MainUiIntent.AddScaleBindingPoint(centerLatLng))
-                        uiState.isNorthBindingMode -> onIntent(MainUiIntent.AddNorthBindingPoint(centerLatLng))
-                        uiState.isRulerMode -> onIntent(MainUiIntent.AddRulerPoint(centerLatLng))
-                        uiState.isAreaMeasureMode -> onIntent(MainUiIntent.AddAreaPoint(centerLatLng))
-                        uiState.isAngleMeasureMode -> onIntent(MainUiIntent.AddAnglePoint(centerLatLng))
-                        uiState.isAzimuthMode -> onIntent(MainUiIntent.SetAzimuthOriginPoint(centerLatLng))
-                        uiState.isFaultLineMode -> onIntent(MainUiIntent.AddFaultLinePoint(centerLatLng))
-                        uiState.isRadiusMeasureMode -> onIntent(MainUiIntent.SetRadiusCenterPoint(centerLatLng))
-                    }
-                },
-                onResetBearingReady = { action ->
-                    resetBearingAction = action
-                },
-                onMetadataLoaded = { meta ->
-                    mapMetadata = meta
-                    onIntent(MainUiIntent.OnMetadataLoaded(meta))
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+                    },
+                    onBindingScreenPointsChanged = { points ->
+                        bindingScreenPoints = points
+                    },
+                    onMapCenterClick = { centerLatLng ->
+                        when {
+                            uiState.isEntranceCavePickMode -> onIntent(MainUiIntent.OnEntrancePlanPicked(centerLatLng))
+                            uiState.isScaleBindingMode -> onIntent(MainUiIntent.AddScaleBindingPoint(centerLatLng))
+                            uiState.isNorthBindingMode -> onIntent(MainUiIntent.AddNorthBindingPoint(centerLatLng))
+                            uiState.isRulerMode -> onIntent(MainUiIntent.AddRulerPoint(centerLatLng))
+                            uiState.isAreaMeasureMode -> onIntent(MainUiIntent.AddAreaPoint(centerLatLng))
+                            uiState.isAngleMeasureMode -> onIntent(MainUiIntent.AddAnglePoint(centerLatLng))
+                            uiState.isAzimuthMode -> onIntent(MainUiIntent.SetAzimuthOriginPoint(centerLatLng))
+                            uiState.isFaultLineMode -> onIntent(MainUiIntent.AddFaultLinePoint(centerLatLng))
+                            uiState.isRadiusMeasureMode -> onIntent(MainUiIntent.SetRadiusCenterPoint(centerLatLng))
+                            uiState.isDeltaOffsetMode -> onIntent(MainUiIntent.SetDeltaOffsetOriginPoint(centerLatLng))
+                        }
+                    },
+                    onResetBearingReady = { action ->
+                        resetBearingAction = action
+                    },
+                    onMetadataLoaded = { meta ->
+                        mapMetadata = meta
+                        onIntent(MainUiIntent.OnMetadataLoaded(meta))
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             val meta = mapMetadata ?: uiState.activeProjectMetadata
 
@@ -542,6 +598,23 @@ fun MainScreenContent(
                 )
             }
 
+            // Delta Offset Overlay
+            if (uiState.isDeltaOffsetMode && meta != null) {
+                val centerPx = CaveMapBounds.latLngToImagePixels(
+                    latLng = LatLng(currentTargetLat, currentTargetLon),
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    maxZoom = meta.zoomMax
+                )
+                DeltaOffsetOverlay(
+                    originPoint = uiState.deltaOffsetOriginPoint,
+                    originScreenPoint = bindingScreenPoints.firstOrNull(),
+                    currentCenterPx = centerPx,
+                    angleNorth = meta.angleNorth,
+                    ppm = meta.pixelsPerMeter
+                )
+            }
+
             // Step 1: Cave Entrance Pick Banner
             if (uiState.isEntranceCavePickMode) {
                 Box(
@@ -601,6 +674,7 @@ fun MainScreenContent(
                         uiState.isEntranceCavePickMode -> 0
                         uiState.isAzimuthMode -> if (uiState.azimuthOriginPoint != null) 1 else 0
                         uiState.isRadiusMeasureMode -> if (uiState.radiusCenterPoint != null) 1 else 0
+                        uiState.isDeltaOffsetMode -> if (uiState.deltaOffsetOriginPoint != null) 1 else 0
                         else -> activeBindingPoints.size
                     },
                     onUndo = {
@@ -613,6 +687,7 @@ fun MainScreenContent(
                             uiState.isAzimuthMode -> onIntent(MainUiIntent.ResetAzimuthOriginPoint)
                             uiState.isFaultLineMode -> onIntent(MainUiIntent.UndoFaultLinePoint)
                             uiState.isRadiusMeasureMode -> onIntent(MainUiIntent.ResetRadiusCenterPoint)
+                            uiState.isDeltaOffsetMode -> onIntent(MainUiIntent.ResetDeltaOffsetOriginPoint)
                         }
                     },
                     onClose = {
@@ -626,8 +701,12 @@ fun MainScreenContent(
                             uiState.isAzimuthMode -> onIntent(MainUiIntent.CloseAzimuthMode)
                             uiState.isFaultLineMode -> onIntent(MainUiIntent.CloseFaultLineMode)
                             uiState.isRadiusMeasureMode -> onIntent(MainUiIntent.CloseRadiusMeasureMode)
+                            uiState.isDeltaOffsetMode -> onIntent(MainUiIntent.CloseDeltaOffsetMode)
                         }
                     },
+                    onHelp = if (uiState.isDeltaOffsetMode) {
+                        { onIntent(MainUiIntent.OpenDeltaOffsetHelp) }
+                    } else null,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(bottom = oneThirdFromBottom, end = 15.dp)
@@ -670,6 +749,8 @@ fun MainScreenContent(
                 onStartAzimuthClick = { onIntent(MainUiIntent.StartAzimuthMode) },
                 onStartFaultLineClick = { onIntent(MainUiIntent.StartFaultLineMode) },
                 onStartRadiusMeasureClick = { onIntent(MainUiIntent.StartRadiusMeasureMode) },
+                onStartDeltaOffsetClick = { onIntent(MainUiIntent.StartDeltaOffsetMode) },
+                onOpenMapFiltersClick = { onIntent(MainUiIntent.OpenMapFilterDialog) },
                 onOpenAppSettings = { onIntent(MainUiIntent.OpenAppSettings) },
                 onOpenToolsSettings = { onIntent(MainUiIntent.OpenToolsSettings) },
                 onExitApp = { onIntent(MainUiIntent.ExitAppClicked) },

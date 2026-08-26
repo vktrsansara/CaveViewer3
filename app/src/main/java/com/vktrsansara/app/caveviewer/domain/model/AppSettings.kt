@@ -18,5 +18,6 @@ data class AppSettings(
     val gridSizeMode: String = "metadata", // "metadata" or "custom"
     val gridCustomSize: Double = 10.0,     // 10m or 100px
     val gridColor: Long = 0x9973FF00L,     // Grid color (with alpha)
-    val colorPaletteMode: String = "standard" // "standard" or "muted"
+    val colorPaletteMode: String = "standard", // "standard" or "muted"
+    val mapFilter: MapFilterMode = MapFilterMode.NONE
 )

@@ -5,23 +5,18 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountTree
-import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.TableChart
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -33,16 +28,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
-import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 
-private val GreenFolderColor = Color(0xFF10B981)
 private val AmberTopoColor = Color(0xFFF59E0B)
 private val PurpleTherionColor = Color(0xFFA78BFA)
 
@@ -57,83 +49,44 @@ fun ProjectTypeDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Dialog(onDismissRequest = onDismiss) {
+    AppDialogContainer(
+        title = "Новый проект",
+        onDismissRequest = onDismiss,
+        modifier = modifier,
+        maxWidth = 360.dp,
+        buttons = {
+            DialogCancelButton(
+                text = "Не стоит",
+                onClick = onDismiss
+            )
+        }
+    ) {
         Column(
-            modifier = modifier
-                .fillMaxWidth(0.92f)
-                .widthIn(min = 300.dp, max = 320.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // 1. Header with green new folder icon
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.CreateNewFolder,
-                    contentDescription = null,
-                    tint = GreenFolderColor,
-                    modifier = Modifier.size(20.dp)
-                )
+            // Option 1: Растр + Слои (Sky Blue Layers)
+            ProjectTypeCardButton(
+                icon = Icons.Rounded.Layers,
+                iconTint = AccentSkyBlue,
+                title = "Растр + Слои",
+                onClick = onSelectRasterProject
+            )
 
-                Spacer(modifier = Modifier.width(8.dp))
+            // Option 2: Топосъемка (Amber Topo)
+            ProjectTypeCardButton(
+                icon = Icons.Rounded.TableChart,
+                iconTint = AmberTopoColor,
+                title = "Топосъемка",
+                onClick = onSelectTopographyProject
+            )
 
-                Text(
-                    text = "Новый проект",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = AppColors.textPrimary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 2. Interactive Card Buttons List
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Option 1: Растр + Слои (Sky Blue Layers)
-                ProjectTypeCardButton(
-                    icon = Icons.Rounded.Layers,
-                    iconTint = AccentSkyBlue,
-                    title = "Растр + Слои",
-                    onClick = onSelectRasterProject
-                )
-
-                // Option 2: Топосъемка (Amber Topo)
-                ProjectTypeCardButton(
-                    icon = Icons.Rounded.TableChart,
-                    iconTint = AmberTopoColor,
-                    title = "Топосъемка",
-                    onClick = onSelectTopographyProject
-                )
-
-                // Option 3: Therion (Purple Therion)
-                ProjectTypeCardButton(
-                    icon = Icons.Rounded.AccountTree,
-                    iconTint = PurpleTherionColor,
-                    title = "Therion",
-                    onClick = onSelectTherionProject
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // 3. Bottom Action Row with Red Cancel Button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                DialogCancelButton(
-                    text = "Не стоит",
-                    onClick = onDismiss
-                )
-            }
+            // Option 3: Therion (Purple Therion)
+            ProjectTypeCardButton(
+                icon = Icons.Rounded.AccountTree,
+                iconTint = PurpleTherionColor,
+                title = "Therion",
+                onClick = onSelectTherionProject
+            )
         }
     }
 }
@@ -175,19 +128,6 @@ private fun ProjectTypeCardButton(
             fontSize = 13.5.sp,
             fontWeight = FontWeight.Medium,
             color = AppColors.textPrimary
-        )
-    }
-}
-
-@Preview
-@Composable
-private fun ProjectTypeDialogPreview() {
-    CaveViewerTheme(darkTheme = true) {
-        ProjectTypeDialog(
-            onSelectRasterProject = {},
-            onSelectTopographyProject = {},
-            onSelectTherionProject = {},
-            onDismiss = {}
         )
     }
 }

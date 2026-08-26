@@ -1,18 +1,11 @@
 package com.vktrsansara.app.caveviewer.presentation.map.dialogs
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -22,12 +15,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.presentation.components.DialogSaveButton
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
@@ -35,7 +27,7 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import java.util.Locale
 
 /**
- * Input modal dialog for measured scale calibration parameters with standardized styling.
+ * Input modal dialog for measured scale calibration parameters.
  */
 @Composable
 fun ScaleBindingInputDialog(
@@ -57,104 +49,79 @@ fun ScaleBindingInputDialog(
         String.format(Locale.US, "%.4f", measuredPixels)
     }
 
-    Dialog(onDismissRequest = onCancel) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        ) {
-            // Dialog Title
-            Text(
-                text = "Параметры масштаба",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary
+    AppDialogContainer(
+        title = "Параметры масштаба",
+        onDismissRequest = onCancel,
+        buttons = {
+            DialogCancelButton(
+                text = "Отмена",
+                onClick = onCancel
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Measured pixels info
-            Text(
-                text = "Длина отрезка на карте: $measuredPxFormatted px",
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = AppColors.textPrimary
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Real-world meters input label
-            Text(
-                text = "Чему равен отрезок в метрах (м):",
-                fontSize = 12.5.sp,
-                color = AppColors.textSecondary
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            OutlinedTextField(
-                value = metersText,
-                onValueChange = { metersText = it },
-                placeholder = {
-                    Text("Например: 10", color = AppColors.textSecondary.copy(alpha = 0.5f), fontSize = 13.sp)
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = AppColors.textPrimary,
-                    unfocusedTextColor = AppColors.textPrimary,
-                    focusedBorderColor = AccentSkyBlue,
-                    unfocusedBorderColor = AppColors.borderColor,
-                    cursorColor = AccentSkyBlue,
-                    focusedContainerColor = AppColors.bgMain,
-                    unfocusedContainerColor = AppColors.bgMain
-                ),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Dynamic scale ratio hint
-            val ppmString = if (isMetersValid) {
-                String.format(Locale.US, "%.4f", calculatedPpm)
-            } else {
-                "—"
-            }
-            Text(
-                text = "Рассчитанный масштаб: 1 м = $ppmString px",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (isMetersValid) AccentSkyBlue else AppColors.textSecondary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                DialogCancelButton(
-                    text = "Отмена",
-                    onClick = onCancel
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                DialogSaveButton(
-                    text = "Сохранить",
-                    enabled = isMetersValid,
-                    onClick = {
-                        if (isMetersValid && metersVal != null) {
-                            onSave(calculatedPpm, metersVal)
-                        }
+            Spacer(modifier = Modifier.width(8.dp))
+            DialogSaveButton(
+                text = "Сохранить",
+                enabled = isMetersValid,
+                onClick = {
+                    if (isMetersValid && metersVal != null) {
+                        onSave(calculatedPpm, metersVal)
                     }
-                )
-            }
+                }
+            )
         }
+    ) {
+        // Measured pixels info
+        Text(
+            text = "Длина отрезка на карте: $measuredPxFormatted px",
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = AppColors.textPrimary
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Real-world meters input label
+        Text(
+            text = "Чему равен отрезок в метрах (м):",
+            fontSize = 12.5.sp,
+            color = AppColors.textSecondary
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        OutlinedTextField(
+            value = metersText,
+            onValueChange = { metersText = it },
+            placeholder = {
+                Text("Например: 10", color = AppColors.textSecondary.copy(alpha = 0.5f), fontSize = 13.sp)
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = AppColors.textPrimary,
+                unfocusedTextColor = AppColors.textPrimary,
+                focusedBorderColor = AccentSkyBlue,
+                unfocusedBorderColor = AppColors.borderColor,
+                cursorColor = AccentSkyBlue,
+                focusedContainerColor = AppColors.bgMain,
+                unfocusedContainerColor = AppColors.bgMain
+            ),
+            shape = RoundedCornerShape(6.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Dynamic scale ratio hint
+        val ppmString = if (isMetersValid) {
+            String.format(Locale.US, "%.4f", calculatedPpm)
+        } else {
+            "—"
+        }
+        Text(
+            text = "Рассчитанный масштаб: 1 м = $ppmString px",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (isMetersValid) AccentSkyBlue else AppColors.textSecondary
+        )
     }
 }

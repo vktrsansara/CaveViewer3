@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,16 +27,18 @@ import com.vktrsansara.app.caveviewer.ui.theme.AccentRed
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 /**
- * Floating side bar for calibration modes styled identically to the FloatingBottomBar.
+ * Floating side bar for calibration and measurement modes styled identically to the FloatingBottomBar.
  * Contains:
  * - "Undo" button (undo_24 vector, amber tint) when points are placed.
- * - "Close" button (Close icon, red tint) to cancel calibration mode.
+ * - "Close" button (Close icon, red tint) to cancel calibration/tool mode.
+ * - "Help" button (Info icon, green tint) when onHelp callback is provided.
  */
 @Composable
 fun BindingSideControl(
     pointsCount: Int,
     onClose: () -> Unit,
     onUndo: () -> Unit,
+    onHelp: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -68,9 +71,19 @@ fun BindingSideControl(
         // Close button (always available to exit mode)
         BarIconButton(
             icon = Icons.Rounded.Close,
-            contentDescription = "Закрыть режим привязки",
+            contentDescription = "Закрыть",
             onClick = onClose,
             tint = AccentRed
         )
+
+        // Help button (available when onHelp is provided)
+        if (onHelp != null) {
+            BarIconButton(
+                icon = Icons.Rounded.Info,
+                contentDescription = "Справка",
+                onClick = onHelp,
+                tint = Color(0xFF10B981) // Emerald Green
+            )
+        }
     }
 }

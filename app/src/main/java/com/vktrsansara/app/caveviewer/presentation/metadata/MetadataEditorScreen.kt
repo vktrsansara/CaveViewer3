@@ -61,6 +61,7 @@ import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.presentation.components.DialogSaveButton
 import com.vktrsansara.app.caveviewer.ui.theme.AccentRed
@@ -858,50 +859,27 @@ private fun UnsavedChangesDialog(
     onDiscardAndExit: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Несохраненные изменения",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary
+    AppDialogContainer(
+        title = "Несохраненные изменения",
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(
+                text = "Без сохран.",
+                onClick = onDiscardAndExit
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "Вы внесли изменения, которые не были сохранены. Хотите сохранить их перед выходом?",
-                fontSize = 13.sp,
-                color = AppColors.textSecondary,
-                lineHeight = 18.sp
+            Spacer(modifier = Modifier.width(8.dp))
+            DialogSaveButton(
+                text = "Сохранить",
+                onClick = onSaveAndExit
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                DialogCancelButton(
-                    text = "Без сохран.",
-                    onClick = onDiscardAndExit
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                DialogSaveButton(
-                    text = "Сохранить",
-                    onClick = onSaveAndExit
-                )
-            }
         }
+    ) {
+        Text(
+            text = "Вы внесли изменения, которые не были сохранены. Хотите сохранить их перед выходом?",
+            fontSize = 13.sp,
+            color = AppColors.textSecondary,
+            lineHeight = 18.sp
+        )
     }
 }
 
@@ -909,65 +887,37 @@ private fun UnsavedChangesDialog(
 private fun MainMetadataHelpDialog(
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Справка: Основные данные",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary
+    AppDialogContainer(
+        title = "Справка: Основные данные",
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(
+                text = "Закрыть",
+                onClick = onDismiss
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                HelpItem(
-                    title = "Название проекта:",
-                    description = "Название папки проекта в файловой системе устройства."
-                )
-                HelpItem(
-                    title = "Пикселей на метр (px):",
-                    description = "Физический масштаб растра. Показывает, сколько пикселей изображения приходится на 1 метр в реальности."
-                )
-                HelpItem(
-                    title = "Масштаб (m):",
-                    description = "Масштабный шаг (например, если масштаб 10м, а пикселей на метр 12, то 10 метров равны 120 пикселям)."
-                )
-                HelpItem(
-                    title = "Угол на Север (0..360°):",
-                    description = "Направление истинного севера на схеме пещеры (угол отклонения от верхнего края экрана)."
-                )
-                HelpItem(
-                    title = "Система координат (Simple):",
-                    description = "Прямоугольная декартова система координат изображения (X, Y в пикселях/метрах) для схем пещер без географической привязки."
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                DialogCancelButton(
-                    text = "Закрыть",
-                    onClick = onDismiss
-                )
-            }
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            HelpItem(
+                title = "Название проекта:",
+                description = "Название папки проекта в файловой системе устройства."
+            )
+            HelpItem(
+                title = "Пикселей на метр (px):",
+                description = "Физический масштаб растра. Показывает, сколько пикселей изображения приходится на 1 метр в реальности."
+            )
+            HelpItem(
+                title = "Масштаб (m):",
+                description = "Масштабный шаг (например, если масштаб 10м, а пикселей на метр 12, то 10 метров равны 120 пикселям)."
+            )
+            HelpItem(
+                title = "Угол на Север (0..360°):",
+                description = "Направление истинного севера на схеме пещеры (угол отклонения от верхнего края экрана)."
+            )
+            HelpItem(
+                title = "Система координат (Simple):",
+                description = "Прямоугольная декартова система координат изображения (X, Y в пикселях/метрах) для схем пещер без географической привязки."
+            )
         }
     }
 }
@@ -978,45 +928,22 @@ private fun UnderDevelopmentHelpDialog(
     description: String,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary
+    AppDialogContainer(
+        title = title,
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(
+                text = "Закрыть",
+                onClick = onDismiss
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = description,
-                fontSize = 13.sp,
-                color = AppColors.textSecondary,
-                lineHeight = 18.sp
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                DialogCancelButton(
-                    text = "Закрыть",
-                    onClick = onDismiss
-                )
-            }
         }
+    ) {
+        Text(
+            text = description,
+            fontSize = 13.sp,
+            color = AppColors.textSecondary,
+            lineHeight = 18.sp
+        )
     }
 }
 
@@ -1025,14 +952,14 @@ private fun HelpItem(title: String, description: String) {
     Column {
         Text(
             text = title,
-            fontSize = 13.sp,
+            fontSize = 13.5.sp,
             fontWeight = FontWeight.SemiBold,
-            color = AppColors.textPrimary
+            color = Color(0xFF38BDF8)
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = description,
-            fontSize = 12.5.sp,
+            fontSize = 12.sp,
             color = AppColors.textSecondary,
             lineHeight = 17.sp
         )

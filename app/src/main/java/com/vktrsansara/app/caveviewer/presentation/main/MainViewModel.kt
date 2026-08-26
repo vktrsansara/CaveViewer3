@@ -1046,6 +1046,103 @@ class MainViewModel(
                     it.copy(isRadiusMeasureMode = false, radiusCenterPoint = null)
                 }
             }
+
+            // Delta Offset Handlers
+            is MainUiIntent.StartDeltaOffsetMode -> {
+                _uiState.update {
+                    it.copy(
+                        isDeltaOffsetMode = true,
+                        deltaOffsetOriginPoint = null,
+                        isRadiusMeasureMode = false,
+                        radiusCenterPoint = null,
+                        isFaultLineMode = false,
+                        faultLinePoints = emptyList(),
+                        isAzimuthMode = false,
+                        azimuthOriginPoint = null,
+                        isRulerMode = false,
+                        rulerPoints = emptyList(),
+                        isAreaMeasureMode = false,
+                        areaPoints = emptyList(),
+                        isAngleMeasureMode = false,
+                        anglePoints = emptyList(),
+                        isScaleBindingMode = false,
+                        isNorthBindingMode = false,
+                        isEntranceCavePickMode = false,
+                        isOsmEntranceBindingMode = false,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.SetDeltaOffsetOriginPoint -> {
+                viewModelScope.launch {
+                    val meta = _uiState.value.activeProjectMetadata
+                        ?: _uiState.value.activeProjectName?.let { projectRepository.getProjectMetadata(it) }
+                        ?: return@launch
+
+                    val (pxX, pxY) = CaveMapBounds.latLngToImagePixels(
+                        latLng = intent.latLng,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        maxZoom = meta.zoomMax
+                    )
+                    val originPoint = ScaleBindingPoint(latLng = intent.latLng, imagePx = Pair(pxX, pxY))
+                    _uiState.update {
+                        it.copy(deltaOffsetOriginPoint = originPoint)
+                    }
+                }
+            }
+            is MainUiIntent.ResetDeltaOffsetOriginPoint -> {
+                _uiState.update {
+                    it.copy(deltaOffsetOriginPoint = null)
+                }
+            }
+            is MainUiIntent.CloseDeltaOffsetMode -> {
+                _uiState.update {
+                    it.copy(
+                        isDeltaOffsetMode = false,
+                        deltaOffsetOriginPoint = null,
+                        isDeltaOffsetHelpVisible = false
+                    )
+                }
+            }
+            is MainUiIntent.OpenDeltaOffsetHelp -> {
+                _uiState.update {
+                    it.copy(isDeltaOffsetHelpVisible = true)
+                }
+            }
+            is MainUiIntent.DismissDeltaOffsetHelp -> {
+                _uiState.update {
+                    it.copy(isDeltaOffsetHelpVisible = false)
+                }
+            }
+
+            // Map Filter Dialog Handlers
+            is MainUiIntent.OpenMapFilterDialog -> {
+                _uiState.update {
+                    it.copy(isMapFilterDialogVisible = true, isMenuExpanded = false)
+                }
+            }
+            is MainUiIntent.DismissMapFilterDialog -> {
+                _uiState.update {
+                    it.copy(isMapFilterDialogVisible = false)
+                }
+            }
+            is MainUiIntent.OpenMapFilterHelpDialog -> {
+                _uiState.update {
+                    it.copy(isMapFilterHelpDialogVisible = true)
+                }
+            }
+            is MainUiIntent.DismissMapFilterHelpDialog -> {
+                _uiState.update {
+                    it.copy(isMapFilterHelpDialogVisible = false)
+                }
+            }
+            is MainUiIntent.SetMapFilterMode -> {
+                viewModelScope.launch {
+                    settingsRepository.setMapFilter(intent.mode)
+                }
+            }
+
             is MainUiIntent.DismissProjectTypeDialog -> {
                 _uiState.update { it.copy(isProjectTypeDialogVisible = false) }
             }

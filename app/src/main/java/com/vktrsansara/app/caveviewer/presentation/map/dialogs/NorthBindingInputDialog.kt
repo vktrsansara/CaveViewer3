@@ -1,18 +1,11 @@
 package com.vktrsansara.app.caveviewer.presentation.map.dialogs
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -22,12 +15,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.presentation.components.DialogSaveButton
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
@@ -35,7 +27,7 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import java.util.Locale
 
 /**
- * Input modal dialog for North / Compass calibration azimuth parameters with standardized styling.
+ * Input modal dialog for North / Compass calibration azimuth parameters.
  */
 @Composable
 fun NorthBindingInputDialog(
@@ -53,99 +45,74 @@ fun NorthBindingInputDialog(
         String.format(Locale.US, "%.2f", measuredAngle)
     }
 
-    Dialog(onDismissRequest = onCancel) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        ) {
-            // Dialog Title
-            Text(
-                text = "Параметры компаса",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary
+    AppDialogContainer(
+        title = "Параметры компаса",
+        onDismissRequest = onCancel,
+        buttons = {
+            DialogCancelButton(
+                text = "Отмена",
+                onClick = onCancel
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Measured angle info
-            Text(
-                text = "Измеренный угол севера: $measuredAngleFormatted°",
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = AppColors.textPrimary
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Angle input field label
-            Text(
-                text = "Угол направления на север (0..360°):",
-                fontSize = 12.5.sp,
-                color = AppColors.textSecondary
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            OutlinedTextField(
-                value = angleText,
-                onValueChange = { angleText = it },
-                placeholder = {
-                    Text("0.00", color = AppColors.textSecondary.copy(alpha = 0.5f), fontSize = 13.sp)
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = AppColors.textPrimary,
-                    unfocusedTextColor = AppColors.textPrimary,
-                    focusedBorderColor = AccentSkyBlue,
-                    unfocusedBorderColor = AppColors.borderColor,
-                    cursorColor = AccentSkyBlue,
-                    focusedContainerColor = AppColors.bgMain,
-                    unfocusedContainerColor = AppColors.bgMain
-                ),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Orientation hint
-            Text(
-                text = "0° — верх карты, 90° — восток, 180° — юг, 270° — запад.",
-                fontSize = 11.5.sp,
-                lineHeight = 16.sp,
-                color = AppColors.textSecondary
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                DialogCancelButton(
-                    text = "Отмена",
-                    onClick = onCancel
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                DialogSaveButton(
-                    text = "Сохранить",
-                    enabled = isAngleValid,
-                    onClick = {
-                        if (isAngleValid && angleVal != null) {
-                            onSave(angleVal)
-                        }
+            Spacer(modifier = Modifier.width(8.dp))
+            DialogSaveButton(
+                text = "Сохранить",
+                enabled = isAngleValid,
+                onClick = {
+                    if (isAngleValid && angleVal != null) {
+                        onSave(angleVal)
                     }
-                )
-            }
+                }
+            )
         }
+    ) {
+        // Measured angle info
+        Text(
+            text = "Измеренный угол севера: $measuredAngleFormatted°",
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = AppColors.textPrimary
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Angle input field label
+        Text(
+            text = "Угол направления на север (0..360°):",
+            fontSize = 12.5.sp,
+            color = AppColors.textSecondary
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        OutlinedTextField(
+            value = angleText,
+            onValueChange = { angleText = it },
+            placeholder = {
+                Text("0.00", color = AppColors.textSecondary.copy(alpha = 0.5f), fontSize = 13.sp)
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = AppColors.textPrimary,
+                unfocusedTextColor = AppColors.textPrimary,
+                focusedBorderColor = AccentSkyBlue,
+                unfocusedBorderColor = AppColors.borderColor,
+                cursorColor = AccentSkyBlue,
+                focusedContainerColor = AppColors.bgMain,
+                unfocusedContainerColor = AppColors.bgMain
+            ),
+            shape = RoundedCornerShape(6.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Orientation hint
+        Text(
+            text = "0° — верх карты, 90° — восток, 180° — юг, 270° — запад.",
+            fontSize = 11.5.sp,
+            lineHeight = 16.sp,
+            color = AppColors.textSecondary
+        )
     }
 }

@@ -393,5 +393,19 @@ class MetadataTest {
         assertEquals("20.00 м", circleMetrics.diameterText)
         assertEquals("314.16 м²", circleMetrics.areaText)
         assertEquals("62.83 м", circleMetrics.perimeterText)
+
+        // 7. Delta Offset tests
+        // Origin (100, 100), Target (150, 60): dx = 50, dy = 40 on raster (y up: uy = 40)
+        // With angleNorth = 0.0, ppm = 1.0 px/m:
+        // East = +50.00 m, North = +40.00 m, Direct = sqrt(2500 + 1600) = 64.03 m
+        val deltaMetrics = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculateDeltaOffset(
+            originPx = Pair(100.0, 100.0),
+            targetPx = Pair(150.0, 60.0),
+            angleNorth = 0.0,
+            ppm = 1.0
+        )
+        assertEquals("Восток: +50.00 м", deltaMetrics.deltaXText)
+        assertEquals("Север: +40.00 м", deltaMetrics.deltaYText)
+        assertEquals("64.03 м", deltaMetrics.directDistanceText)
     }
 }

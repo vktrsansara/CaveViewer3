@@ -11,12 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,8 +22,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
+import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 /**
@@ -37,142 +34,112 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 fun ColorPaletteHelpDialog(
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        ) {
+    AppDialogContainer(
+        title = "Справка: Цвета колорпикера",
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(
+                text = "Закрыть",
+                onClick = onDismiss
+            )
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text = "Справка: Цвета колорпикера",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary
+                text = "Выбор таблицы цветов определяет 15 базовых оттенков в диалоге выбора цвета (для курсора, сетки и будущих инструментов):",
+                fontSize = 13.5.sp,
+                color = AppColors.textPrimary,
+                lineHeight = 19.sp
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
-
+            // 1. Standard Palette Section
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.bgSurface)
+                    .padding(10.dp)
             ) {
                 Text(
-                    text = "Выбор таблицы цветов определяет 15 базовых оттенков в диалоге выбора цвета (для курсора, сетки и будущих инструментов):",
+                    text = "1. Стандартная палитра",
                     fontSize = 13.5.sp,
-                    color = AppColors.textPrimary,
-                    lineHeight = 19.sp
+                    fontWeight = FontWeight.SemiBold,
+                    color = AccentSkyBlue
                 )
-
-                // 1. Standard Palette Section
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(AppColors.bgSurface)
-                        .padding(10.dp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Классические спектральные цвета с максимальной контрастностью.",
+                    fontSize = 12.sp,
+                    color = AppColors.textSecondary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "1. Стандартная палитра",
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AppColors.textPrimary
+                    val standardExamples = listOf(
+                        Color(0xFFFF0000), // Красный
+                        Color(0xFFFF6600), // Оранжевый
+                        Color(0xFFFFBF00), // Янтарный
+                        Color(0xFF008000), // Зеленый
+                        Color(0xFF0000FF), // Синий
+                        Color(0xFFFF00FF)  // Маджента
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Классические спектральные цвета с максимальной контрастностью.",
-                        fontSize = 12.sp,
-                        color = AppColors.textSecondary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val standardExamples = listOf(
-                            Color(0xFFFF0000), // Красный
-                            Color(0xFFFF6600), // Оранжевый
-                            Color(0xFFFFBF00), // Янтарный
-                            Color(0xFF008000), // Зеленый
-                            Color(0xFF0000FF), // Синий
-                            Color(0xFFFF00FF)  // Маджента
+                    standardExamples.forEach { color ->
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
                         )
-                        standardExamples.forEach { color ->
-                            Box(
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .clip(CircleShape)
-                                    .background(color)
-                                    .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
-                            )
-                        }
-                    }
-                }
-
-                // 2. Muted Palette Section
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(AppColors.bgSurface)
-                        .padding(10.dp)
-                ) {
-                    Text(
-                        text = "2. Приглушенные цвета",
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AppColors.textPrimary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Мягкие природные и пастельные тона, комфортные для глаз в темноте.",
-                        fontSize = 12.sp,
-                        color = AppColors.textSecondary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val mutedExamples = listOf(
-                            Color(0xFF8B0000), // Бордовый
-                            Color(0xFFCC5500), // Терракотовый
-                            Color(0xFFD4A017), // Горчичный
-                            Color(0xFF556B2F), // Оливковый
-                            Color(0xFF4682B4), // Стальной синий
-                            Color(0xFF967BB6)  // Лавандовый
-                        )
-                        mutedExamples.forEach { color ->
-                            Box(
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .clip(CircleShape)
-                                    .background(color)
-                                    .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
-                            )
-                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+            // 2. Muted Palette Section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.bgSurface)
+                    .padding(10.dp)
             ) {
-                DialogCancelButton(
-                    text = "Закрыть",
-                    onClick = onDismiss
+                Text(
+                    text = "2. Приглушенные цвета",
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AccentSkyBlue
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Мягкие природные и пастельные тона, комфортные для глаз в темноте.",
+                    fontSize = 12.sp,
+                    color = AppColors.textSecondary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val mutedExamples = listOf(
+                        Color(0xFFE57373), // Мягкий красный
+                        Color(0xFFFFB74D), // Мягкий оранжевый
+                        Color(0xFFFFF176), // Мягкий желтый
+                        Color(0xFF81C784), // Мягкий зеленый
+                        Color(0xFF64B5F6), // Мягкий синий
+                        Color(0xFFBA68C8)  // Мягкий фиолетовый
+                    )
+                    mutedExamples.forEach { color ->
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                        )
+                    }
+                }
             }
         }
     }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -18,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
+import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 /**
  * Standardized primary action button for modal dialogs with clean typography matching DialogCancelButton.
@@ -34,26 +36,25 @@ fun DialogSaveButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-
     Box(
         modifier = modifier
+            .height(34.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(if (enabled) AccentSkyBlue else AccentSkyBlue.copy(alpha = 0.35f))
+            .background(if (enabled) AccentSkyBlue else AccentSkyBlue.copy(alpha = 0.3f))
             .clickable(
                 enabled = enabled,
-                interactionSource = interactionSource,
-                indication = ripple(color = Color.White.copy(alpha = 0.2f)),
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(color = Color.White.copy(alpha = 0.3f)),
                 onClick = onClick
             )
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
+            color = if (enabled) Color(0xFF121820) else AppColors.textSecondary,
             fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = if (enabled) Color.White else Color.White.copy(alpha = 0.6f)
+            fontWeight = FontWeight.SemiBold
         )
     }
 }

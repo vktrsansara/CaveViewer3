@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
+import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.presentation.projects.components.TileGenerationProgressDialog
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
@@ -403,63 +404,41 @@ private fun DiscardChangesDialog(
     onConfirmDiscard: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Отменить создание?",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Введенные данные проекта будут потеряны.",
-                fontSize = 13.sp,
-                color = AppColors.textSecondary,
-                lineHeight = 18.sp
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = AppColors.pressedColor),
-                            onClick = onDismiss
-                        )
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "Продолжить",
-                        fontSize = 13.sp,
-                        color = AppColors.textSecondary
+    AppDialogContainer(
+        title = "Отменить создание?",
+        onDismissRequest = onDismiss,
+        buttons = {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(color = AppColors.pressedColor),
+                        onClick = onDismiss
                     )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                DialogCancelButton(
-                    text = "Отменить",
-                    onClick = onConfirmDiscard
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "Продолжить",
+                    fontSize = 13.sp,
+                    color = AppColors.textSecondary
                 )
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            DialogCancelButton(
+                text = "Отменить",
+                onClick = onConfirmDiscard
+            )
         }
+    ) {
+        Text(
+            text = "Введенные данные проекта будут потеряны.",
+            fontSize = 13.sp,
+            color = AppColors.textSecondary,
+            lineHeight = 18.sp
+        )
     }
 }
 

@@ -38,6 +38,7 @@ class SettingsRepositoryImpl(
         val GRID_CUSTOM_SIZE = doublePreferencesKey("grid_custom_size")
         val GRID_COLOR = longPreferencesKey("grid_color")
         val COLOR_PALETTE_MODE = stringPreferencesKey("color_palette_mode")
+        val MAP_FILTER = stringPreferencesKey("map_filter")
     }
 
     override val settingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -66,6 +67,12 @@ class SettingsRepositoryImpl(
             val gridCustomSize = preferences[PreferencesKeys.GRID_CUSTOM_SIZE] ?: 10.0
             val gridColor = preferences[PreferencesKeys.GRID_COLOR] ?: 0x9973FF00L
             val colorPaletteMode = preferences[PreferencesKeys.COLOR_PALETTE_MODE] ?: "standard"
+            val filterName = preferences[PreferencesKeys.MAP_FILTER] ?: com.vktrsansara.app.caveviewer.domain.model.MapFilterMode.NONE.name
+            val mapFilter = try {
+                com.vktrsansara.app.caveviewer.domain.model.MapFilterMode.valueOf(filterName)
+            } catch (e: IllegalArgumentException) {
+                com.vktrsansara.app.caveviewer.domain.model.MapFilterMode.NONE
+            }
 
             AppSettings(
                 theme = theme,
@@ -79,7 +86,8 @@ class SettingsRepositoryImpl(
                 gridSizeMode = gridSizeMode,
                 gridCustomSize = gridCustomSize,
                 gridColor = gridColor,
-                colorPaletteMode = colorPaletteMode
+                colorPaletteMode = colorPaletteMode,
+                mapFilter = mapFilter
             )
         }
 
@@ -152,6 +160,12 @@ class SettingsRepositoryImpl(
     override suspend fun setColorPaletteMode(mode: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.COLOR_PALETTE_MODE] = mode
+        }
+    }
+
+    override suspend fun setMapFilter(mode: com.vktrsansara.app.caveviewer.domain.model.MapFilterMode) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MAP_FILTER] = mode.name
         }
     }
 }

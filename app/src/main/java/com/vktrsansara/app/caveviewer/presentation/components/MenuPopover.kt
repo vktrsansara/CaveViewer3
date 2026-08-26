@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Architecture
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ColorLens
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.DesignServices
 import androidx.compose.material.icons.rounded.Explore
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GridOn
+import androidx.compose.material.icons.rounded.LocationSearching
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Settings
@@ -110,6 +112,8 @@ fun MenuPopover(
     onStartAzimuthClick: () -> Unit = {},
     onStartFaultLineClick: () -> Unit = {},
     onStartRadiusMeasureClick: () -> Unit = {},
+    onStartDeltaOffsetClick: () -> Unit = {},
+    onOpenMapFiltersClick: () -> Unit = {},
     onOpenAppSettings: () -> Unit,
     onOpenToolsSettings: () -> Unit = {},
     onExitApp: () -> Unit,
@@ -209,6 +213,8 @@ fun MenuPopover(
                             onStartAzimuthClick = onStartAzimuthClick,
                             onStartFaultLineClick = onStartFaultLineClick,
                             onStartRadiusMeasureClick = onStartRadiusMeasureClick,
+                            onStartDeltaOffsetClick = onStartDeltaOffsetClick,
+                            onOpenMapFiltersClick = onOpenMapFiltersClick,
                             onBackClick = { currentLevel = MenuLevel.MAIN }
                         )
                     }
@@ -294,6 +300,8 @@ private fun ToolsSubmenuContent(
     onStartAzimuthClick: () -> Unit,
     onStartFaultLineClick: () -> Unit,
     onStartRadiusMeasureClick: () -> Unit,
+    onStartDeltaOffsetClick: () -> Unit,
+    onOpenMapFiltersClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -387,7 +395,23 @@ private fun ToolsSubmenuContent(
             onClick = onStartRadiusMeasureClick
         )
 
-        // 8. Назад
+        // 8. Смещение (ΔX, ΔY) (Иконка LocationSearching / Indigo)
+        MenuItem(
+            icon = Icons.Rounded.LocationSearching,
+            iconTint = Color(0xFF6366F1), // Indigo
+            title = "Смещение (ΔX, ΔY)",
+            onClick = onStartDeltaOffsetClick
+        )
+
+        // 9. Фильтры (Иконка ColorLens / Sky Blue)
+        MenuItem(
+            icon = Icons.Rounded.ColorLens,
+            iconTint = Color(0xFF38BDF8), // Sky Blue
+            title = "Фильтры",
+            onClick = onOpenMapFiltersClick
+        )
+
+        // 10. Назад
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             iconTint = AccentSkyBlue,

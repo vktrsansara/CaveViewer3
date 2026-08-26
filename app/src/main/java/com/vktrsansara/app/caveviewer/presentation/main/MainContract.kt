@@ -79,7 +79,14 @@ data class MainUiState(
     val faultLinePoints: List<ScaleBindingPoint> = emptyList(),
     // Radius (Circular Zone) State
     val isRadiusMeasureMode: Boolean = false,
-    val radiusCenterPoint: ScaleBindingPoint? = null
+    val radiusCenterPoint: ScaleBindingPoint? = null,
+    // Delta Offset (dX, dY Local Coordinates) State
+    val isDeltaOffsetMode: Boolean = false,
+    val deltaOffsetOriginPoint: ScaleBindingPoint? = null,
+    val isDeltaOffsetHelpVisible: Boolean = false,
+    // Map Filter Dialogs
+    val isMapFilterDialogVisible: Boolean = false,
+    val isMapFilterHelpDialogVisible: Boolean = false
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -184,6 +191,21 @@ sealed interface MainUiIntent : UiIntent {
     data class SetRadiusCenterPoint(val latLng: LatLng) : MainUiIntent
     data object ResetRadiusCenterPoint : MainUiIntent
     data object CloseRadiusMeasureMode : MainUiIntent
+
+    // Delta Offset (dX, dY Local Coordinates) actions
+    data object StartDeltaOffsetMode : MainUiIntent
+    data class SetDeltaOffsetOriginPoint(val latLng: LatLng) : MainUiIntent
+    data object ResetDeltaOffsetOriginPoint : MainUiIntent
+    data object CloseDeltaOffsetMode : MainUiIntent
+    data object OpenDeltaOffsetHelp : MainUiIntent
+    data object DismissDeltaOffsetHelp : MainUiIntent
+
+    // Map Filter actions
+    data object OpenMapFilterDialog : MainUiIntent
+    data object DismissMapFilterDialog : MainUiIntent
+    data object OpenMapFilterHelpDialog : MainUiIntent
+    data object DismissMapFilterHelpDialog : MainUiIntent
+    data class SetMapFilterMode(val mode: com.vktrsansara.app.caveviewer.domain.model.MapFilterMode) : MainUiIntent
 
     // Projects List actions
     data class SelectProject(val projectName: String) : MainUiIntent

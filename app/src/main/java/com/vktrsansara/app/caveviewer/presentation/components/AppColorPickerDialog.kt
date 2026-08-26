@@ -154,204 +154,184 @@ fun AppColorPickerDialog(
         (alphaInt.toLong() shl 24) or (selectedRgb and 0x00FFFFFFL)
     }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .clip(RoundedCornerShape(10.dp))
-                .background(AppColors.bgCard)
-                .border(1.dp, AppColors.borderColor, RoundedCornerShape(10.dp))
-                .padding(18.dp)
-        ) {
-            Text(
-                text = title,
-                color = AppColors.textPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
+    AppDialogContainer(
+        title = title,
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(
+                text = "Отмена",
+                onClick = onDismiss
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // 1. Grid of 16 Color Buttons (4x4)
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // 15 Base Palette Colors
-                items(presetColors) { colorValue ->
-                    val isSelected = (selectedRgb and 0x00FFFFFFL) == (colorValue and 0x00FFFFFFL)
-                    Box(
-                        modifier = Modifier
-                            .aspectRatio(1.2f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(colorValue))
-                            .border(
-                                width = if (isSelected) 2.5.dp else 1.dp,
-                                color = if (isSelected) AccentSkyBlue else Color.White.copy(alpha = 0.25f),
-                                shape = RoundedCornerShape(6.dp)
-                            )
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = {
-                                    selectedRgb = colorValue
-                                    isCustomPickerOpen = false
-                                }
-                            )
-                    )
+            Spacer(modifier = Modifier.width(8.dp))
+            DialogSaveButton(
+                text = "Применить",
+                onClick = {
+                    onColorSelected(finalColorLong)
+                    onDismiss()
                 }
-
-                // 16th Button (+) for Custom HSV Spectrum
-                item {
-                    Box(
-                        modifier = Modifier
-                            .aspectRatio(1.2f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isCustomPickerOpen) AccentSkyBlue.copy(alpha = 0.2f) else AppColors.bgSurface)
-                            .border(
-                                width = if (isCustomPickerOpen) 2.dp else 1.dp,
-                                color = if (isCustomPickerOpen) AccentSkyBlue else AppColors.borderColor,
-                                shape = RoundedCornerShape(6.dp)
-                            )
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = { isCustomPickerOpen = !isCustomPickerOpen }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = "Другой цвет",
-                            tint = AccentSkyBlue,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-
-            // Custom Hue Spectrum Bar when (+) is active
-            AnimatedVisibility(
-                visible = isCustomPickerOpen,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
-                    Text(
-                        text = "Спектр оттенка:",
-                        color = AppColors.textSecondary,
-                        fontSize = 12.sp
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    // Rainbow Gradient Slider
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(28.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(
-                                        Color.Red, Color.Yellow, Color.Green,
-                                        Color.Cyan, Color.Blue, Color.Magenta, Color.Red
+            )
+        }
+    ) {
+        // 1. Grid of 16 Color Buttons (4x4)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val allItems: List<Long?> = presetColors.take(15) + listOf(null)
+            allItems.chunked(4).forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowItems.forEach { colorValue ->
+                        if (colorValue != null) {
+                            val isSelected = (selectedRgb and 0x00FFFFFFL) == (colorValue and 0x00FFFFFFL)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1.2f)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(colorValue))
+                                    .border(
+                                        width = if (isSelected) 2.5.dp else 1.dp,
+                                        color = if (isSelected) AccentSkyBlue else Color.White.copy(alpha = 0.25f),
+                                        shape = RoundedCornerShape(6.dp)
                                     )
-                                )
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = {
+                                            selectedRgb = colorValue
+                                            isCustomPickerOpen = false
+                                        }
+                                    )
                             )
-                            .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
-                            .pointerInput(Unit) {
-                                detectDragGestures(
-                                    onDragStart = { offset ->
-                                        val fraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                        hue = fraction * 360f
-                                        val hsvColor = android.graphics.Color.HSVToColor(floatArrayOf(hue, 1f, 1f))
-                                        selectedRgb = (hsvColor.toLong() and 0xFFFFFFFFL) or 0xFF000000L
-                                    },
-                                    onDrag = { change, _ ->
-                                        val fraction = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                        hue = fraction * 360f
-                                        val hsvColor = android.graphics.Color.HSVToColor(floatArrayOf(hue, 1f, 1f))
-                                        selectedRgb = (hsvColor.toLong() and 0xFFFFFFFFL) or 0xFF000000L
-                                    }
+                        } else {
+                            // 16th Button (+) for Custom HSV Spectrum
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1.2f)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isCustomPickerOpen) AccentSkyBlue.copy(alpha = 0.2f) else AppColors.bgSurface)
+                                    .border(
+                                        width = if (isCustomPickerOpen) 2.dp else 1.dp,
+                                        color = if (isCustomPickerOpen) AccentSkyBlue else AppColors.borderColor,
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { isCustomPickerOpen = !isCustomPickerOpen }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Add,
+                                    contentDescription = "Другой цвет",
+                                    tint = AccentSkyBlue,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
-                    )
+                        }
+                    }
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(14.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
+        // Custom Hue Spectrum Bar when (+) is active
+        AnimatedVisibility(
+            visible = isCustomPickerOpen,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                Text(
+                    text = "Спектр оттенка:",
+                    color = AppColors.textSecondary,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                // Rainbow Gradient Slider
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(28.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.Red, Color.Yellow, Color.Green,
+                                    Color.Cyan, Color.Blue, Color.Magenta, Color.Red
+                                )
+                            )
+                        )
+                        .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    val fraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                    hue = fraction * 360f
+                                    val hsvColor = android.graphics.Color.HSVToColor(floatArrayOf(hue, 1f, 1f))
+                                    selectedRgb = (hsvColor.toLong() and 0xFFFFFFFFL) or 0xFF000000L
+                                },
+                                onDrag = { change, _ ->
+                                    val fraction = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                    hue = fraction * 360f
+                                    val hsvColor = android.graphics.Color.HSVToColor(floatArrayOf(hue, 1f, 1f))
+                                    selectedRgb = (hsvColor.toLong() and 0xFFFFFFFFL) or 0xFF000000L
+                                }
+                            )
+                        }
+                )
+            }
+        }
 
-            // 2. Alpha Transparency Slider with Black/White Checkerboard Preview
-            Text(
-                text = "Прозрачность: ${(alphaFraction * 100).roundToInt()}%",
-                color = AppColors.textSecondary,
-                fontSize = 12.5.sp
+        Spacer(modifier = Modifier.height(14.dp))
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 2. Alpha Transparency Slider with Black/White Checkerboard Preview
+        Text(
+            text = "Прозрачность: ${(alphaFraction * 100).roundToInt()}%",
+            color = AppColors.textSecondary,
+            fontSize = 12.5.sp
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Slider(
+                value = alphaFraction,
+                onValueChange = { alphaFraction = it },
+                modifier = Modifier.weight(1f),
+                colors = SliderDefaults.colors(
+                    thumbColor = AccentSkyBlue,
+                    activeTrackColor = AccentSkyBlue,
+                    inactiveTrackColor = AppColors.bgSurface
+                )
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Black & White Checkerboard Preview Box with Colored Inner Circle
+            CheckerboardBox(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp)),
+                squareSizeDp = 4f
             ) {
-                Slider(
-                    value = alphaFraction,
-                    onValueChange = { alphaFraction = it },
-                    modifier = Modifier.weight(1f),
-                    colors = SliderDefaults.colors(
-                        thumbColor = AccentSkyBlue,
-                        activeTrackColor = AccentSkyBlue,
-                        inactiveTrackColor = AppColors.bgSurface
-                    )
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Black & White Checkerboard Preview Box with Colored Inner Circle
-                CheckerboardBox(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp)),
-                    squareSizeDp = 4f
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(26.dp)
-                                .clip(CircleShape)
-                                .background(Color(finalColorLong))
-                                .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                        )
-                    }
+                        modifier = Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(Color(finalColorLong))
+                            .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                    )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // 3. Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                DialogCancelButton(
-                    text = "Отмена",
-                    onClick = onDismiss
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                DialogSaveButton(
-                    text = "Применить",
-                    onClick = {
-                        onColorSelected(finalColorLong)
-                        onDismiss()
-                    }
-                )
             }
         }
     }

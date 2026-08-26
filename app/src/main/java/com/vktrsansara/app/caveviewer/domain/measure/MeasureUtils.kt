@@ -234,4 +234,58 @@ object MeasureUtils {
             )
         }
     }
+
+    /**
+     * Metrics for local coordinate displacement (East/West dX and North/South dY).
+     */
+    data class DeltaOffsetMetrics(
+        val deltaXText: String,   // "Восток: +45.20 м" or "Запад: -12.10 м"
+        val deltaYText: String,   // "Север: +112.50 м" or "Юг: -35.20 м"
+        val directDistanceText: String, // "121.80 м"
+        val azimuthText: String   // "21.84°"
+    )
+
+    /**
+     * Calculates displacement deltaX (East/West) and deltaY (North/South) taking into account angleNorth.
+     */
+    fun calculateDeltaOffset(
+        originPx: Pair<Double, Double>,
+        targetPx: Pair<Double, Double>,
+        angleNorth: Double,
+        ppm: Double
+    ): DeltaOffsetMetrics {
+        // Vector in raster coordinates (x right, y up)
+        val ux = targetPx.first - originPx.first
+        val uy = originPx.second - targetPx.second
+        val thetaRad = Math.toRadians(angleNorth)
+        // Projection on True North (unit vector N = [sin(theta), cos(theta)])
+        val deltaYPx = ux * kotlin.math.sin(thetaRad) + uy * kotlin.math.cos(thetaRad)
+        // Projection on True East (unit vector E = [cos(theta), -sin(theta)])
+        val deltaXPx = ux * kotlin.math.cos(thetaRad) - uy * kotlin.math.sin(thetaRad)
+        val directDistPx = kotlin.math.sqrt(ux * ux + uy * uy)
+        val azimuth = calculateAzimuthDegrees(originPx, targetPx, angleNorth)
+
+        return if (ppm > 0.0) {
+            val dxMeters = deltaXPx / ppm
+            val dyMeters = deltaYPx / ppm
+            val distMeters = directDistPx / ppm
+            val dxPrefix = if (dxMeters >= 0) "Восток: +" else "Запад: "
+            val dyPrefix = if (dyMeters >= 0) "Север: +" else "Юг: "
+            DeltaOffsetMetrics(
+                deltaXText = "$dxPrefix${String.format(Locale.US, "%.2f м", dxMeters)}",
+                deltaYText = "$dyPrefix${String.format(Locale.US, "%.2f м", dyMeters)}",
+                directDistanceText = if (distMeters < 1000.0) String.format(Locale.US, "%.2f м", distMeters) else String.format(Locale.US, "%.2f км", distMeters / 1000.0),
+                azimuthText = String.format(Locale.US, "%.2f°", azimuth)
+            )
+        } else {
+            val dxPrefix = if (deltaXPx >= 0) "Восток: +" else "Запад: "
+            val dyPrefix = if (deltaYPx >= 0) "Север: +" else "Юг: "
+            DeltaOffsetMetrics(
+                deltaXText = "$dxPrefix${String.format(Locale.US, "%.0f px", deltaXPx)}",
+                deltaYText = "$dyPrefix${String.format(Locale.US, "%.0f px", deltaYPx)}",
+                directDistanceText = String.format(Locale.US, "%.0f px", directDistPx),
+                azimuthText = String.format(Locale.US, "%.2f°", azimuth)
+            )
+        }
+    }
 }

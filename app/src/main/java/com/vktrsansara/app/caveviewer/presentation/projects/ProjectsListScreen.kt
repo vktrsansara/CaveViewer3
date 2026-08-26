@@ -46,7 +46,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
+import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
+import com.vktrsansara.app.caveviewer.presentation.components.DialogSaveButton
 import com.vktrsansara.app.caveviewer.ui.theme.AccentRed
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
@@ -309,65 +311,29 @@ private fun OpenProjectConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Открыть проект?",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary
+    AppDialogContainer(
+        title = "Открыть проект?",
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(
+                text = "Отмена",
+                onClick = onDismiss
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-            Text(
-                text = "Загрузить проект «$projectName» на карту?",
-                fontSize = 13.5.sp,
-                color = AppColors.textSecondary,
-                lineHeight = 18.sp
+            DialogSaveButton(
+                text = "Открыть",
+                onClick = onConfirm
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                DialogCancelButton(
-                    text = "Отмена",
-                    onClick = onDismiss
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(AppColors.accent)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = AppColors.bgMain.copy(alpha = 0.3f)),
-                            onClick = onConfirm
-                        )
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "Открыть",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = AppColors.bgMain
-                    )
-                }
-            }
         }
+    ) {
+        Text(
+            text = "Загрузить проект «$projectName» на карту?",
+            fontSize = 13.5.sp,
+            color = AppColors.textSecondary,
+            lineHeight = 18.sp
+        )
     }
 }
 
@@ -377,65 +343,45 @@ private fun DeleteProjectConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Удаление проекта",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AccentRed
+    AppDialogContainer(
+        title = "Удаление проекта",
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(
+                text = "Отмена",
+                onClick = onDismiss
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-            Text(
-                text = "Вы действительно хотите удалить проект «$projectName»? Все данные и карта будут удалены без возможности восстановления.",
-                fontSize = 13.sp,
-                color = AppColors.textSecondary,
-                lineHeight = 18.sp
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                DialogCancelButton(
-                    text = "Отмена",
-                    onClick = onDismiss
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(AccentRed)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = AppColors.bgMain.copy(alpha = 0.3f)),
-                            onClick = onConfirm
-                        )
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "Удалить",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = AppColors.textPrimary
+            Box(
+                modifier = Modifier
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AccentRed)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(color = AppColors.bgMain.copy(alpha = 0.3f)),
+                        onClick = onConfirm
                     )
-                }
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Удалить",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
             }
         }
+    ) {
+        Text(
+            text = "Вы действительно хотите удалить проект «$projectName»? Все данные и карта будут удалены без возможности восстановления.",
+            fontSize = 13.sp,
+            color = AppColors.textSecondary,
+            lineHeight = 18.sp
+        )
     }
 }
 
@@ -443,26 +389,17 @@ private fun DeleteProjectConfirmDialog(
 private fun ProjectsListHelpDialog(
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard)
-                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Справка: Список проектов",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary
+    AppDialogContainer(
+        title = "Справка: Список проектов",
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(
+                text = "Закрыть",
+                onClick = onDismiss
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(12.dp))
-
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = "В списке отображаются все созданные и импортированные проекты из папки Documents / CaveViewer / Projects.",
                 fontSize = 13.sp,
@@ -470,26 +407,12 @@ private fun ProjectsListHelpDialog(
                 color = AppColors.textSecondary
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             Text(
                 text = "Нажмите на проект, чтобы загрузить его на карту, или на иконку корзины для удаления.",
                 fontSize = 13.sp,
                 lineHeight = 18.sp,
                 color = AppColors.textSecondary
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                DialogCancelButton(
-                    text = "Закрыть",
-                    onClick = onDismiss
-                )
-            }
         }
     }
 }
