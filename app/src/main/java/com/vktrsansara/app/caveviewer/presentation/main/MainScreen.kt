@@ -101,7 +101,7 @@ fun MainScreen(
         val p2 = uiState.scaleBindingPoints[1].imagePx
         val dx = p2.first - p1.first
         val dy = p2.second - p1.second
-        val measuredPixels = sqrt(dx * dx + dy * dy).roundToInt()
+        val measuredPixels = sqrt(dx * dx + dy * dy)
 
         ScaleBindingInputDialog(
             measuredPixels = measuredPixels,

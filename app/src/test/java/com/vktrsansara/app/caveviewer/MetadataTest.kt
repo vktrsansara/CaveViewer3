@@ -157,4 +157,20 @@ class MetadataTest {
         assertEquals(2000.0, pxX, 0.01)
         assertEquals(1000.0, pxY, 0.01)
     }
+
+    @Test
+    fun testSubpixelScaleMeasurement() {
+        val p1 = Pair(100.1234, 200.5678)
+        val p2 = Pair(242.5088, 200.5678)
+        val dx = p2.first - p1.first
+        val dy = p2.second - p1.second
+        val measuredPixels = kotlin.math.sqrt(dx * dx + dy * dy)
+        val formattedPx = String.format(java.util.Locale.US, "%.4f", measuredPixels)
+        assertEquals("142.3854", formattedPx)
+
+        val meters = 10.0
+        val ppm = measuredPixels / meters
+        val formattedPpm = String.format(java.util.Locale.US, "%.4f", ppm)
+        assertEquals("14.2385", formattedPpm)
+    }
 }

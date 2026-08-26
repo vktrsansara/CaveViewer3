@@ -22,12 +22,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
-import kotlin.math.roundToInt
+import java.util.Locale
 import kotlin.math.sqrt
 
 /**
  * Visual canvas overlay for scale calibration mode:
- * - Top instruction banner
+ * - Top instruction banner with high-precision (%.4f) pixel distance
  * - Markers for Point 1 and Point 2
  * - Dynamic dashed line between Point 1 and map center / Point 2
  */
@@ -38,15 +38,16 @@ fun ScaleBindingOverlay(
     currentCenterPx: Pair<Double, Double>?,
     modifier: Modifier = Modifier
 ) {
-    // Calculate current live distance in map image pixels if Point 1 is set
-    val distancePx: Int = if (points.isNotEmpty() && currentCenterPx != null) {
+    // Calculate current live distance in map image pixels with subpixel precision (Double)
+    val distancePx: Double = if (points.isNotEmpty() && currentCenterPx != null) {
         val p1 = points[0].imagePx
         val dx = currentCenterPx.first - p1.first
         val dy = currentCenterPx.second - p1.second
-        sqrt(dx * dx + dy * dy).roundToInt()
+        sqrt(dx * dx + dy * dy)
     } else {
-        0
+        0.0
     }
+    val distanceText = String.format(Locale.US, "%.4f", distancePx)
 
     Box(modifier = modifier.fillMaxSize()) {
         // Canvas rendering markers and dashed line
@@ -111,7 +112,7 @@ fun ScaleBindingOverlay(
         // Top Informational Banner
         val bannerText = when (points.size) {
             0 -> "Наведите курсор на начало отрезка и коснитесь экрана"
-            1 -> "Наведите курсор на конец отрезка ($distancePx px) и коснитесь экрана"
+            1 -> "Наведите курсор на конец отрезка ($distanceText px) и коснитесь экрана"
             else -> "Отрезок зафиксирован"
         }
 

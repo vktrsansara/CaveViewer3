@@ -1,5 +1,6 @@
 package com.vktrsansara.app.caveviewer.presentation.metadata
 
+import java.util.Locale
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -94,7 +95,7 @@ fun MetadataEditorScreen(
     // Form fields initialized with current metadata
     var projectName by remember(metadata) { mutableStateOf(metadata.projectName) }
     var pixelsPerMeter by remember(metadata) {
-        mutableStateOf(if (metadata.pixelsPerMeter > 0.0) metadata.pixelsPerMeter.toString() else "0.0")
+        mutableStateOf(if (metadata.pixelsPerMeter > 0.0) String.format(Locale.US, "%.4f", metadata.pixelsPerMeter) else "0.0")
     }
     var scaleMeters by remember(metadata) {
         mutableStateOf(if (metadata.scaleMeters > 0.0) metadata.scaleMeters.toString() else "0.0")

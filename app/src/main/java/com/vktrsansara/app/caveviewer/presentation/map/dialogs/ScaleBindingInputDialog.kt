@@ -34,11 +34,11 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import java.util.Locale
 
 /**
- * Input modal dialog for measured scale calibration parameters.
+ * Input modal dialog for measured scale calibration parameters with subpixel (%.4f) precision.
  */
 @Composable
 fun ScaleBindingInputDialog(
-    measuredPixels: Int,
+    measuredPixels: Double,
     onSave: (pixelsPerMeter: Double, scaleMeters: Double) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -47,9 +47,13 @@ fun ScaleBindingInputDialog(
     val isMetersValid = metersVal != null && metersVal > 0.0
 
     val calculatedPpm = if (isMetersValid && metersVal != null) {
-        measuredPixels.toDouble() / metersVal
+        measuredPixels / metersVal
     } else {
         0.0
+    }
+
+    val measuredPxFormatted = remember(measuredPixels) {
+        String.format(Locale.US, "%.4f", measuredPixels)
     }
 
     Dialog(onDismissRequest = onCancel) {
@@ -71,9 +75,9 @@ fun ScaleBindingInputDialog(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Measured pixels info
+            // Measured pixels info with 4 decimal places
             Text(
-                text = "Длина отрезка на карте: $measuredPixels px",
+                text = "Длина отрезка на карте: $measuredPxFormatted px",
                 color = AppColors.textPrimary,
                 fontSize = 13.5.sp,
                 fontWeight = FontWeight.Medium
@@ -113,9 +117,9 @@ fun ScaleBindingInputDialog(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Dynamic scale ratio hint
+            // Dynamic scale ratio hint with 4 decimal places
             val ppmString = if (isMetersValid) {
-                String.format(Locale.US, "%.2f", calculatedPpm)
+                String.format(Locale.US, "%.4f", calculatedPpm)
             } else {
                 "—"
             }
