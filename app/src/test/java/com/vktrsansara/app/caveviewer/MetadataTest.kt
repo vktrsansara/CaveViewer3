@@ -215,4 +215,47 @@ class MetadataTest {
         assertEquals("43.123456", String.format(java.util.Locale.US, "%.6f", entrance.lat!!))
         assertEquals("40.654321", String.format(java.util.Locale.US, "%.6f", entrance.lon!!))
     }
+
+    @Test
+    fun testGridStepAndCoordinateTransforms() {
+        val meta = MapMetadata(
+            projectName = "Снежная",
+            imageWidth = 2000,
+            imageHeight = 4000,
+            zoomMin = 1,
+            zoomMax = 5,
+            zoomDefault = 3,
+            pixelsPerMeter = 12.5,
+            scaleMeters = 10.0
+        )
+
+        // Metadata grid step: 10m * 12.5 px/m = 125 px
+        val stepMetadata = meta.scaleMeters * meta.pixelsPerMeter
+        assertEquals(125.0, stepMetadata, 0.001)
+
+        // Custom grid step: 50m * 12.5 px/m = 625 px
+        val customMeters = 50.0
+        val stepCustom = customMeters * meta.pixelsPerMeter
+        assertEquals(625.0, stepCustom, 0.001)
+
+        // Top-left pixel (0, 0) conversion to LatLng and back
+        val latLngTL = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.imagePixelsToLatLng(
+            0.0, 0.0, meta.imageWidth, meta.imageHeight, meta.zoomMax
+        )
+        val pixelTL = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.latLngToImagePixels(
+            latLngTL, meta.imageWidth, meta.imageHeight, meta.zoomMax
+        )
+        assertEquals(0.0, pixelTL.first, 0.001)
+        assertEquals(0.0, pixelTL.second, 0.001)
+
+        // Bottom-right pixel (2000, 4000) conversion to LatLng and back
+        val latLngBR = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.imagePixelsToLatLng(
+            2000.0, 4000.0, meta.imageWidth, meta.imageHeight, meta.zoomMax
+        )
+        val pixelBR = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.latLngToImagePixels(
+            latLngBR, meta.imageWidth, meta.imageHeight, meta.zoomMax
+        )
+        assertEquals(2000.0, pixelBR.first, 0.001)
+        assertEquals(4000.0, pixelBR.second, 0.001)
+    }
 }

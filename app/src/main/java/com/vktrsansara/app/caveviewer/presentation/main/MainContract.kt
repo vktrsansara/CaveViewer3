@@ -78,6 +78,12 @@ sealed interface MainUiIntent : UiIntent {
     data class UpdateCursorShow(val show: Boolean) : MainUiIntent
     data class UpdateCursorType(val type: Int) : MainUiIntent
     data class UpdateCursorColor(val color: Long) : MainUiIntent
+    data object ToggleGrid : MainUiIntent
+    data class UpdateGridEnabled(val enabled: Boolean) : MainUiIntent
+    data class UpdateGridSizeMode(val mode: String) : MainUiIntent
+    data class UpdateGridCustomSize(val size: Double) : MainUiIntent
+    data class UpdateGridColor(val color: Long) : MainUiIntent
+    data class UpdateColorPaletteMode(val mode: String) : MainUiIntent
 
     // Project Menu actions
     data object ProjectListClicked : MainUiIntent

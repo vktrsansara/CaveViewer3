@@ -223,9 +223,14 @@ fun MainScreen(
             AppScreen.TOOLS_SETTINGS -> {
                 ToolsSettingsScreen(
                     settings = uiState.settings,
+                    activeMetadata = uiState.activeProjectMetadata,
                     onCursorShowChanged = { viewModel.handleIntent(MainUiIntent.UpdateCursorShow(it)) },
                     onCursorTypeChanged = { viewModel.handleIntent(MainUiIntent.UpdateCursorType(it)) },
                     onCursorColorChanged = { viewModel.handleIntent(MainUiIntent.UpdateCursorColor(it)) },
+                    onGridSizeModeChanged = { viewModel.handleIntent(MainUiIntent.UpdateGridSizeMode(it)) },
+                    onGridCustomSizeChanged = { viewModel.handleIntent(MainUiIntent.UpdateGridCustomSize(it)) },
+                    onGridColorChanged = { viewModel.handleIntent(MainUiIntent.UpdateGridColor(it)) },
+                    onColorPaletteModeChanged = { viewModel.handleIntent(MainUiIntent.UpdateColorPaletteMode(it)) },
                     onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
                 )
             }
@@ -334,6 +339,7 @@ fun MainScreenContent(
             MapLibreViewer(
                 projectDir = activeDir,
                 initialCameraPosition = initialPos,
+                settings = uiState.settings,
                 bindingPoints = activeBindingPoints,
                 onCameraPositionChanged = { lat, lon, zoom, bearing ->
                     currentTargetLat = lat
@@ -455,27 +461,26 @@ fun MainScreenContent(
                 )
             }
 
-            // 3. Side Control Bar for Calibration Mode (positioned at 1/3 height from bottom)
+            // 3. Floating Action Control Bar during active Calibration Mode
             if (isAnyCalibrationMode) {
                 BindingSideControl(
                     pointsCount = if (uiState.isEntranceCavePickMode) 0 else activeBindingPoints.size,
+                    onUndo = {
+                        when {
+                            uiState.isScaleBindingMode -> onIntent(MainUiIntent.UndoScaleBindingPoint)
+                            uiState.isNorthBindingMode -> onIntent(MainUiIntent.UndoNorthBindingPoint)
+                        }
+                    },
                     onClose = {
                         when {
                             uiState.isEntranceCavePickMode -> onIntent(MainUiIntent.CancelEntranceCavePick)
+                            uiState.isScaleBindingMode -> onIntent(MainUiIntent.CancelScaleBinding)
                             uiState.isNorthBindingMode -> onIntent(MainUiIntent.CancelNorthBinding)
-                            else -> onIntent(MainUiIntent.CancelScaleBinding)
-                        }
-                    },
-                    onUndo = {
-                        if (uiState.isNorthBindingMode) {
-                            onIntent(MainUiIntent.UndoNorthBindingPoint)
-                        } else {
-                            onIntent(MainUiIntent.UndoScaleBindingPoint)
                         }
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 15.dp, bottom = oneThirdFromBottom)
+                        .padding(bottom = oneThirdFromBottom, end = 15.dp)
                 )
             }
         } else {
@@ -507,6 +512,8 @@ fun MainScreenContent(
             MenuPopover(
                 isOpen = uiState.isMenuExpanded,
                 hasActiveProject = uiState.hasActiveProject,
+                isGridEnabled = uiState.settings.gridEnabled,
+                onToggleGrid = { onIntent(MainUiIntent.ToggleGrid) },
                 onOpenAppSettings = { onIntent(MainUiIntent.OpenAppSettings) },
                 onOpenToolsSettings = { onIntent(MainUiIntent.OpenToolsSettings) },
                 onExitApp = { onIntent(MainUiIntent.ExitAppClicked) },

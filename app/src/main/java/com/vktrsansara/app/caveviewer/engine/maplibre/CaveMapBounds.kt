@@ -124,6 +124,30 @@ object CaveMapBounds {
     }
 
     /**
+     * Converts image pixel coordinates (0..imageWidth, 0..imageHeight) to MapLibre LatLng.
+     */
+    fun imagePixelsToLatLng(
+        pixelX: Double,
+        pixelY: Double,
+        imageWidth: Int,
+        imageHeight: Int,
+        maxZoom: Int
+    ): LatLng {
+        val totalWorldPixels = (2.0.pow(maxZoom.toDouble())) * TILE_SIZE.toDouble()
+        val imageLeftPx = (totalWorldPixels - imageWidth.toDouble()) / 2.0
+        val imageTopPx = (totalWorldPixels - imageHeight.toDouble()) / 2.0
+
+        val worldX = imageLeftPx + pixelX
+        val worldY = imageTopPx + pixelY
+
+        val longitude = ((worldX / totalWorldPixels) - 0.5) * 360.0
+        val yFraction = worldY / totalWorldPixels
+        val latitude = mercatorYToLat(yFraction)
+
+        return LatLng(latitude, longitude)
+    }
+
+    /**
      * Вычисляет азимут направления на север в градусах (0.00..360.00°)
      * p1 - основание стрелки (Юг), p2 - острие стрелки (Север) в пикселях изображения.
      */

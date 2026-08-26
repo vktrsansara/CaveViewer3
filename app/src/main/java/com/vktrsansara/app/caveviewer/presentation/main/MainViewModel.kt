@@ -169,6 +169,37 @@ class MainViewModel(
                     settingsRepository.setCursorColor(intent.color)
                 }
             }
+            is MainUiIntent.ToggleGrid -> {
+                viewModelScope.launch {
+                    val currentEnabled = _uiState.value.settings.gridEnabled
+                    settingsRepository.setGridEnabled(!currentEnabled)
+                }
+            }
+            is MainUiIntent.UpdateGridEnabled -> {
+                viewModelScope.launch {
+                    settingsRepository.setGridEnabled(intent.enabled)
+                }
+            }
+            is MainUiIntent.UpdateGridSizeMode -> {
+                viewModelScope.launch {
+                    settingsRepository.setGridSizeMode(intent.mode)
+                }
+            }
+            is MainUiIntent.UpdateGridCustomSize -> {
+                viewModelScope.launch {
+                    settingsRepository.setGridCustomSize(intent.size)
+                }
+            }
+            is MainUiIntent.UpdateGridColor -> {
+                viewModelScope.launch {
+                    settingsRepository.setGridColor(intent.color)
+                }
+            }
+            is MainUiIntent.UpdateColorPaletteMode -> {
+                viewModelScope.launch {
+                    settingsRepository.setColorPaletteMode(intent.mode)
+                }
+            }
             is MainUiIntent.ProjectListClicked -> {
                 viewModelScope.launch {
                     val projects = projectRepository.getProjectsList()

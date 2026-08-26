@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -32,6 +33,11 @@ class SettingsRepositoryImpl(
         val CURSOR_SHOW = booleanPreferencesKey("cursor_show")
         val CURSOR_TYPE = intPreferencesKey("cursor_type")
         val CURSOR_COLOR = longPreferencesKey("cursor_color")
+        val GRID_ENABLED = booleanPreferencesKey("grid_enabled")
+        val GRID_SIZE_MODE = stringPreferencesKey("grid_size_mode")
+        val GRID_CUSTOM_SIZE = doublePreferencesKey("grid_custom_size")
+        val GRID_COLOR = longPreferencesKey("grid_color")
+        val COLOR_PALETTE_MODE = stringPreferencesKey("color_palette_mode")
     }
 
     override val settingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -55,6 +61,11 @@ class SettingsRepositoryImpl(
             val cursorShow = preferences[PreferencesKeys.CURSOR_SHOW] ?: true
             val cursorType = preferences[PreferencesKeys.CURSOR_TYPE] ?: 1
             val cursorColor = preferences[PreferencesKeys.CURSOR_COLOR] ?: 0xFFEF4444L
+            val gridEnabled = preferences[PreferencesKeys.GRID_ENABLED] ?: false
+            val gridSizeMode = preferences[PreferencesKeys.GRID_SIZE_MODE] ?: "metadata"
+            val gridCustomSize = preferences[PreferencesKeys.GRID_CUSTOM_SIZE] ?: 10.0
+            val gridColor = preferences[PreferencesKeys.GRID_COLOR] ?: 0x9973FF00L
+            val colorPaletteMode = preferences[PreferencesKeys.COLOR_PALETTE_MODE] ?: "standard"
 
             AppSettings(
                 theme = theme,
@@ -63,7 +74,12 @@ class SettingsRepositoryImpl(
                 showScaleBar = showScaleBar,
                 cursorShow = cursorShow,
                 cursorType = cursorType,
-                cursorColor = cursorColor
+                cursorColor = cursorColor,
+                gridEnabled = gridEnabled,
+                gridSizeMode = gridSizeMode,
+                gridCustomSize = gridCustomSize,
+                gridColor = gridColor,
+                colorPaletteMode = colorPaletteMode
             )
         }
 
@@ -106,6 +122,36 @@ class SettingsRepositoryImpl(
     override suspend fun setCursorColor(color: Long) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.CURSOR_COLOR] = color
+        }
+    }
+
+    override suspend fun setGridEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.GRID_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun setGridSizeMode(mode: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.GRID_SIZE_MODE] = mode
+        }
+    }
+
+    override suspend fun setGridCustomSize(size: Double) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.GRID_CUSTOM_SIZE] = size
+        }
+    }
+
+    override suspend fun setGridColor(color: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.GRID_COLOR] = color
+        }
+    }
+
+    override suspend fun setColorPaletteMode(mode: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.COLOR_PALETTE_MODE] = mode
         }
     }
 }

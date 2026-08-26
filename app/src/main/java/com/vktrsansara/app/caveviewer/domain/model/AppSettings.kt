@@ -12,6 +12,11 @@ data class AppSettings(
     val showCompass: Boolean = true,
     val showScaleBar: Boolean = true,
     val cursorShow: Boolean = true,
-    val cursorType: Int = 1,              // 1: Крестик, 2: Пунктирный плюс с точкой, 3: Точка, 4: Х-образный, 5: Кружок с точкой
-    val cursorColor: Long = 0xFFEF4444L   // Цвет курсора (по умолчанию ярко-красный #EF4444)
+    val cursorType: Int = 1,              // 1..6 cursor presets
+    val cursorColor: Long = 0xFFEF4444L,  // Cursor color (with alpha)
+    val gridEnabled: Boolean = false,
+    val gridSizeMode: String = "metadata", // "metadata" or "custom"
+    val gridCustomSize: Double = 10.0,     // 10m or 100px
+    val gridColor: Long = 0x9973FF00L,     // Grid color (with alpha)
+    val colorPaletteMode: String = "standard" // "standard" or "muted"
 )

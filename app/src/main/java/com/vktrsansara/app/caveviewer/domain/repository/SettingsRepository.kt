@@ -13,4 +13,9 @@ interface SettingsRepository {
     suspend fun setCursorShow(show: Boolean)
     suspend fun setCursorType(type: Int)
     suspend fun setCursorColor(color: Long)
+    suspend fun setGridEnabled(enabled: Boolean)
+    suspend fun setGridSizeMode(mode: String)
+    suspend fun setGridCustomSize(size: Double)
+    suspend fun setGridColor(color: Long)
+    suspend fun setColorPaletteMode(mode: String)
 }

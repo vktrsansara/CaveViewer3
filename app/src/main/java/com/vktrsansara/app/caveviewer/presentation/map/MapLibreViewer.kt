@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -31,11 +32,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
+import com.vktrsansara.app.caveviewer.domain.model.AppSettings
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutter
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
+import com.vktrsansara.app.caveviewer.presentation.map.components.MapGridOverlay
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,6 +46,7 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.gestures.MoveGestureDetector
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
@@ -58,6 +62,7 @@ import java.io.File
 fun MapLibreViewer(
     projectDir: File,
     initialCameraPosition: MapCameraPosition? = null,
+    settings: AppSettings? = null,
     bindingPoints: List<ScaleBindingPoint> = emptyList(),
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit = { _, _, _, _ -> },
     onBindingScreenPointsChanged: (List<Offset>) -> Unit = {},
@@ -168,6 +173,7 @@ fun MapLibreViewer(
                     meta = meta,
                     tilesDir = tilesDir,
                     initialCameraPosition = initialCameraPosition,
+                    settings = settings,
                     bindingPoints = bindingPoints,
                     lifecycleOwner = lifecycleOwner,
                     onCameraPositionChanged = onCameraPositionChanged,
@@ -186,6 +192,7 @@ private fun MapLibreMapViewContainer(
     meta: MapMetadata,
     tilesDir: File,
     initialCameraPosition: MapCameraPosition?,
+    settings: AppSettings?,
     bindingPoints: List<ScaleBindingPoint>,
     lifecycleOwner: LifecycleOwner,
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit,
@@ -196,6 +203,7 @@ private fun MapLibreMapViewContainer(
 ) {
     val context = LocalContext.current
     var maplibreMapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+    var cameraVersion by remember { mutableLongStateOf(0L) }
 
     val currentOnMapCenterClick by rememberUpdatedState(onMapCenterClick)
     val currentOnCameraPositionChanged by rememberUpdatedState(onCameraPositionChanged)
@@ -322,6 +330,7 @@ private fun MapLibreMapViewContainer(
                             currentOnCameraPositionChanged(target.latitude, target.longitude, cam.zoom, cam.bearing)
                         }
                     }
+                    cameraVersion++
                     calculateScreenPoints(maplibreMap)
                 }
 
@@ -374,6 +383,7 @@ private fun MapLibreMapViewContainer(
                             0.0
                         )
                     }
+                    cameraVersion++
                     calculateScreenPoints(maplibreMap)
                 }
             }
@@ -398,8 +408,20 @@ private fun MapLibreMapViewContainer(
         }
     }
 
-    AndroidView(
-        factory = { mapView },
-        modifier = modifier
-    )
+    Box(modifier = modifier) {
+        AndroidView(
+            factory = { mapView },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        if (settings != null && settings.gridEnabled) {
+            MapGridOverlay(
+                map = maplibreMapInstance,
+                metadata = meta,
+                settings = settings,
+                cameraVersion = cameraVersion,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
 }

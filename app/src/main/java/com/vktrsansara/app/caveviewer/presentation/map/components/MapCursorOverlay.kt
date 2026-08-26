@@ -27,6 +27,8 @@ fun MapCursorOverlay(
     if (!cursorShow) return
 
     val color = Color(cursorColor)
+    val shadowAlpha = 0.35f * color.alpha
+    val shadowColor = Color.Black.copy(alpha = shadowAlpha)
 
     Box(
         modifier = modifier.fillMaxSize(),
@@ -39,29 +41,27 @@ fun MapCursorOverlay(
             when (cursorType) {
                 1 -> {
                     // Type 1: Solid Cross (+)
-                    val lineHalfLength = 8.dp.toPx() // Total 16.dp
+                    val lineHalfLength = 8.dp.toPx()
                     val strokeWidth = 1.5.dp.toPx()
-
-                    val shadowColor = Color(0x66000000)
                     val shadowStroke = strokeWidth + 1.dp.toPx()
 
-                    // Shadow Horizontal & Vertical
-                    drawLine(
-                        color = shadowColor,
-                        start = Offset(cx - lineHalfLength, cy),
-                        end = Offset(cx + lineHalfLength, cy),
-                        strokeWidth = shadowStroke,
-                        cap = StrokeCap.Square
-                    )
-                    drawLine(
-                        color = shadowColor,
-                        start = Offset(cx, cy - lineHalfLength),
-                        end = Offset(cx, cy + lineHalfLength),
-                        strokeWidth = shadowStroke,
-                        cap = StrokeCap.Square
-                    )
+                    if (shadowAlpha > 0f) {
+                        drawLine(
+                            color = shadowColor,
+                            start = Offset(cx - lineHalfLength, cy),
+                            end = Offset(cx + lineHalfLength, cy),
+                            strokeWidth = shadowStroke,
+                            cap = StrokeCap.Square
+                        )
+                        drawLine(
+                            color = shadowColor,
+                            start = Offset(cx, cy - lineHalfLength),
+                            end = Offset(cx, cy + lineHalfLength),
+                            strokeWidth = shadowStroke,
+                            cap = StrokeCap.Square
+                        )
+                    }
 
-                    // Main Horizontal & Vertical
                     drawLine(
                         color = color,
                         start = Offset(cx - lineHalfLength, cy),
@@ -85,11 +85,11 @@ fun MapCursorOverlay(
                     val tickLength = 6.dp.toPx()
                     val strokeWidth = 1.5.dp.toPx()
 
-                    // Center dot shadow & dot
-                    drawCircle(color = Color(0x66000000), radius = centerDotRadius + 0.8f, center = Offset(cx, cy))
+                    if (shadowAlpha > 0f) {
+                        drawCircle(color = shadowColor, radius = centerDotRadius + 0.8f, center = Offset(cx, cy))
+                    }
                     drawCircle(color = color, radius = centerDotRadius, center = Offset(cx, cy))
 
-                    // 4 Ticks: Top, Bottom, Left, Right
                     val ticks = listOf(
                         Pair(Offset(cx, cy - gap), Offset(cx, cy - gap - tickLength)),
                         Pair(Offset(cx, cy + gap), Offset(cx, cy + gap + tickLength)),
@@ -98,13 +98,15 @@ fun MapCursorOverlay(
                     )
 
                     ticks.forEach { (start, end) ->
-                        drawLine(
-                            color = Color(0x66000000),
-                            start = start,
-                            end = end,
-                            strokeWidth = strokeWidth + 1f,
-                            cap = StrokeCap.Round
-                        )
+                        if (shadowAlpha > 0f) {
+                            drawLine(
+                                color = shadowColor,
+                                start = start,
+                                end = end,
+                                strokeWidth = strokeWidth + 1f,
+                                cap = StrokeCap.Round
+                            )
+                        }
                         drawLine(
                             color = color,
                             start = start,
@@ -119,8 +121,9 @@ fun MapCursorOverlay(
                     // Type 3: Clean Center Dot
                     val dotRadius = 3.dp.toPx()
 
-                    // Subtle dark shadow
-                    drawCircle(color = Color(0x66000000), radius = dotRadius + 1f, center = Offset(cx, cy))
+                    if (shadowAlpha > 0f) {
+                        drawCircle(color = shadowColor, radius = dotRadius + 1f, center = Offset(cx, cy))
+                    }
                     drawCircle(color = color, radius = dotRadius, center = Offset(cx, cy))
                 }
 
@@ -131,13 +134,12 @@ fun MapCursorOverlay(
                     val tickLength = 6.dp.toPx()
                     val strokeWidth = 1.5.dp.toPx()
 
-                    // Center dot
-                    drawCircle(color = Color(0x66000000), radius = centerDotRadius + 0.8f, center = Offset(cx, cy))
+                    if (shadowAlpha > 0f) {
+                        drawCircle(color = shadowColor, radius = centerDotRadius + 0.8f, center = Offset(cx, cy))
+                    }
                     drawCircle(color = color, radius = centerDotRadius, center = Offset(cx, cy))
 
-                    // 4 Diagonal Ticks at 45 degrees
                     val diagFactor = 0.7071f
-
                     val directions = listOf(
                         Pair(1f, 1f),
                         Pair(-1f, 1f),
@@ -149,13 +151,15 @@ fun MapCursorOverlay(
                         val start = Offset(cx + dx * gap * diagFactor, cy + dy * gap * diagFactor)
                         val end = Offset(cx + dx * (gap + tickLength) * diagFactor, cy + dy * (gap + tickLength) * diagFactor)
 
-                        drawLine(
-                            color = Color(0x66000000),
-                            start = start,
-                            end = end,
-                            strokeWidth = strokeWidth + 1f,
-                            cap = StrokeCap.Round
-                        )
+                        if (shadowAlpha > 0f) {
+                            drawLine(
+                                color = shadowColor,
+                                start = start,
+                                end = end,
+                                strokeWidth = strokeWidth + 1f,
+                                cap = StrokeCap.Round
+                            )
+                        }
                         drawLine(
                             color = color,
                             start = start,
@@ -167,28 +171,79 @@ fun MapCursorOverlay(
                 }
 
                 5 -> {
-                    // Type 5: Circle ring with center dot (Кружок с точкой посередине)
+                    // Type 5: Circle ring with center dot
                     val ringRadius = 7.dp.toPx()
                     val centerDotRadius = 2.dp.toPx()
                     val strokeWidth = 1.5.dp.toPx()
 
-                    // Center dot shadow & dot
-                    drawCircle(color = Color(0x66000000), radius = centerDotRadius + 0.8f, center = Offset(cx, cy))
+                    if (shadowAlpha > 0f) {
+                        drawCircle(color = shadowColor, radius = centerDotRadius + 0.8f, center = Offset(cx, cy))
+                        drawCircle(
+                            color = shadowColor,
+                            radius = ringRadius,
+                            center = Offset(cx, cy),
+                            style = Stroke(width = strokeWidth + 1f)
+                        )
+                    }
                     drawCircle(color = color, radius = centerDotRadius, center = Offset(cx, cy))
-
-                    // Outer ring shadow & ring
-                    drawCircle(
-                        color = Color(0x66000000),
-                        radius = ringRadius,
-                        center = Offset(cx, cy),
-                        style = Stroke(width = strokeWidth + 1f)
-                    )
                     drawCircle(
                         color = color,
                         radius = ringRadius,
                         center = Offset(cx, cy),
                         style = Stroke(width = strokeWidth)
                     )
+                }
+
+                6 -> {
+                    // Type 6: Circle Target with Crosshairs (Кружок с перекрестием)
+                    val ringRadius = 6.5.dp.toPx()
+                    val centerDotRadius = 1.8.dp.toPx()
+                    val strokeWidth = 1.5.dp.toPx()
+                    val crosshairStart = 7.5.dp.toPx()
+                    val crosshairEnd = 11.5.dp.toPx()
+
+                    if (shadowAlpha > 0f) {
+                        drawCircle(color = shadowColor, radius = centerDotRadius + 0.8f, center = Offset(cx, cy))
+                        drawCircle(
+                            color = shadowColor,
+                            radius = ringRadius,
+                            center = Offset(cx, cy),
+                            style = Stroke(width = strokeWidth + 1f)
+                        )
+                    }
+                    drawCircle(color = color, radius = centerDotRadius, center = Offset(cx, cy))
+                    drawCircle(
+                        color = color,
+                        radius = ringRadius,
+                        center = Offset(cx, cy),
+                        style = Stroke(width = strokeWidth)
+                    )
+
+                    val crosshairTicks = listOf(
+                        Pair(Offset(cx, cy - crosshairStart), Offset(cx, cy - crosshairEnd)),
+                        Pair(Offset(cx, cy + crosshairStart), Offset(cx, cy + crosshairEnd)),
+                        Pair(Offset(cx - crosshairStart, cy), Offset(cx - crosshairEnd, cy)),
+                        Pair(Offset(cx + crosshairStart, cy), Offset(cx + crosshairEnd, cy))
+                    )
+
+                    crosshairTicks.forEach { (start, end) ->
+                        if (shadowAlpha > 0f) {
+                            drawLine(
+                                color = shadowColor,
+                                start = start,
+                                end = end,
+                                strokeWidth = strokeWidth + 1f,
+                                cap = StrokeCap.Round
+                            )
+                        }
+                        drawLine(
+                            color = color,
+                            start = start,
+                            end = end,
+                            strokeWidth = strokeWidth,
+                            cap = StrokeCap.Round
+                        )
+                    }
                 }
             }
         }

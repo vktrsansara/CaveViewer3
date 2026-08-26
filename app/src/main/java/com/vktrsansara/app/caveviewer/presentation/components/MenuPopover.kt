@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.AddLocation
 import androidx.compose.material.icons.rounded.AppSettingsAlt
 import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.DesignServices
@@ -39,6 +40,7 @@ import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Straighten
@@ -69,6 +71,7 @@ import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 // Palette of semantic icon colors
 private val IconFolderColor = Color(0xFFF59E0B) // Amber
 private val IconEditColor = Color(0xFF818CF8)   // Indigo
+private val IconToolsColor = Color(0xFF10B981)  // Emerald Green
 private val IconSettingsColor = Color(0xFF38BDF8) // Sky Blue
 private val IconExitColor = Color(0xFFEF4444)   // Red
 private val IconListColor = Color(0xFFA78BFA)   // Purple
@@ -84,16 +87,19 @@ enum class MenuLevel {
     PROJECTS,
     EDIT,
     BINDING,
+    TOOLS,
     SETTINGS
 }
 
 /**
- * Popover menu appearing above the bottom control bar with submenus for Project, Edit, Binding, and Settings.
+ * Popover menu appearing above the bottom control bar with submenus for Project, Edit, Binding, Tools, and Settings.
  */
 @Composable
 fun MenuPopover(
     isOpen: Boolean,
     hasActiveProject: Boolean = false,
+    isGridEnabled: Boolean = false,
+    onToggleGrid: () -> Unit = {},
     onOpenAppSettings: () -> Unit,
     onOpenToolsSettings: () -> Unit = {},
     onExitApp: () -> Unit,
@@ -152,6 +158,7 @@ fun MenuPopover(
                             hasActiveProject = hasActiveProject,
                             onProjectsClick = { currentLevel = MenuLevel.PROJECTS },
                             onEditClick = { currentLevel = MenuLevel.EDIT },
+                            onToolsClick = { currentLevel = MenuLevel.TOOLS },
                             onSettingsClick = { currentLevel = MenuLevel.SETTINGS },
                             onExitClick = onExitApp
                         )
@@ -182,6 +189,13 @@ fun MenuPopover(
                             onBackClick = { currentLevel = MenuLevel.EDIT }
                         )
                     }
+                    MenuLevel.TOOLS -> {
+                        ToolsSubmenuContent(
+                            isGridEnabled = isGridEnabled,
+                            onToggleGrid = onToggleGrid,
+                            onBackClick = { currentLevel = MenuLevel.MAIN }
+                        )
+                    }
                     MenuLevel.SETTINGS -> {
                         SettingsSubmenuContent(
                             onAppSettingsClick = onOpenAppSettings,
@@ -200,6 +214,7 @@ private fun MainMenuContent(
     hasActiveProject: Boolean,
     onProjectsClick: () -> Unit,
     onEditClick: () -> Unit,
+    onToolsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onExitClick: () -> Unit
 ) {
@@ -227,7 +242,15 @@ private fun MainMenuContent(
             )
         }
 
-        // Item 3: Настройки (Sky Blue Settings)
+        // Item 3: Инструменты (Emerald Green Build)
+        MenuItem(
+            icon = Icons.Rounded.Build,
+            iconTint = IconToolsColor,
+            title = "Инструменты",
+            onClick = onToolsClick
+        )
+
+        // Item 4: Настройки (Sky Blue Settings)
         MenuItem(
             icon = Icons.Rounded.Settings,
             iconTint = IconSettingsColor,
@@ -235,12 +258,73 @@ private fun MainMenuContent(
             onClick = onSettingsClick
         )
 
-        // Item 4: Выход (Red Exit)
+        // Item 5: Выход (Red Exit)
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ExitToApp,
             iconTint = IconExitColor,
             title = "Выход",
             onClick = onExitClick
+        )
+    }
+}
+
+@Composable
+private fun ToolsSubmenuContent(
+    isGridEnabled: Boolean,
+    onToggleGrid: () -> Unit,
+    onBackClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        MenuHeader(title = "Инструменты")
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+
+        // Item: Сетка с галочкой справа
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(color = AppColors.pressedColor),
+                    onClick = onToggleGrid
+                )
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.GridOn,
+                    contentDescription = "Сетка",
+                    tint = Color(0xFF84CC16), // Lime
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Сетка",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = AppColors.textPrimary
+                )
+            }
+            // Галочка справа, если сетка активна
+            if (isGridEnabled) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = "Включено",
+                    tint = Color(0xFF10B981),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+
+        // Item: Назад
+        MenuItem(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            iconTint = AccentSkyBlue,
+            title = "Назад",
+            onClick = onBackClick
         )
     }
 }
