@@ -61,7 +61,13 @@ data class MainUiState(
     val isEntranceBindingHelpVisible: Boolean = false,
     val pendingEntrancePlanPx: Pair<Double, Double>? = null,
     val isEntranceNameDialogVisible: Boolean = false,
-    val pendingEntranceGps: LatLng? = null
+    val pendingEntranceGps: LatLng? = null,
+    // Ruler (Distance Measurement) State
+    val isRulerMode: Boolean = false,
+    val rulerPoints: List<ScaleBindingPoint> = emptyList(),
+    // Area (Polygon Measurement) State
+    val isAreaMeasureMode: Boolean = false,
+    val areaPoints: List<ScaleBindingPoint> = emptyList()
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -130,6 +136,18 @@ sealed interface MainUiIntent : UiIntent {
     data object DismissEntranceNameDialog : MainUiIntent
     data class SaveEntranceCoordinate(val name: String, val lat: Double, val lon: Double) : MainUiIntent
     data object CloseOsmEntranceBinding : MainUiIntent
+
+    // Ruler (Distance Measurement) actions
+    data object StartRulerMode : MainUiIntent
+    data class AddRulerPoint(val latLng: LatLng) : MainUiIntent
+    data object UndoRulerPoint : MainUiIntent
+    data object CloseRulerMode : MainUiIntent
+
+    // Area (Polygon Measurement) actions
+    data object StartAreaMeasureMode : MainUiIntent
+    data class AddAreaPoint(val latLng: LatLng) : MainUiIntent
+    data object UndoAreaPoint : MainUiIntent
+    data object CloseAreaMeasureMode : MainUiIntent
 
     // Projects List actions
     data class SelectProject(val projectName: String) : MainUiIntent

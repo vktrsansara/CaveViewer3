@@ -732,6 +732,104 @@ class MainViewModel(
                     )
                 }
             }
+
+            // Ruler Handlers
+            is MainUiIntent.StartRulerMode -> {
+                _uiState.update {
+                    it.copy(
+                        isRulerMode = true,
+                        rulerPoints = emptyList(),
+                        isAreaMeasureMode = false,
+                        areaPoints = emptyList(),
+                        isScaleBindingMode = false,
+                        isNorthBindingMode = false,
+                        isEntranceCavePickMode = false,
+                        isOsmEntranceBindingMode = false,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.AddRulerPoint -> {
+                viewModelScope.launch {
+                    val meta = _uiState.value.activeProjectMetadata
+                        ?: _uiState.value.activeProjectName?.let { projectRepository.getProjectMetadata(it) }
+                        ?: return@launch
+
+                    val (pxX, pxY) = CaveMapBounds.latLngToImagePixels(
+                        latLng = intent.latLng,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        maxZoom = meta.zoomMax
+                    )
+                    val newPoint = ScaleBindingPoint(latLng = intent.latLng, imagePx = Pair(pxX, pxY))
+                    _uiState.update {
+                        it.copy(rulerPoints = it.rulerPoints + newPoint)
+                    }
+                }
+            }
+            is MainUiIntent.UndoRulerPoint -> {
+                _uiState.update {
+                    if (it.rulerPoints.isNotEmpty()) {
+                        it.copy(rulerPoints = it.rulerPoints.dropLast(1))
+                    } else {
+                        it.copy(isRulerMode = false, rulerPoints = emptyList())
+                    }
+                }
+            }
+            is MainUiIntent.CloseRulerMode -> {
+                _uiState.update {
+                    it.copy(isRulerMode = false, rulerPoints = emptyList())
+                }
+            }
+
+            // Area Measure Handlers
+            is MainUiIntent.StartAreaMeasureMode -> {
+                _uiState.update {
+                    it.copy(
+                        isAreaMeasureMode = true,
+                        areaPoints = emptyList(),
+                        isRulerMode = false,
+                        rulerPoints = emptyList(),
+                        isScaleBindingMode = false,
+                        isNorthBindingMode = false,
+                        isEntranceCavePickMode = false,
+                        isOsmEntranceBindingMode = false,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.AddAreaPoint -> {
+                viewModelScope.launch {
+                    val meta = _uiState.value.activeProjectMetadata
+                        ?: _uiState.value.activeProjectName?.let { projectRepository.getProjectMetadata(it) }
+                        ?: return@launch
+
+                    val (pxX, pxY) = CaveMapBounds.latLngToImagePixels(
+                        latLng = intent.latLng,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        maxZoom = meta.zoomMax
+                    )
+                    val newPoint = ScaleBindingPoint(latLng = intent.latLng, imagePx = Pair(pxX, pxY))
+                    _uiState.update {
+                        it.copy(areaPoints = it.areaPoints + newPoint)
+                    }
+                }
+            }
+            is MainUiIntent.UndoAreaPoint -> {
+                _uiState.update {
+                    if (it.areaPoints.isNotEmpty()) {
+                        it.copy(areaPoints = it.areaPoints.dropLast(1))
+                    } else {
+                        it.copy(isAreaMeasureMode = false, areaPoints = emptyList())
+                    }
+                }
+            }
+            is MainUiIntent.CloseAreaMeasureMode -> {
+                _uiState.update {
+                    it.copy(isAreaMeasureMode = false, areaPoints = emptyList())
+                }
+            }
             is MainUiIntent.DismissProjectTypeDialog -> {
                 _uiState.update { it.copy(isProjectTypeDialogVisible = false) }
             }

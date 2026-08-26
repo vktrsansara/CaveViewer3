@@ -8,8 +8,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.unit.dp
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
@@ -19,9 +17,9 @@ import org.maplibre.android.maps.MapLibreMap
 import kotlin.math.sqrt
 
 /**
- * Visual canvas overlay rendering coordinate grid lines over the cave map image.
- * The grid remains horizontal/vertical relative to the screen (does not rotate with camera bearing),
- * is anchored to top-left corner (0, 0), and is strictly clipped to the map image boundary.
+ * Visual canvas overlay rendering coordinate grid lines locked to the cave map raster coordinate system.
+ * The grid rotates, scales, and translates synchronously with the map, starting from top-left (0, 0),
+ * and is strictly clipped to the canvas viewport.
  */
 @Composable
 fun MapGridOverlay(
@@ -66,65 +64,52 @@ fun MapGridOverlay(
         val version = cameraVersion
         val projection = map.projection ?: return@Canvas
 
-        // 1. Calculate the 4 image corners in screen coordinates to create a clip boundary
-        val latLngTL = CaveMapBounds.imagePixelsToLatLng(0.0, 0.0, metadata.imageWidth, metadata.imageHeight, maxZoom)
-        val latLngTR = CaveMapBounds.imagePixelsToLatLng(imgW, 0.0, metadata.imageWidth, metadata.imageHeight, maxZoom)
-        val latLngBR = CaveMapBounds.imagePixelsToLatLng(imgW, imgH, metadata.imageWidth, metadata.imageHeight, maxZoom)
-        val latLngBL = CaveMapBounds.imagePixelsToLatLng(0.0, imgH, metadata.imageWidth, metadata.imageHeight, maxZoom)
-
-        val ptTL = projection.toScreenLocation(latLngTL)
-        val ptTR = projection.toScreenLocation(latLngTR)
-        val ptBR = projection.toScreenLocation(latLngBR)
-        val ptBL = projection.toScreenLocation(latLngBL)
-
-        val clipBoundary = Path().apply {
-            moveTo(ptTL.x, ptTL.y)
-            lineTo(ptTR.x, ptTR.y)
-            lineTo(ptBR.x, ptBR.y)
-            lineTo(ptBL.x, ptBL.y)
-            close()
-        }
-
-        // Calculate step size in screen pixels
+        // Calculate step size in screen pixels to avoid rendering overly dense lines on extreme zoom-out
+        val latLng0 = CaveMapBounds.imagePixelsToLatLng(0.0, 0.0, metadata.imageWidth, metadata.imageHeight, maxZoom)
         val latLngStep = CaveMapBounds.imagePixelsToLatLng(stepPx, 0.0, metadata.imageWidth, metadata.imageHeight, maxZoom)
+        val pt0 = projection.toScreenLocation(latLng0)
         val ptStep = projection.toScreenLocation(latLngStep)
-        val dx = (ptStep.x - ptTL.x).toDouble()
-        val dy = (ptStep.y - ptTL.y).toDouble()
+        val dx = (ptStep.x - pt0.x).toDouble()
+        val dy = (ptStep.y - pt0.y).toDouble()
         val stepScreenPx = sqrt(dx * dx + dy * dy)
 
-        if (stepScreenPx < 8.0) return@Canvas // Avoid excessive line drawing at extreme zoom-out
+        if (stepScreenPx < 8.0) return@Canvas // Avoid performance drop at extreme zoom-out
 
         val strokeWidthPx = 1.dp.toPx()
 
         clipRect(0f, 0f, size.width, size.height) {
-            clipPath(clipBoundary) {
-                // Anchor grid phase to the top-left corner of the map on screen
-                val startX = ((ptTL.x % stepScreenPx) + stepScreenPx) % stepScreenPx
-                val startY = ((ptTL.y % stepScreenPx) + stepScreenPx) % stepScreenPx
+            // 1. Vertical Grid Lines (X = curX from Y=0 to Y=imgH)
+            var curX = 0.0
+            while (curX <= imgW) {
+                val topLatLng = CaveMapBounds.imagePixelsToLatLng(curX, 0.0, metadata.imageWidth, metadata.imageHeight, maxZoom)
+                val botLatLng = CaveMapBounds.imagePixelsToLatLng(curX, imgH, metadata.imageWidth, metadata.imageHeight, maxZoom)
+                val ptTop = projection.toScreenLocation(topLatLng)
+                val ptBot = projection.toScreenLocation(botLatLng)
 
-                // Draw non-rotating vertical lines across screen
-                var curX = startX.toFloat()
-                while (curX <= size.width + stepScreenPx.toFloat()) {
-                    drawLine(
-                        color = gridColor,
-                        start = Offset(curX, 0f),
-                        end = Offset(curX, size.height),
-                        strokeWidth = strokeWidthPx
-                    )
-                    curX += stepScreenPx.toFloat()
-                }
+                drawLine(
+                    color = gridColor,
+                    start = Offset(ptTop.x, ptTop.y),
+                    end = Offset(ptBot.x, ptBot.y),
+                    strokeWidth = strokeWidthPx
+                )
+                curX += stepPx
+            }
 
-                // Draw non-rotating horizontal lines across screen
-                var curY = startY.toFloat()
-                while (curY <= size.height + stepScreenPx.toFloat()) {
-                    drawLine(
-                        color = gridColor,
-                        start = Offset(0f, curY),
-                        end = Offset(size.width, curY),
-                        strokeWidth = strokeWidthPx
-                    )
-                    curY += stepScreenPx.toFloat()
-                }
+            // 2. Horizontal Grid Lines (Y = curY from X=0 to X=imgW)
+            var curY = 0.0
+            while (curY <= imgH) {
+                val leftLatLng = CaveMapBounds.imagePixelsToLatLng(0.0, curY, metadata.imageWidth, metadata.imageHeight, maxZoom)
+                val rightLatLng = CaveMapBounds.imagePixelsToLatLng(imgW, curY, metadata.imageWidth, metadata.imageHeight, maxZoom)
+                val ptLeft = projection.toScreenLocation(leftLatLng)
+                val ptRight = projection.toScreenLocation(rightLatLng)
+
+                drawLine(
+                    color = gridColor,
+                    start = Offset(ptLeft.x, ptLeft.y),
+                    end = Offset(ptRight.x, ptRight.y),
+                    strokeWidth = strokeWidthPx
+                )
+                curY += stepPx
             }
         }
     }

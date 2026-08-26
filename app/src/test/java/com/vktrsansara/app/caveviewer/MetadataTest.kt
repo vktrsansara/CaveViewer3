@@ -258,4 +258,49 @@ class MetadataTest {
         assertEquals(2000.0, pixelBR.first, 0.001)
         assertEquals(4000.0, pixelBR.second, 0.001)
     }
+
+    @Test
+    fun testMeasureUtilsDistanceAndArea() {
+        val ppm = 10.0 // 10 px = 1 m
+
+        // 1. Distance tests
+        val p1 = Pair(0.0, 0.0)
+        val p2 = Pair(30.0, 40.0)
+        val distPx = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.distancePx(p1, p2)
+        assertEquals(50.0, distPx, 0.001)
+
+        val formattedDist = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.formatDistance(distPx, ppm)
+        assertEquals("5.00 м", formattedDist)
+
+        val formattedDistKm = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.formatDistance(15000.0, ppm)
+        assertEquals("1.50 км", formattedDistKm)
+
+        val formattedDistUncalibrated = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.formatDistance(50.0, 0.0)
+        assertEquals("50 px", formattedDistUncalibrated)
+
+        // 2. Polygon Area tests (100x100 square)
+        val squarePoints = listOf(
+            Pair(0.0, 0.0),
+            Pair(100.0, 0.0),
+            Pair(100.0, 100.0),
+            Pair(0.0, 100.0)
+        )
+        val areaPx = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculatePolygonAreaPx(squarePoints)
+        assertEquals(10000.0, areaPx, 0.001)
+
+        // Area in m2: 10000 px2 / 100 = 100 m2
+        val formattedArea = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.formatArea(areaPx, ppm)
+        assertEquals("100.00 м²", formattedArea)
+
+        // Area in hectares: 200,000 m2 = 20.00 ha
+        val largeAreaPx = 20_000_000.0
+        val formattedHa = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.formatArea(largeAreaPx, ppm)
+        assertEquals("20.00 га", formattedHa)
+
+        // Perimeter of 100x100 square = 400 px = 40.00 m
+        val perimPx = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.calculatePolygonPerimeterPx(squarePoints)
+        assertEquals(400.0, perimPx, 0.001)
+        val formattedPerim = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.formatDistance(perimPx, ppm)
+        assertEquals("40.00 м", formattedPerim)
+    }
 }

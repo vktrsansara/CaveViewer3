@@ -42,10 +42,12 @@ import com.vktrsansara.app.caveviewer.presentation.components.MenuPopover
 import com.vktrsansara.app.caveviewer.presentation.main.components.NoProjectPlaceholder
 import com.vktrsansara.app.caveviewer.presentation.map.MapLibreViewer
 import com.vktrsansara.app.caveviewer.presentation.map.OsmEntranceBindingViewer
+import com.vktrsansara.app.caveviewer.presentation.map.components.AreaMeasureOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.BindingSideControl
 import com.vktrsansara.app.caveviewer.presentation.map.components.CompassWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.NorthBindingOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.components.RulerOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBarWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBindingOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EntranceBindingHelpDialog
@@ -186,13 +188,17 @@ fun MainScreen(
                 uiState.isScaleBindingMode ||
                 uiState.isNorthBindingMode ||
                 uiState.isEntranceCavePickMode ||
-                uiState.isOsmEntranceBindingMode
+                uiState.isOsmEntranceBindingMode ||
+                uiState.isRulerMode ||
+                uiState.isAreaMeasureMode
     ) {
         when {
             uiState.isOsmEntranceBindingMode -> viewModel.handleIntent(MainUiIntent.CloseOsmEntranceBinding)
             uiState.isEntranceCavePickMode -> viewModel.handleIntent(MainUiIntent.CancelEntranceCavePick)
             uiState.isScaleBindingMode -> viewModel.handleIntent(MainUiIntent.CancelScaleBinding)
             uiState.isNorthBindingMode -> viewModel.handleIntent(MainUiIntent.CancelNorthBinding)
+            uiState.isRulerMode -> viewModel.handleIntent(MainUiIntent.CloseRulerMode)
+            uiState.isAreaMeasureMode -> viewModel.handleIntent(MainUiIntent.CloseAreaMeasureMode)
             else -> viewModel.handleIntent(MainUiIntent.NavigateBack)
         }
     }
@@ -323,8 +329,14 @@ fun MainScreenContent(
     var mapMetadata by remember(uiState.activeProjectMetadata) { mutableStateOf(uiState.activeProjectMetadata) }
     var bindingScreenPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
-    val isAnyCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode || uiState.isEntranceCavePickMode
-    val activeBindingPoints = if (uiState.isNorthBindingMode) uiState.northBindingPoints else uiState.scaleBindingPoints
+    val isAnyCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode || uiState.isEntranceCavePickMode || uiState.isRulerMode || uiState.isAreaMeasureMode
+    val activeBindingPoints = when {
+        uiState.isNorthBindingMode -> uiState.northBindingPoints
+        uiState.isScaleBindingMode -> uiState.scaleBindingPoints
+        uiState.isRulerMode -> uiState.rulerPoints
+        uiState.isAreaMeasureMode -> uiState.areaPoints
+        else -> emptyList()
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -365,6 +377,8 @@ fun MainScreenContent(
                         uiState.isEntranceCavePickMode -> onIntent(MainUiIntent.OnEntrancePlanPicked(centerLatLng))
                         uiState.isScaleBindingMode -> onIntent(MainUiIntent.AddScaleBindingPoint(centerLatLng))
                         uiState.isNorthBindingMode -> onIntent(MainUiIntent.AddNorthBindingPoint(centerLatLng))
+                        uiState.isRulerMode -> onIntent(MainUiIntent.AddRulerPoint(centerLatLng))
+                        uiState.isAreaMeasureMode -> onIntent(MainUiIntent.AddAreaPoint(centerLatLng))
                     }
                 },
                 onResetBearingReady = { action ->
@@ -409,6 +423,38 @@ fun MainScreenContent(
                 )
             }
 
+            // Ruler Overlay
+            if (uiState.isRulerMode && meta != null) {
+                val centerPx = CaveMapBounds.latLngToImagePixels(
+                    latLng = LatLng(currentTargetLat, currentTargetLon),
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    maxZoom = meta.zoomMax
+                )
+                RulerOverlay(
+                    points = uiState.rulerPoints,
+                    screenPoints = bindingScreenPoints,
+                    currentCenterPx = centerPx,
+                    ppm = meta.pixelsPerMeter
+                )
+            }
+
+            // Area Measure Overlay
+            if (uiState.isAreaMeasureMode && meta != null) {
+                val centerPx = CaveMapBounds.latLngToImagePixels(
+                    latLng = LatLng(currentTargetLat, currentTargetLon),
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    maxZoom = meta.zoomMax
+                )
+                AreaMeasureOverlay(
+                    points = uiState.areaPoints,
+                    screenPoints = bindingScreenPoints,
+                    currentCenterPx = centerPx,
+                    ppm = meta.pixelsPerMeter
+                )
+            }
+
             // Step 1: Cave Entrance Pick Banner
             if (uiState.isEntranceCavePickMode) {
                 Box(
@@ -430,7 +476,7 @@ fun MainScreenContent(
                 }
             }
 
-            // Central Cursor Overlay (Strictly centered on screen; always visible in calibration mode)
+            // Central Cursor Overlay (Strictly centered on screen; always visible in calibration / measurement modes)
             MapCursorOverlay(
                 cursorShow = isAnyCalibrationMode || uiState.settings.cursorShow,
                 cursorType = uiState.settings.cursorType,
@@ -461,7 +507,7 @@ fun MainScreenContent(
                 )
             }
 
-            // 3. Floating Action Control Bar during active Calibration Mode
+            // 3. Floating Action Control Bar during active Calibration / Measurement Mode
             if (isAnyCalibrationMode) {
                 BindingSideControl(
                     pointsCount = if (uiState.isEntranceCavePickMode) 0 else activeBindingPoints.size,
@@ -469,6 +515,8 @@ fun MainScreenContent(
                         when {
                             uiState.isScaleBindingMode -> onIntent(MainUiIntent.UndoScaleBindingPoint)
                             uiState.isNorthBindingMode -> onIntent(MainUiIntent.UndoNorthBindingPoint)
+                            uiState.isRulerMode -> onIntent(MainUiIntent.UndoRulerPoint)
+                            uiState.isAreaMeasureMode -> onIntent(MainUiIntent.UndoAreaPoint)
                         }
                     },
                     onClose = {
@@ -476,6 +524,8 @@ fun MainScreenContent(
                             uiState.isEntranceCavePickMode -> onIntent(MainUiIntent.CancelEntranceCavePick)
                             uiState.isScaleBindingMode -> onIntent(MainUiIntent.CancelScaleBinding)
                             uiState.isNorthBindingMode -> onIntent(MainUiIntent.CancelNorthBinding)
+                            uiState.isRulerMode -> onIntent(MainUiIntent.CloseRulerMode)
+                            uiState.isAreaMeasureMode -> onIntent(MainUiIntent.CloseAreaMeasureMode)
                         }
                     },
                     modifier = Modifier
@@ -514,6 +564,8 @@ fun MainScreenContent(
                 hasActiveProject = uiState.hasActiveProject,
                 isGridEnabled = uiState.settings.gridEnabled,
                 onToggleGrid = { onIntent(MainUiIntent.ToggleGrid) },
+                onStartRulerClick = { onIntent(MainUiIntent.StartRulerMode) },
+                onStartAreaMeasureClick = { onIntent(MainUiIntent.StartAreaMeasureMode) },
                 onOpenAppSettings = { onIntent(MainUiIntent.OpenAppSettings) },
                 onOpenToolsSettings = { onIntent(MainUiIntent.OpenToolsSettings) },
                 onExitApp = { onIntent(MainUiIntent.ExitAppClicked) },

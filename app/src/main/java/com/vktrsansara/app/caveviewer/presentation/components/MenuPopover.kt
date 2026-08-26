@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SquareFoot
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -100,6 +101,8 @@ fun MenuPopover(
     hasActiveProject: Boolean = false,
     isGridEnabled: Boolean = false,
     onToggleGrid: () -> Unit = {},
+    onStartRulerClick: () -> Unit = {},
+    onStartAreaMeasureClick: () -> Unit = {},
     onOpenAppSettings: () -> Unit,
     onOpenToolsSettings: () -> Unit = {},
     onExitApp: () -> Unit,
@@ -193,6 +196,8 @@ fun MenuPopover(
                         ToolsSubmenuContent(
                             isGridEnabled = isGridEnabled,
                             onToggleGrid = onToggleGrid,
+                            onStartRulerClick = onStartRulerClick,
+                            onStartAreaMeasureClick = onStartAreaMeasureClick,
                             onBackClick = { currentLevel = MenuLevel.MAIN }
                         )
                     }
@@ -272,13 +277,15 @@ private fun MainMenuContent(
 private fun ToolsSubmenuContent(
     isGridEnabled: Boolean,
     onToggleGrid: () -> Unit,
+    onStartRulerClick: () -> Unit,
+    onStartAreaMeasureClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         MenuHeader(title = "Инструменты")
         HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
 
-        // Item: Сетка с галочкой справа
+        // 1. Сетка с галочкой справа
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -287,7 +294,7 @@ private fun ToolsSubmenuContent(
                     indication = ripple(color = AppColors.pressedColor),
                     onClick = onToggleGrid
                 )
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -296,14 +303,14 @@ private fun ToolsSubmenuContent(
                     imageVector = Icons.Rounded.GridOn,
                     contentDescription = "Сетка",
                     tint = Color(0xFF84CC16), // Lime
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(17.dp)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "Сетка",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = AppColors.textPrimary
+                    color = AppColors.textPrimary,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Normal
                 )
             }
             // Галочка справа, если сетка активна
@@ -312,14 +319,28 @@ private fun ToolsSubmenuContent(
                     imageVector = Icons.Rounded.Check,
                     contentDescription = "Включено",
                     tint = Color(0xFF10B981),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(17.dp)
                 )
             }
         }
 
-        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+        // 2. Линейка (Фиолетовая иконка Straighten)
+        MenuItem(
+            icon = Icons.Rounded.Straighten,
+            iconTint = Color(0xFF8A2BE2), // BlueViolet
+            title = "Линейка",
+            onClick = onStartRulerClick
+        )
 
-        // Item: Назад
+        // 3. Площадь (Иконка SquareFoot)
+        MenuItem(
+            icon = Icons.Rounded.SquareFoot,
+            iconTint = Color(0xFFA855F7), // Purple
+            title = "Площадь",
+            onClick = onStartAreaMeasureClick
+        )
+
+        // 4. Назад
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             iconTint = AccentSkyBlue,
