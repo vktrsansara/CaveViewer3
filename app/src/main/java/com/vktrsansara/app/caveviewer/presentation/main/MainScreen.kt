@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,10 +26,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
@@ -34,12 +41,15 @@ import com.vktrsansara.app.caveviewer.presentation.components.FloatingBottomBar
 import com.vktrsansara.app.caveviewer.presentation.components.MenuPopover
 import com.vktrsansara.app.caveviewer.presentation.main.components.NoProjectPlaceholder
 import com.vktrsansara.app.caveviewer.presentation.map.MapLibreViewer
+import com.vktrsansara.app.caveviewer.presentation.map.OsmEntranceBindingViewer
 import com.vktrsansara.app.caveviewer.presentation.map.components.BindingSideControl
 import com.vktrsansara.app.caveviewer.presentation.map.components.CompassWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.NorthBindingOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBarWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBindingOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EntranceBindingHelpDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EntranceNameDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingInputDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingHelpDialog
@@ -141,13 +151,46 @@ fun MainScreen(
         )
     }
 
+    // Entrance Binding Help Dialog
+    if (uiState.isEntranceBindingHelpVisible) {
+        EntranceBindingHelpDialog(
+            onDismiss = { viewModel.handleIntent(MainUiIntent.DismissEntranceBindingHelp) }
+        )
+    }
+
+    // Entrance GPS Name Dialog
+    if (uiState.isEntranceNameDialogVisible && uiState.pendingEntranceGps != null) {
+        val nextIndex = uiState.activeProjectEntrances.size + 1
+        EntranceNameDialog(
+            lat = uiState.pendingEntranceGps!!.latitude,
+            lon = uiState.pendingEntranceGps!!.longitude,
+            defaultName = "Точка входа #$nextIndex",
+            onSave = { name ->
+                viewModel.handleIntent(
+                    MainUiIntent.SaveEntranceCoordinate(
+                        name = name,
+                        lat = uiState.pendingEntranceGps!!.latitude,
+                        lon = uiState.pendingEntranceGps!!.longitude
+                    )
+                )
+            },
+            onCancel = {
+                viewModel.handleIntent(MainUiIntent.DismissEntranceNameDialog)
+            }
+        )
+    }
+
     // Handle system back gesture
     BackHandler(
         enabled = uiState.currentScreen != AppScreen.MAIN ||
                 uiState.isScaleBindingMode ||
-                uiState.isNorthBindingMode
+                uiState.isNorthBindingMode ||
+                uiState.isEntranceCavePickMode ||
+                uiState.isOsmEntranceBindingMode
     ) {
         when {
+            uiState.isOsmEntranceBindingMode -> viewModel.handleIntent(MainUiIntent.CloseOsmEntranceBinding)
+            uiState.isEntranceCavePickMode -> viewModel.handleIntent(MainUiIntent.CancelEntranceCavePick)
             uiState.isScaleBindingMode -> viewModel.handleIntent(MainUiIntent.CancelScaleBinding)
             uiState.isNorthBindingMode -> viewModel.handleIntent(MainUiIntent.CancelNorthBinding)
             else -> viewModel.handleIntent(MainUiIntent.NavigateBack)
@@ -249,6 +292,23 @@ fun MainScreenContent(
     onIntent: (MainUiIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // If in OpenStreetMap entrance binding mode, show full-screen OSM viewer
+    if (uiState.isOsmEntranceBindingMode) {
+        OsmEntranceBindingViewer(
+            entrances = uiState.activeProjectEntrances,
+            cursorType = uiState.settings.cursorType,
+            cursorColor = uiState.settings.cursorColor,
+            onEntranceTapped = { latLng ->
+                onIntent(MainUiIntent.OnOsmEntranceTapped(latLng))
+            },
+            onClose = {
+                onIntent(MainUiIntent.CloseOsmEntranceBinding)
+            },
+            modifier = modifier
+        )
+        return
+    }
+
     val initialPos = uiState.activeProjectCameraPosition
     var mapBearing by remember(initialPos) { mutableDoubleStateOf(initialPos?.bearing ?: 0.0) }
     var currentZoom by remember(initialPos) { mutableDoubleStateOf(initialPos?.zoom ?: 0.0) }
@@ -258,7 +318,7 @@ fun MainScreenContent(
     var mapMetadata by remember(uiState.activeProjectMetadata) { mutableStateOf(uiState.activeProjectMetadata) }
     var bindingScreenPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
-    val isAnyCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode
+    val isAnyCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode || uiState.isEntranceCavePickMode
     val activeBindingPoints = if (uiState.isNorthBindingMode) uiState.northBindingPoints else uiState.scaleBindingPoints
 
     BoxWithConstraints(
@@ -296,6 +356,7 @@ fun MainScreenContent(
                 },
                 onMapCenterClick = { centerLatLng ->
                     when {
+                        uiState.isEntranceCavePickMode -> onIntent(MainUiIntent.OnEntrancePlanPicked(centerLatLng))
                         uiState.isScaleBindingMode -> onIntent(MainUiIntent.AddScaleBindingPoint(centerLatLng))
                         uiState.isNorthBindingMode -> onIntent(MainUiIntent.AddNorthBindingPoint(centerLatLng))
                     }
@@ -342,6 +403,27 @@ fun MainScreenContent(
                 )
             }
 
+            // Step 1: Cave Entrance Pick Banner
+            if (uiState.isEntranceCavePickMode) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 16.dp, start = 30.dp, end = 30.dp)
+                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(AppColors.bgCard.copy(alpha = 0.95f))
+                        .border(1.dp, AppColors.borderColor, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Наведите курсор на вход на плане пещеры и коснитесь экрана",
+                        color = AppColors.textPrimary,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
             // Central Cursor Overlay (Strictly centered on screen; always visible in calibration mode)
             MapCursorOverlay(
                 cursorShow = isAnyCalibrationMode || uiState.settings.cursorShow,
@@ -376,12 +458,12 @@ fun MainScreenContent(
             // 3. Side Control Bar for Calibration Mode (positioned at 1/3 height from bottom)
             if (isAnyCalibrationMode) {
                 BindingSideControl(
-                    pointsCount = activeBindingPoints.size,
+                    pointsCount = if (uiState.isEntranceCavePickMode) 0 else activeBindingPoints.size,
                     onClose = {
-                        if (uiState.isNorthBindingMode) {
-                            onIntent(MainUiIntent.CancelNorthBinding)
-                        } else {
-                            onIntent(MainUiIntent.CancelScaleBinding)
+                        when {
+                            uiState.isEntranceCavePickMode -> onIntent(MainUiIntent.CancelEntranceCavePick)
+                            uiState.isNorthBindingMode -> onIntent(MainUiIntent.CancelNorthBinding)
+                            else -> onIntent(MainUiIntent.CancelScaleBinding)
                         }
                     },
                     onUndo = {
@@ -436,6 +518,7 @@ fun MainScreenContent(
                 onEditMetadataClick = { onIntent(MainUiIntent.OpenMetadataEditor) },
                 onScaleBindingClick = { onIntent(MainUiIntent.StartScaleBinding) },
                 onNorthBindingClick = { onIntent(MainUiIntent.StartNorthBinding) },
+                onEntranceBindingClick = { onIntent(MainUiIntent.StartEntranceBinding) },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 

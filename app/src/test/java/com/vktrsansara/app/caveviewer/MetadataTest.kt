@@ -201,4 +201,18 @@ class MetadataTest {
         val angleNE = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.calculateNorthAngle(pSouth, pNorthEast)
         assertEquals(45.0, angleNE, 0.01)
     }
+
+    @Test
+    fun testEntranceCoordinateCreationAndFormatting() {
+        val entrance = com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate(
+            pointIndex = 0,
+            name = "Главный вход",
+            lat = 43.123456,
+            lon = 40.654321,
+            alt = 1350.0
+        )
+        assertEquals("Главный вход", entrance.name)
+        assertEquals("43.123456", String.format(java.util.Locale.US, "%.6f", entrance.lat!!))
+        assertEquals("40.654321", String.format(java.util.Locale.US, "%.6f", entrance.lon!!))
+    }
 }

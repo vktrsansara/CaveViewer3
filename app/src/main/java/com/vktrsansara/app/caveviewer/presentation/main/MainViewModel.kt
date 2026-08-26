@@ -54,12 +54,18 @@ class MainViewModel(
                     if (dir != null && (sqliteFile?.exists() == true || mapFile?.exists() == true)) {
                         val savedPos = projectCameraPositions[activeName]
                         val meta = projectRepository.getProjectMetadata(activeName)
+                        val entrances = projectRepository.getProjectEntrances(activeName)
+                        val location = projectRepository.getProjectLocation(activeName)
+                        val cadastral = projectRepository.getProjectCadastralData(activeName)
                         _uiState.update {
                             it.copy(
                                 hasActiveProject = true,
                                 activeProjectName = activeName,
                                 activeProjectDir = dir,
                                 activeProjectMetadata = meta,
+                                activeProjectEntrances = entrances,
+                                activeProjectLocation = location,
+                                activeProjectCadastralData = cadastral,
                                 activeProjectCameraPosition = savedPos
                             )
                         }
@@ -70,6 +76,9 @@ class MainViewModel(
                                 activeProjectName = null,
                                 activeProjectDir = null,
                                 activeProjectMetadata = null,
+                                activeProjectEntrances = emptyList(),
+                                activeProjectLocation = MapLocation(),
+                                activeProjectCadastralData = emptyMap(),
                                 activeProjectCameraPosition = null
                             )
                         }
@@ -81,6 +90,9 @@ class MainViewModel(
                             activeProjectName = null,
                             activeProjectDir = null,
                             activeProjectMetadata = null,
+                            activeProjectEntrances = emptyList(),
+                            activeProjectLocation = MapLocation(),
+                            activeProjectCadastralData = emptyMap(),
                             activeProjectCameraPosition = null
                         )
                     }
@@ -208,6 +220,9 @@ class MainViewModel(
                             activeProjectName = null,
                             activeProjectDir = null,
                             activeProjectMetadata = null,
+                            activeProjectEntrances = emptyList(),
+                            activeProjectLocation = MapLocation(),
+                            activeProjectCadastralData = emptyMap(),
                             activeProjectCameraPosition = null,
                             isScaleBindingMode = false,
                             scaleBindingPoints = emptyList(),
@@ -217,6 +232,11 @@ class MainViewModel(
                             northBindingPoints = emptyList(),
                             isNorthBindingHelpVisible = false,
                             isNorthBindingInputVisible = false,
+                            isEntranceCavePickMode = false,
+                            isOsmEntranceBindingMode = false,
+                            pendingEntrancePlanPx = null,
+                            isEntranceNameDialogVisible = false,
+                            pendingEntranceGps = null,
                             isMenuExpanded = false
                         )
                     }
@@ -227,6 +247,9 @@ class MainViewModel(
                     projectRepository.setActiveProjectName(intent.projectName)
                     val dir = projectRepository.getProjectDir(intent.projectName)
                     val meta = projectRepository.getProjectMetadata(intent.projectName)
+                    val entrances = projectRepository.getProjectEntrances(intent.projectName)
+                    val location = projectRepository.getProjectLocation(intent.projectName)
+                    val cadastral = projectRepository.getProjectCadastralData(intent.projectName)
                     val savedPos = projectCameraPositions[intent.projectName]
                     _uiState.update {
                         it.copy(
@@ -234,6 +257,9 @@ class MainViewModel(
                             activeProjectName = intent.projectName,
                             activeProjectDir = dir,
                             activeProjectMetadata = meta,
+                            activeProjectEntrances = entrances,
+                            activeProjectLocation = location,
+                            activeProjectCadastralData = cadastral,
                             activeProjectCameraPosition = savedPos,
                             isScaleBindingMode = false,
                             scaleBindingPoints = emptyList(),
@@ -243,6 +269,11 @@ class MainViewModel(
                             northBindingPoints = emptyList(),
                             isNorthBindingHelpVisible = false,
                             isNorthBindingInputVisible = false,
+                            isEntranceCavePickMode = false,
+                            isOsmEntranceBindingMode = false,
+                            pendingEntrancePlanPx = null,
+                            isEntranceNameDialogVisible = false,
+                            pendingEntranceGps = null,
                             currentScreen = AppScreen.MAIN
                         )
                     }
@@ -358,6 +389,9 @@ class MainViewModel(
                             northBindingPoints = emptyList(),
                             isNorthBindingHelpVisible = false,
                             isNorthBindingInputVisible = false,
+                            isEntranceCavePickMode = false,
+                            isOsmEntranceBindingMode = false,
+                            pendingEntrancePlanPx = null,
                             isMenuExpanded = false
                         )
                     }
@@ -465,6 +499,9 @@ class MainViewModel(
                             scaleBindingPoints = emptyList(),
                             isScaleBindingHelpVisible = false,
                             isScaleBindingInputVisible = false,
+                            isEntranceCavePickMode = false,
+                            isOsmEntranceBindingMode = false,
+                            pendingEntrancePlanPx = null,
                             isMenuExpanded = false
                         )
                     }
@@ -557,6 +594,113 @@ class MainViewModel(
                     }
                 }
             }
+            is MainUiIntent.StartEntranceBinding -> {
+                _uiState.update {
+                    it.copy(
+                        isEntranceCavePickMode = true,
+                        isOsmEntranceBindingMode = false,
+                        isEntranceBindingHelpVisible = true,
+                        pendingEntrancePlanPx = null,
+                        isScaleBindingMode = false,
+                        isNorthBindingMode = false,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.DismissEntranceBindingHelp -> {
+                _uiState.update { it.copy(isEntranceBindingHelpVisible = false) }
+            }
+            is MainUiIntent.OnEntrancePlanPicked -> {
+                viewModelScope.launch {
+                    val meta = _uiState.value.activeProjectMetadata
+                        ?: _uiState.value.activeProjectName?.let { projectRepository.getProjectMetadata(it) }
+                    val planPx = if (meta != null) {
+                        CaveMapBounds.latLngToImagePixels(
+                            latLng = intent.latLng,
+                            imageWidth = meta.imageWidth,
+                            imageHeight = meta.imageHeight,
+                            maxZoom = meta.zoomMax
+                        )
+                    } else {
+                        Pair(0.0, 0.0)
+                    }
+                    _uiState.update {
+                        it.copy(
+                            pendingEntrancePlanPx = planPx,
+                            isEntranceCavePickMode = false,
+                            isOsmEntranceBindingMode = true
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.CancelEntranceCavePick -> {
+                _uiState.update {
+                    it.copy(
+                        isEntranceCavePickMode = false,
+                        isEntranceBindingHelpVisible = false,
+                        pendingEntrancePlanPx = null
+                    )
+                }
+            }
+            is MainUiIntent.OnOsmEntranceTapped -> {
+                _uiState.update {
+                    it.copy(
+                        pendingEntranceGps = intent.latLng,
+                        isEntranceNameDialogVisible = true
+                    )
+                }
+            }
+            is MainUiIntent.DismissEntranceNameDialog -> {
+                _uiState.update {
+                    it.copy(
+                        isEntranceNameDialogVisible = false,
+                        pendingEntranceGps = null
+                    )
+                }
+            }
+            is MainUiIntent.SaveEntranceCoordinate -> {
+                viewModelScope.launch {
+                    val activeName = _uiState.value.activeProjectName
+                    if (activeName != null) {
+                        val currentEntrances = _uiState.value.activeProjectEntrances
+                        val nextIndex = currentEntrances.size
+                        val newEntrance = EntranceCoordinate(
+                            pointIndex = nextIndex,
+                            name = intent.name,
+                            lat = intent.lat,
+                            lon = intent.lon,
+                            alt = null
+                        )
+                        val result = projectRepository.addProjectEntrance(activeName, newEntrance)
+                        result.fold(
+                            onSuccess = { updatedEntrances ->
+                                _uiState.update {
+                                    it.copy(
+                                        activeProjectEntrances = updatedEntrances,
+                                        isEntranceNameDialogVisible = false,
+                                        pendingEntranceGps = null
+                                    )
+                                }
+                                _effect.send(MainUiEffect.ShowToast("Точка входа «${intent.name}» добавлена"))
+                            },
+                            onFailure = { error ->
+                                _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка сохранения точки входа"))
+                            }
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.CloseOsmEntranceBinding -> {
+                _uiState.update {
+                    it.copy(
+                        isOsmEntranceBindingMode = false,
+                        isEntranceCavePickMode = false,
+                        pendingEntrancePlanPx = null,
+                        pendingEntranceGps = null,
+                        isEntranceNameDialogVisible = false
+                    )
+                }
+            }
             is MainUiIntent.DismissProjectTypeDialog -> {
                 _uiState.update { it.copy(isProjectTypeDialogVisible = false) }
             }
@@ -614,6 +758,9 @@ class MainViewModel(
                             val cleanName = intent.projectName.trim().replace(Regex("[\\\\/:*?\"<>|]"), "_")
                             projectRepository.setActiveProjectName(cleanName)
                             val meta = projectRepository.getProjectMetadata(cleanName)
+                            val entrances = projectRepository.getProjectEntrances(cleanName)
+                            val location = projectRepository.getProjectLocation(cleanName)
+                            val cadastral = projectRepository.getProjectCadastralData(cleanName)
                             _uiState.update {
                                 it.copy(
                                     isProjectSaving = false,
@@ -621,6 +768,9 @@ class MainViewModel(
                                     activeProjectName = cleanName,
                                     activeProjectDir = projectDir,
                                     activeProjectMetadata = meta,
+                                    activeProjectEntrances = entrances,
+                                    activeProjectLocation = location,
+                                    activeProjectCadastralData = cadastral,
                                     activeProjectCameraPosition = null,
                                     isScaleBindingMode = false,
                                     scaleBindingPoints = emptyList(),
@@ -630,6 +780,11 @@ class MainViewModel(
                                     northBindingPoints = emptyList(),
                                     isNorthBindingHelpVisible = false,
                                     isNorthBindingInputVisible = false,
+                                    isEntranceCavePickMode = false,
+                                    isOsmEntranceBindingMode = false,
+                                    pendingEntrancePlanPx = null,
+                                    isEntranceNameDialogVisible = false,
+                                    pendingEntranceGps = null,
                                     currentScreen = AppScreen.MAIN
                                 )
                             }

@@ -54,7 +54,14 @@ data class MainUiState(
     val isNorthBindingMode: Boolean = false,
     val northBindingPoints: List<ScaleBindingPoint> = emptyList(),
     val isNorthBindingHelpVisible: Boolean = false,
-    val isNorthBindingInputVisible: Boolean = false
+    val isNorthBindingInputVisible: Boolean = false,
+    // Entrance Binding State
+    val isEntranceCavePickMode: Boolean = false,
+    val isOsmEntranceBindingMode: Boolean = false,
+    val isEntranceBindingHelpVisible: Boolean = false,
+    val pendingEntrancePlanPx: Pair<Double, Double>? = null,
+    val isEntranceNameDialogVisible: Boolean = false,
+    val pendingEntranceGps: LatLng? = null
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -107,6 +114,16 @@ sealed interface MainUiIntent : UiIntent {
     data object CancelNorthBinding : MainUiIntent
     data object DismissNorthBindingInput : MainUiIntent
     data class SaveNorthBinding(val angle: Double) : MainUiIntent
+
+    // Entrance Binding actions
+    data object StartEntranceBinding : MainUiIntent
+    data object DismissEntranceBindingHelp : MainUiIntent
+    data class OnEntrancePlanPicked(val latLng: LatLng) : MainUiIntent
+    data object CancelEntranceCavePick : MainUiIntent
+    data class OnOsmEntranceTapped(val latLng: LatLng) : MainUiIntent
+    data object DismissEntranceNameDialog : MainUiIntent
+    data class SaveEntranceCoordinate(val name: String, val lat: Double, val lon: Double) : MainUiIntent
+    data object CloseOsmEntranceBinding : MainUiIntent
 
     // Projects List actions
     data class SelectProject(val projectName: String) : MainUiIntent

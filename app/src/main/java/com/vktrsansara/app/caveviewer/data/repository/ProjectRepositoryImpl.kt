@@ -223,6 +223,24 @@ class ProjectRepositoryImpl(
         }
     }
 
+    override suspend fun addProjectEntrance(
+        projectName: String,
+        entrance: EntranceCoordinate
+    ): Result<List<EntranceCoordinate>> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            val db = ProjectDatabase(dbFile)
+            val current = db.getEntrances().toMutableList()
+            current.add(entrance.copy(pointIndex = current.size))
+            db.saveEntrances(current)
+            Result.success(current)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun getProjectCadastralData(projectName: String): Map<String, List<CadastralItem>> = withContext(Dispatchers.IO) {
         val dir = getProjectDir(projectName) ?: return@withContext emptyMap()
         val dbFile = File(dir, "thismap.sqlite")

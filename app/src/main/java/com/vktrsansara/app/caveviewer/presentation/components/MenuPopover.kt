@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.AddLocation
 import androidx.compose.material.icons.rounded.AppSettingsAlt
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Close
@@ -104,6 +105,7 @@ fun MenuPopover(
     onEditMetadataClick: () -> Unit = {},
     onScaleBindingClick: () -> Unit = {},
     onNorthBindingClick: () -> Unit = {},
+    onEntranceBindingClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentLevel by remember { mutableStateOf(MenuLevel.MAIN) }
@@ -176,6 +178,7 @@ fun MenuPopover(
                         BindingSubmenuContent(
                             onScaleClick = onScaleBindingClick,
                             onNorthClick = onNorthBindingClick,
+                            onEntranceClick = onEntranceBindingClick,
                             onBackClick = { currentLevel = MenuLevel.EDIT }
                         )
                     }
@@ -284,6 +287,7 @@ private fun EditSubmenuContent(
 private fun BindingSubmenuContent(
     onScaleClick: () -> Unit,
     onNorthClick: () -> Unit,
+    onEntranceClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -308,7 +312,15 @@ private fun BindingSubmenuContent(
             onClick = onNorthClick
         )
 
-        // 3. Назад
+        // 3. Точка входа (Entrance)
+        MenuItem(
+            icon = Icons.Rounded.AddLocation,
+            iconTint = Color(0xFF10B981), // Emerald
+            title = "Точка входа",
+            onClick = onEntranceClick
+        )
+
+        // 4. Назад
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             iconTint = AccentSkyBlue,

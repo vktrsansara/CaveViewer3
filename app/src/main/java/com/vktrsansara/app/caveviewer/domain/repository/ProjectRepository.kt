@@ -29,6 +29,7 @@ interface ProjectRepository {
     suspend fun saveProjectLocation(projectName: String, location: MapLocation): Result<Unit>
     suspend fun getProjectEntrances(projectName: String): List<EntranceCoordinate>
     suspend fun saveProjectEntrances(projectName: String, entrances: List<EntranceCoordinate>): Result<Unit>
+    suspend fun addProjectEntrance(projectName: String, entrance: EntranceCoordinate): Result<List<EntranceCoordinate>>
     suspend fun getProjectCadastralData(projectName: String): Map<String, List<CadastralItem>>
     suspend fun saveProjectCadastralData(projectName: String, data: Map<String, List<CadastralItem>>): Result<Unit>
 }
