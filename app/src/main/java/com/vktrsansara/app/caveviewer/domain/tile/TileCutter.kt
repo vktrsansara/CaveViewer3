@@ -32,12 +32,13 @@ object TileCutter {
 
     fun calculateZoomLevels(width: Int, height: Int): Triple<Int, Int, Int> {
         val maxDim = maxOf(width, height)
-        val (zoomMin, zoomMax) = when {
-            maxDim > 15000 -> 2 to 7
-            maxDim > 8000  -> 2 to 6
-            maxDim > 4000  -> 2 to 5
-            maxDim > 2000  -> 1 to 4
-            else           -> 0 to 3
+        val zoomMin = 5
+        val zoomMax = when {
+            maxDim > 15000 -> 12
+            maxDim > 8000  -> 11
+            maxDim > 4000  -> 10
+            maxDim > 2000  -> 9
+            else           -> 8
         }
         val zoomDefault = (zoomMin + zoomMax) / 2
         return Triple(zoomMin, zoomMax, zoomDefault)
@@ -181,6 +182,6 @@ object TileCutter {
                 createdAt = System.currentTimeMillis()
             )
         )
-        File(tilesDir, ".v2_aligned").createNewFile()
+        File(tilesDir, ".v3_aligned").createNewFile()
     }
 }

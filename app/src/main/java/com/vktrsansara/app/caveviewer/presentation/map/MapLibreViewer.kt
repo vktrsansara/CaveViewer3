@@ -94,8 +94,8 @@ fun MapLibreViewer(
                 val tilesDir = File(projectDir, "tiles")
                 val mapFile = File(projectDir, "map/image.png")
 
-                val v2Marker = File(tilesDir, ".v2_aligned")
-                if (meta == null || !tilesDir.exists() || !v2Marker.exists()) {
+                val v3Marker = File(tilesDir, ".v3_aligned")
+                if (meta == null || !tilesDir.exists() || !v3Marker.exists()) {
                     if (mapFile.exists()) {
                         loadingStatus = "Оптимизация четкости тайлов карты..."
                         val bitmap = BitmapFactory.decodeFile(mapFile.absolutePath)
