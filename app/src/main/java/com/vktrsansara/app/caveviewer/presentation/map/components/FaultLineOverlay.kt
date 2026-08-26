@@ -54,12 +54,13 @@ fun FaultLineOverlay(
     currentCenterPx: Pair<Double, Double>?,
     angleNorth: Double,
     ppm: Double,
+    isActive: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val strikeAzimuth = remember(points, currentCenterPx, angleNorth) {
+    val strikeAzimuth = remember(points, currentCenterPx, angleNorth, isActive) {
         if (points.size >= 2) {
             MeasureUtils.calculateAzimuthDegrees(points[0].imagePx, points[1].imagePx, angleNorth)
-        } else if (points.size == 1 && currentCenterPx != null) {
+        } else if (isActive && points.size == 1 && currentCenterPx != null) {
             MeasureUtils.calculateAzimuthDegrees(points[0].imagePx, currentCenterPx, angleNorth)
         } else {
             0.0
@@ -70,10 +71,10 @@ fun FaultLineOverlay(
         MeasureUtils.calculateBackAzimuth(strikeAzimuth)
     }
 
-    val baseDistancePx = remember(points, currentCenterPx) {
+    val baseDistancePx = remember(points, currentCenterPx, isActive) {
         if (points.size >= 2) {
             MeasureUtils.distancePx(points[0].imagePx, points[1].imagePx)
-        } else if (points.size == 1 && currentCenterPx != null) {
+        } else if (isActive && points.size == 1 && currentCenterPx != null) {
             MeasureUtils.distancePx(points[0].imagePx, currentCenterPx)
         } else {
             0.0
@@ -87,8 +88,8 @@ fun FaultLineOverlay(
             val pointCount = minOf(screenPoints.size, points.size)
             val validScreenPoints = if (pointCount > 0) screenPoints.take(pointCount) else emptyList()
 
-            // 1. When 1 point is set, draw dynamic ray to center screen
-            if (pointCount == 1) {
+            // 1. When 1 point is set and active, draw dynamic ray to center screen
+            if (isActive && pointCount == 1) {
                 drawLine(
                     color = PinkFaultColor,
                     start = validScreenPoints[0],
@@ -141,17 +142,18 @@ fun FaultLineOverlay(
             }
         }
 
-        // Top Info Banner
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp, start = 20.dp, end = 20.dp)
-                .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard.copy(alpha = 0.95f))
-                .border(1.dp, PinkFaultColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 14.dp, vertical = 8.dp)
-        ) {
+        // Top Info Banner (only if active)
+        if (isActive) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp, start = 20.dp, end = 20.dp)
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppColors.bgCard.copy(alpha = 0.95f))
+                    .border(1.dp, PinkFaultColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
             when (points.size) {
                 0 -> {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -232,4 +234,5 @@ fun FaultLineOverlay(
             }
         }
     }
+}
 }

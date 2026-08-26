@@ -6,6 +6,7 @@ import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
+import com.vktrsansara.app.caveviewer.domain.model.ToolType
 import com.vktrsansara.app.caveviewer.domain.repository.ProjectRepository
 import com.vktrsansara.app.caveviewer.domain.repository.SettingsRepository
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
@@ -735,19 +736,7 @@ class MainViewModel(
 
             // Ruler Handlers
             is MainUiIntent.StartRulerMode -> {
-                _uiState.update {
-                    it.copy(
-                        isRulerMode = true,
-                        rulerPoints = emptyList(),
-                        isAreaMeasureMode = false,
-                        areaPoints = emptyList(),
-                        isScaleBindingMode = false,
-                        isNorthBindingMode = false,
-                        isEntranceCavePickMode = false,
-                        isOsmEntranceBindingMode = false,
-                        isMenuExpanded = false
-                    )
-                }
+                addOrActivateTool(ToolType.RULER)
             }
             is MainUiIntent.AddRulerPoint -> {
                 viewModelScope.launch {
@@ -772,31 +761,26 @@ class MainViewModel(
                     if (it.rulerPoints.isNotEmpty()) {
                         it.copy(rulerPoints = it.rulerPoints.dropLast(1))
                     } else {
-                        it.copy(isRulerMode = false, rulerPoints = emptyList())
+                        it.copy(rulerPoints = emptyList())
                     }
                 }
             }
             is MainUiIntent.CloseRulerMode -> {
+                val newDock = _uiState.value.dockedTools - ToolType.RULER
+                val newActive = if (_uiState.value.activeTool == ToolType.RULER) newDock.firstOrNull() else _uiState.value.activeTool
                 _uiState.update {
-                    it.copy(isRulerMode = false, rulerPoints = emptyList())
+                    it.copy(
+                        dockedTools = newDock,
+                        activeTool = newActive,
+                        isRulerMode = false,
+                        rulerPoints = emptyList()
+                    )
                 }
             }
 
             // Area Measure Handlers
             is MainUiIntent.StartAreaMeasureMode -> {
-                _uiState.update {
-                    it.copy(
-                        isAreaMeasureMode = true,
-                        areaPoints = emptyList(),
-                        isRulerMode = false,
-                        rulerPoints = emptyList(),
-                        isScaleBindingMode = false,
-                        isNorthBindingMode = false,
-                        isEntranceCavePickMode = false,
-                        isOsmEntranceBindingMode = false,
-                        isMenuExpanded = false
-                    )
-                }
+                addOrActivateTool(ToolType.AREA)
             }
             is MainUiIntent.AddAreaPoint -> {
                 viewModelScope.launch {
@@ -821,33 +805,26 @@ class MainViewModel(
                     if (it.areaPoints.isNotEmpty()) {
                         it.copy(areaPoints = it.areaPoints.dropLast(1))
                     } else {
-                        it.copy(isAreaMeasureMode = false, areaPoints = emptyList())
+                        it.copy(areaPoints = emptyList())
                     }
                 }
             }
             is MainUiIntent.CloseAreaMeasureMode -> {
+                val newDock = _uiState.value.dockedTools - ToolType.AREA
+                val newActive = if (_uiState.value.activeTool == ToolType.AREA) newDock.firstOrNull() else _uiState.value.activeTool
                 _uiState.update {
-                    it.copy(isAreaMeasureMode = false, areaPoints = emptyList())
+                    it.copy(
+                        dockedTools = newDock,
+                        activeTool = newActive,
+                        isAreaMeasureMode = false,
+                        areaPoints = emptyList()
+                    )
                 }
             }
 
             // Angle Measure Handlers
             is MainUiIntent.StartAngleMeasureMode -> {
-                _uiState.update {
-                    it.copy(
-                        isAngleMeasureMode = true,
-                        anglePoints = emptyList(),
-                        isRulerMode = false,
-                        rulerPoints = emptyList(),
-                        isAreaMeasureMode = false,
-                        areaPoints = emptyList(),
-                        isScaleBindingMode = false,
-                        isNorthBindingMode = false,
-                        isEntranceCavePickMode = false,
-                        isOsmEntranceBindingMode = false,
-                        isMenuExpanded = false
-                    )
-                }
+                addOrActivateTool(ToolType.ANGLE)
             }
             is MainUiIntent.AddAnglePoint -> {
                 viewModelScope.launch {
@@ -875,35 +852,26 @@ class MainViewModel(
                     if (it.anglePoints.isNotEmpty()) {
                         it.copy(anglePoints = it.anglePoints.dropLast(1))
                     } else {
-                        it.copy(isAngleMeasureMode = false, anglePoints = emptyList())
+                        it.copy(anglePoints = emptyList())
                     }
                 }
             }
             is MainUiIntent.CloseAngleMeasureMode -> {
+                val newDock = _uiState.value.dockedTools - ToolType.ANGLE
+                val newActive = if (_uiState.value.activeTool == ToolType.ANGLE) newDock.firstOrNull() else _uiState.value.activeTool
                 _uiState.update {
-                    it.copy(isAngleMeasureMode = false, anglePoints = emptyList())
+                    it.copy(
+                        dockedTools = newDock,
+                        activeTool = newActive,
+                        isAngleMeasureMode = false,
+                        anglePoints = emptyList()
+                    )
                 }
             }
 
             // Azimuth Handlers
             is MainUiIntent.StartAzimuthMode -> {
-                _uiState.update {
-                    it.copy(
-                        isAzimuthMode = true,
-                        azimuthOriginPoint = null,
-                        isRulerMode = false,
-                        rulerPoints = emptyList(),
-                        isAreaMeasureMode = false,
-                        areaPoints = emptyList(),
-                        isAngleMeasureMode = false,
-                        anglePoints = emptyList(),
-                        isScaleBindingMode = false,
-                        isNorthBindingMode = false,
-                        isEntranceCavePickMode = false,
-                        isOsmEntranceBindingMode = false,
-                        isMenuExpanded = false
-                    )
-                }
+                addOrActivateTool(ToolType.AZIMUTH)
             }
             is MainUiIntent.SetAzimuthOriginPoint -> {
                 viewModelScope.launch {
@@ -929,34 +897,21 @@ class MainViewModel(
                 }
             }
             is MainUiIntent.CloseAzimuthMode -> {
+                val newDock = _uiState.value.dockedTools - ToolType.AZIMUTH
+                val newActive = if (_uiState.value.activeTool == ToolType.AZIMUTH) newDock.firstOrNull() else _uiState.value.activeTool
                 _uiState.update {
-                    it.copy(isAzimuthMode = false, azimuthOriginPoint = null)
+                    it.copy(
+                        dockedTools = newDock,
+                        activeTool = newActive,
+                        isAzimuthMode = false,
+                        azimuthOriginPoint = null
+                    )
                 }
             }
 
             // Fault Line Handlers
             is MainUiIntent.StartFaultLineMode -> {
-                _uiState.update {
-                    it.copy(
-                        isFaultLineMode = true,
-                        faultLinePoints = emptyList(),
-                        isRadiusMeasureMode = false,
-                        radiusCenterPoint = null,
-                        isAzimuthMode = false,
-                        azimuthOriginPoint = null,
-                        isRulerMode = false,
-                        rulerPoints = emptyList(),
-                        isAreaMeasureMode = false,
-                        areaPoints = emptyList(),
-                        isAngleMeasureMode = false,
-                        anglePoints = emptyList(),
-                        isScaleBindingMode = false,
-                        isNorthBindingMode = false,
-                        isEntranceCavePickMode = false,
-                        isOsmEntranceBindingMode = false,
-                        isMenuExpanded = false
-                    )
-                }
+                addOrActivateTool(ToolType.FAULT_LINE)
             }
             is MainUiIntent.AddFaultLinePoint -> {
                 viewModelScope.launch {
@@ -984,39 +939,26 @@ class MainViewModel(
                     if (it.faultLinePoints.isNotEmpty()) {
                         it.copy(faultLinePoints = it.faultLinePoints.dropLast(1))
                     } else {
-                        it.copy(isFaultLineMode = false, faultLinePoints = emptyList())
+                        it.copy(faultLinePoints = emptyList())
                     }
                 }
             }
             is MainUiIntent.CloseFaultLineMode -> {
+                val newDock = _uiState.value.dockedTools - ToolType.FAULT_LINE
+                val newActive = if (_uiState.value.activeTool == ToolType.FAULT_LINE) newDock.firstOrNull() else _uiState.value.activeTool
                 _uiState.update {
-                    it.copy(isFaultLineMode = false, faultLinePoints = emptyList())
+                    it.copy(
+                        dockedTools = newDock,
+                        activeTool = newActive,
+                        isFaultLineMode = false,
+                        faultLinePoints = emptyList()
+                    )
                 }
             }
 
             // Radius Measure Handlers
             is MainUiIntent.StartRadiusMeasureMode -> {
-                _uiState.update {
-                    it.copy(
-                        isRadiusMeasureMode = true,
-                        radiusCenterPoint = null,
-                        isFaultLineMode = false,
-                        faultLinePoints = emptyList(),
-                        isAzimuthMode = false,
-                        azimuthOriginPoint = null,
-                        isRulerMode = false,
-                        rulerPoints = emptyList(),
-                        isAreaMeasureMode = false,
-                        areaPoints = emptyList(),
-                        isAngleMeasureMode = false,
-                        anglePoints = emptyList(),
-                        isScaleBindingMode = false,
-                        isNorthBindingMode = false,
-                        isEntranceCavePickMode = false,
-                        isOsmEntranceBindingMode = false,
-                        isMenuExpanded = false
-                    )
-                }
+                addOrActivateTool(ToolType.RADIUS)
             }
             is MainUiIntent.SetRadiusCenterPoint -> {
                 viewModelScope.launch {
@@ -1042,36 +984,21 @@ class MainViewModel(
                 }
             }
             is MainUiIntent.CloseRadiusMeasureMode -> {
+                val newDock = _uiState.value.dockedTools - ToolType.RADIUS
+                val newActive = if (_uiState.value.activeTool == ToolType.RADIUS) newDock.firstOrNull() else _uiState.value.activeTool
                 _uiState.update {
-                    it.copy(isRadiusMeasureMode = false, radiusCenterPoint = null)
+                    it.copy(
+                        dockedTools = newDock,
+                        activeTool = newActive,
+                        isRadiusMeasureMode = false,
+                        radiusCenterPoint = null
+                    )
                 }
             }
 
             // Delta Offset Handlers
             is MainUiIntent.StartDeltaOffsetMode -> {
-                _uiState.update {
-                    it.copy(
-                        isDeltaOffsetMode = true,
-                        deltaOffsetOriginPoint = null,
-                        isRadiusMeasureMode = false,
-                        radiusCenterPoint = null,
-                        isFaultLineMode = false,
-                        faultLinePoints = emptyList(),
-                        isAzimuthMode = false,
-                        azimuthOriginPoint = null,
-                        isRulerMode = false,
-                        rulerPoints = emptyList(),
-                        isAreaMeasureMode = false,
-                        areaPoints = emptyList(),
-                        isAngleMeasureMode = false,
-                        anglePoints = emptyList(),
-                        isScaleBindingMode = false,
-                        isNorthBindingMode = false,
-                        isEntranceCavePickMode = false,
-                        isOsmEntranceBindingMode = false,
-                        isMenuExpanded = false
-                    )
-                }
+                addOrActivateTool(ToolType.DELTA_OFFSET)
             }
             is MainUiIntent.SetDeltaOffsetOriginPoint -> {
                 viewModelScope.launch {
@@ -1097,8 +1024,12 @@ class MainViewModel(
                 }
             }
             is MainUiIntent.CloseDeltaOffsetMode -> {
+                val newDock = _uiState.value.dockedTools - ToolType.DELTA_OFFSET
+                val newActive = if (_uiState.value.activeTool == ToolType.DELTA_OFFSET) newDock.firstOrNull() else _uiState.value.activeTool
                 _uiState.update {
                     it.copy(
+                        dockedTools = newDock,
+                        activeTool = newActive,
                         isDeltaOffsetMode = false,
                         deltaOffsetOriginPoint = null,
                         isDeltaOffsetHelpVisible = false
@@ -1114,6 +1045,169 @@ class MainViewModel(
                 _uiState.update {
                     it.copy(isDeltaOffsetHelpVisible = false)
                 }
+            }
+
+            // Multi-Tool SideBar Handlers
+            is MainUiIntent.SelectDockTool -> {
+                _uiState.update { state ->
+                    val newActive = if (state.activeTool == intent.tool) null else intent.tool
+                    state.copy(activeTool = newActive)
+                }
+            }
+            is MainUiIntent.UndoActiveToolPoint -> {
+                when (_uiState.value.activeTool) {
+                    ToolType.RULER -> {
+                        _uiState.update {
+                            if (it.rulerPoints.isNotEmpty()) it.copy(rulerPoints = it.rulerPoints.dropLast(1)) else it
+                        }
+                    }
+                    ToolType.AREA -> {
+                        _uiState.update {
+                            if (it.areaPoints.isNotEmpty()) it.copy(areaPoints = it.areaPoints.dropLast(1)) else it
+                        }
+                    }
+                    ToolType.ANGLE -> {
+                        _uiState.update {
+                            if (it.anglePoints.isNotEmpty()) it.copy(anglePoints = it.anglePoints.dropLast(1)) else it
+                        }
+                    }
+                    ToolType.AZIMUTH -> {
+                        _uiState.update { it.copy(azimuthOriginPoint = null) }
+                    }
+                    ToolType.FAULT_LINE -> {
+                        _uiState.update {
+                            if (it.faultLinePoints.isNotEmpty()) it.copy(faultLinePoints = it.faultLinePoints.dropLast(1)) else it
+                        }
+                    }
+                    ToolType.DELTA_OFFSET -> {
+                        _uiState.update { it.copy(deltaOffsetOriginPoint = null) }
+                    }
+                    ToolType.RADIUS -> {
+                        _uiState.update { it.copy(radiusCenterPoint = null) }
+                    }
+                    null -> {}
+                }
+            }
+            is MainUiIntent.HandleDockCloseClick -> {
+                val state = _uiState.value
+                if (state.activeTool != null) {
+                    // Deactivate active tool, stays in dock
+                    _uiState.update { it.copy(activeTool = null) }
+                } else if (state.isDockFavorite) {
+                    // If it is Favorite preset, hide entire dock without destroying preset
+                    _uiState.update {
+                        it.copy(
+                            dockedTools = emptyList(),
+                            activeTool = null,
+                            isRulerMode = false,
+                            isAreaMeasureMode = false,
+                            isAngleMeasureMode = false,
+                            isAzimuthMode = false,
+                            isFaultLineMode = false,
+                            isDeltaOffsetMode = false,
+                            isRadiusMeasureMode = false
+                        )
+                    }
+                } else if (state.dockedTools.isNotEmpty()) {
+                    // Remove from last (LIFO)
+                    val removedTool = state.dockedTools.last()
+                    val remainingTools = state.dockedTools.dropLast(1)
+                    val favPreset = state.settings.favoriteToolPreset
+                    val isFav = favPreset.isNotEmpty() && (remainingTools.map { it.name } == favPreset)
+                    _uiState.update {
+                        val s = it.copy(
+                            dockedTools = remainingTools,
+                            activeTool = remainingTools.lastOrNull(),
+                            isDockFavorite = isFav
+                        )
+                        clearToolData(s, removedTool)
+                    }
+                }
+            }
+            is MainUiIntent.HandleDockCloseAllLongClick -> {
+                _uiState.update {
+                    it.copy(
+                        dockedTools = emptyList(),
+                        activeTool = null,
+                        rulerPoints = emptyList(),
+                        isRulerMode = false,
+                        areaPoints = emptyList(),
+                        isAreaMeasureMode = false,
+                        anglePoints = emptyList(),
+                        isAngleMeasureMode = false,
+                        azimuthOriginPoint = null,
+                        isAzimuthMode = false,
+                        faultLinePoints = emptyList(),
+                        isFaultLineMode = false,
+                        deltaOffsetOriginPoint = null,
+                        isDeltaOffsetMode = false,
+                        radiusCenterPoint = null,
+                        isRadiusMeasureMode = false
+                    )
+                }
+                viewModelScope.launch {
+                    _effect.send(MainUiEffect.ShowToast("Панель инструментов закрыта"))
+                }
+            }
+            is MainUiIntent.ToggleFavoriteToolPreset -> {
+                val state = _uiState.value
+                val currentDock = state.dockedTools
+                if (currentDock.isNotEmpty()) {
+                    viewModelScope.launch {
+                        if (state.isDockFavorite) {
+                            settingsRepository.setFavoriteToolPreset(emptyList())
+                            _uiState.update { it.copy(isDockFavorite = false) }
+                            _effect.send(MainUiEffect.ShowToast("Пресет удален из Моих инструментов"))
+                        } else {
+                            val presetNames = currentDock.map { it.name }
+                            settingsRepository.setFavoriteToolPreset(presetNames)
+                            _uiState.update { it.copy(isDockFavorite = true) }
+                            _effect.send(MainUiEffect.ShowToast("Набор сохранен в «Мои инструменты» ⭐"))
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.OpenFavoriteToolsPreset -> {
+                val favPreset = _uiState.value.settings.favoriteToolPreset
+                if (favPreset.isNotEmpty()) {
+                    val tools = favPreset.mapNotNull { name ->
+                        try {
+                            ToolType.valueOf(name)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    if (tools.isNotEmpty()) {
+                        _uiState.update {
+                            it.copy(
+                                dockedTools = tools,
+                                activeTool = tools.firstOrNull(),
+                                isDockFavorite = true,
+                                isMenuExpanded = false,
+                                isScaleBindingMode = false,
+                                isNorthBindingMode = false,
+                                isEntranceCavePickMode = false,
+                                isOsmEntranceBindingMode = false,
+                                isRulerMode = ToolType.RULER in tools,
+                                isAreaMeasureMode = ToolType.AREA in tools,
+                                isAngleMeasureMode = ToolType.ANGLE in tools,
+                                isAzimuthMode = ToolType.AZIMUTH in tools,
+                                isFaultLineMode = ToolType.FAULT_LINE in tools,
+                                isDeltaOffsetMode = ToolType.DELTA_OFFSET in tools,
+                                isRadiusMeasureMode = ToolType.RADIUS in tools
+                            )
+                        }
+                        viewModelScope.launch {
+                            _effect.send(MainUiEffect.ShowToast("Загружен набор «Мои инструменты»"))
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.OpenDockHelp -> {
+                _uiState.update { it.copy(isDockHelpVisible = true) }
+            }
+            is MainUiIntent.DismissDockHelp -> {
+                _uiState.update { it.copy(isDockHelpVisible = false) }
             }
 
             // Map Filter Dialog Handlers
@@ -1244,6 +1338,64 @@ class MainViewModel(
                 projectCreationJob = null
                 _uiState.update { it.copy(isProjectSaving = false) }
             }
+        }
+    }
+
+    private fun addOrActivateTool(tool: ToolType) {
+        val currentDock = _uiState.value.dockedTools
+        if (tool in currentDock) {
+            _uiState.update {
+                it.copy(
+                    activeTool = tool,
+                    isScaleBindingMode = false,
+                    isNorthBindingMode = false,
+                    isEntranceCavePickMode = false,
+                    isOsmEntranceBindingMode = false,
+                    isMenuExpanded = false
+                )
+            }
+            return
+        }
+        if (currentDock.size >= 4) {
+            viewModelScope.launch {
+                _effect.send(MainUiEffect.ShowToast("Максимум 4 инструмента в панели"))
+            }
+            _uiState.update { it.copy(isMenuExpanded = false) }
+            return
+        }
+        val newDock = currentDock + tool
+        val favPreset = _uiState.value.settings.favoriteToolPreset
+        val isFav = favPreset.isNotEmpty() && (newDock.map { it.name } == favPreset)
+        _uiState.update {
+            it.copy(
+                dockedTools = newDock,
+                activeTool = tool,
+                isDockFavorite = isFav,
+                isScaleBindingMode = false,
+                isNorthBindingMode = false,
+                isEntranceCavePickMode = false,
+                isOsmEntranceBindingMode = false,
+                isMenuExpanded = false,
+                isRulerMode = ToolType.RULER in newDock,
+                isAreaMeasureMode = ToolType.AREA in newDock,
+                isAngleMeasureMode = ToolType.ANGLE in newDock,
+                isAzimuthMode = ToolType.AZIMUTH in newDock,
+                isFaultLineMode = ToolType.FAULT_LINE in newDock,
+                isDeltaOffsetMode = ToolType.DELTA_OFFSET in newDock,
+                isRadiusMeasureMode = ToolType.RADIUS in newDock
+            )
+        }
+    }
+
+    private fun clearToolData(state: MainUiState, tool: ToolType): MainUiState {
+        return when (tool) {
+            ToolType.RULER -> state.copy(rulerPoints = emptyList(), isRulerMode = false)
+            ToolType.AREA -> state.copy(areaPoints = emptyList(), isAreaMeasureMode = false)
+            ToolType.ANGLE -> state.copy(anglePoints = emptyList(), isAngleMeasureMode = false)
+            ToolType.AZIMUTH -> state.copy(azimuthOriginPoint = null, isAzimuthMode = false)
+            ToolType.FAULT_LINE -> state.copy(faultLinePoints = emptyList(), isFaultLineMode = false)
+            ToolType.DELTA_OFFSET -> state.copy(deltaOffsetOriginPoint = null, isDeltaOffsetMode = false)
+            ToolType.RADIUS -> state.copy(radiusCenterPoint = null, isRadiusMeasureMode = false)
         }
     }
 }

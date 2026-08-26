@@ -13,6 +13,7 @@ import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
+import com.vktrsansara.app.caveviewer.domain.model.ToolType
 import org.maplibre.android.geometry.LatLng
 import java.io.File
 
@@ -45,6 +46,11 @@ data class MainUiState(
     val projectSavingProgress: Float = 0f,
     val projectSavingStatusText: String = "",
     val settings: AppSettings = AppSettings(),
+    // Multi-Tool SideBar (Dock) State
+    val dockedTools: List<ToolType> = emptyList(),
+    val activeTool: ToolType? = null,
+    val isDockFavorite: Boolean = false,
+    val isDockHelpVisible: Boolean = false,
     // Scale Calibration Mode State
     val isScaleBindingMode: Boolean = false,
     val scaleBindingPoints: List<ScaleBindingPoint> = emptyList(),
@@ -206,6 +212,16 @@ sealed interface MainUiIntent : UiIntent {
     data object OpenMapFilterHelpDialog : MainUiIntent
     data object DismissMapFilterHelpDialog : MainUiIntent
     data class SetMapFilterMode(val mode: com.vktrsansara.app.caveviewer.domain.model.MapFilterMode) : MainUiIntent
+
+    // Multi-Tool SideBar actions
+    data class SelectDockTool(val tool: ToolType) : MainUiIntent
+    data object UndoActiveToolPoint : MainUiIntent
+    data object HandleDockCloseClick : MainUiIntent
+    data object HandleDockCloseAllLongClick : MainUiIntent
+    data object ToggleFavoriteToolPreset : MainUiIntent
+    data object OpenFavoriteToolsPreset : MainUiIntent
+    data object OpenDockHelp : MainUiIntent
+    data object DismissDockHelp : MainUiIntent
 
     // Projects List actions
     data class SelectProject(val projectName: String) : MainUiIntent

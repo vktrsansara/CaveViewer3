@@ -52,16 +52,17 @@ fun RulerOverlay(
     screenPoints: List<Offset>,
     currentCenterPx: Pair<Double, Double>?,
     ppm: Double,
+    isActive: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     // 1. Calculate total polyline length (fixed points + dynamic segment to center)
-    val totalLengthPx: Double = remember(points, currentCenterPx) {
+    val totalLengthPx: Double = remember(points, currentCenterPx, isActive) {
         if (points.isEmpty()) return@remember 0.0
         var total = 0.0
         for (i in 0 until points.size - 1) {
             total += MeasureUtils.distancePx(points[i].imagePx, points[i + 1].imagePx)
         }
-        if (currentCenterPx != null) {
+        if (isActive && currentCenterPx != null) {
             total += MeasureUtils.distancePx(points.last().imagePx, currentCenterPx)
         }
         total
@@ -138,15 +139,17 @@ fun RulerOverlay(
                     )
                 }
 
-                // 2. Draw dynamic ray from last point to center cursor
-                val lastScreenPoint = validScreenPoints.last()
-                drawLine(
-                    color = RulerColor,
-                    start = lastScreenPoint,
-                    end = centerScreen,
-                    strokeWidth = strokeWidthPx,
-                    pathEffect = dashEffect
-                )
+                // 2. Draw dynamic ray from last point to center cursor (only if active)
+                if (isActive) {
+                    val lastScreenPoint = validScreenPoints.last()
+                    drawLine(
+                        color = RulerColor,
+                        start = lastScreenPoint,
+                        end = centerScreen,
+                        strokeWidth = strokeWidthPx,
+                        pathEffect = dashEffect
+                    )
+                }
 
                 // 3. Draw vertices markers
                 validScreenPoints.forEachIndexed { index, screenPt ->
@@ -186,17 +189,18 @@ fun RulerOverlay(
             }
         }
 
-        // Top Info Banner
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp, start = 20.dp, end = 20.dp)
-                .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard.copy(alpha = 0.95f))
-                .border(1.dp, AppColors.borderColor, RoundedCornerShape(8.dp))
-                .padding(horizontal = 14.dp, vertical = 8.dp)
-        ) {
+        // Top Info Banner (only if active)
+        if (isActive) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp, start = 20.dp, end = 20.dp)
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppColors.bgCard.copy(alpha = 0.95f))
+                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
             if (points.isEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -261,4 +265,5 @@ fun RulerOverlay(
             }
         }
     }
+}
 }

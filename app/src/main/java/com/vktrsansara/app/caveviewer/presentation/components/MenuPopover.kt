@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SquareFoot
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material3.HorizontalDivider
@@ -70,6 +71,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vktrsansara.app.caveviewer.domain.model.MapFilterMode
+import com.vktrsansara.app.caveviewer.domain.model.ToolType
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
@@ -104,6 +107,10 @@ enum class MenuLevel {
 fun MenuPopover(
     isOpen: Boolean,
     hasActiveProject: Boolean = false,
+    dockedTools: List<ToolType> = emptyList(),
+    favoriteTools: List<String> = emptyList(),
+    mapFilter: MapFilterMode = MapFilterMode.NONE,
+    onOpenFavoriteToolsPreset: () -> Unit = {},
     isGridEnabled: Boolean = false,
     onToggleGrid: () -> Unit = {},
     onStartRulerClick: () -> Unit = {},
@@ -111,8 +118,8 @@ fun MenuPopover(
     onStartAngleMeasureClick: () -> Unit = {},
     onStartAzimuthClick: () -> Unit = {},
     onStartFaultLineClick: () -> Unit = {},
-    onStartRadiusMeasureClick: () -> Unit = {},
     onStartDeltaOffsetClick: () -> Unit = {},
+    onStartRadiusMeasureClick: () -> Unit = {},
     onOpenMapFiltersClick: () -> Unit = {},
     onOpenAppSettings: () -> Unit,
     onOpenToolsSettings: () -> Unit = {},
@@ -170,6 +177,8 @@ fun MenuPopover(
                     MenuLevel.MAIN -> {
                         MainMenuContent(
                             hasActiveProject = hasActiveProject,
+                            favoriteTools = favoriteTools,
+                            onOpenFavoriteToolsPreset = onOpenFavoriteToolsPreset,
                             onProjectsClick = { currentLevel = MenuLevel.PROJECTS },
                             onEditClick = { currentLevel = MenuLevel.EDIT },
                             onToolsClick = { currentLevel = MenuLevel.TOOLS },
@@ -205,15 +214,17 @@ fun MenuPopover(
                     }
                     MenuLevel.TOOLS -> {
                         ToolsSubmenuContent(
+                            dockedTools = dockedTools,
                             isGridEnabled = isGridEnabled,
+                            isMapFilterActive = (mapFilter != MapFilterMode.NONE),
                             onToggleGrid = onToggleGrid,
                             onStartRulerClick = onStartRulerClick,
                             onStartAreaMeasureClick = onStartAreaMeasureClick,
                             onStartAngleMeasureClick = onStartAngleMeasureClick,
                             onStartAzimuthClick = onStartAzimuthClick,
                             onStartFaultLineClick = onStartFaultLineClick,
-                            onStartRadiusMeasureClick = onStartRadiusMeasureClick,
                             onStartDeltaOffsetClick = onStartDeltaOffsetClick,
+                            onStartRadiusMeasureClick = onStartRadiusMeasureClick,
                             onOpenMapFiltersClick = onOpenMapFiltersClick,
                             onBackClick = { currentLevel = MenuLevel.MAIN }
                         )
@@ -234,6 +245,8 @@ fun MenuPopover(
 @Composable
 private fun MainMenuContent(
     hasActiveProject: Boolean,
+    favoriteTools: List<String>,
+    onOpenFavoriteToolsPreset: () -> Unit,
     onProjectsClick: () -> Unit,
     onEditClick: () -> Unit,
     onToolsClick: () -> Unit,
@@ -272,6 +285,16 @@ private fun MainMenuContent(
             onClick = onToolsClick
         )
 
+        // Item 3.5: Мои инструменты (показывается, только если есть сохраненное Избранное)
+        if (favoriteTools.isNotEmpty()) {
+            MenuItem(
+                icon = Icons.Rounded.Star,
+                iconTint = Color(0xFFF59E0B), // Gold
+                title = "Мои инструменты",
+                onClick = onOpenFavoriteToolsPreset
+            )
+        }
+
         // Item 4: Настройки (Sky Blue Settings)
         MenuItem(
             icon = Icons.Rounded.Settings,
@@ -292,18 +315,22 @@ private fun MainMenuContent(
 
 @Composable
 private fun ToolsSubmenuContent(
+    dockedTools: List<ToolType>,
     isGridEnabled: Boolean,
+    isMapFilterActive: Boolean = false,
     onToggleGrid: () -> Unit,
     onStartRulerClick: () -> Unit,
     onStartAreaMeasureClick: () -> Unit,
     onStartAngleMeasureClick: () -> Unit,
     onStartAzimuthClick: () -> Unit,
     onStartFaultLineClick: () -> Unit,
-    onStartRadiusMeasureClick: () -> Unit,
     onStartDeltaOffsetClick: () -> Unit,
+    onStartRadiusMeasureClick: () -> Unit,
     onOpenMapFiltersClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
+    val showToolChecks = dockedTools.size > 1
+
     Column(modifier = Modifier.fillMaxWidth()) {
         MenuHeader(title = "Инструменты")
         HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
@@ -352,6 +379,7 @@ private fun ToolsSubmenuContent(
             icon = Icons.Rounded.Straighten,
             iconTint = Color(0xFF8A2BE2), // BlueViolet
             title = "Линейка",
+            isChecked = showToolChecks && ToolType.RULER in dockedTools,
             onClick = onStartRulerClick
         )
 
@@ -360,6 +388,7 @@ private fun ToolsSubmenuContent(
             icon = Icons.Rounded.SquareFoot,
             iconTint = Color(0xFFA855F7), // Purple
             title = "Площадь",
+            isChecked = showToolChecks && ToolType.AREA in dockedTools,
             onClick = onStartAreaMeasureClick
         )
 
@@ -368,6 +397,7 @@ private fun ToolsSubmenuContent(
             icon = Icons.Rounded.Architecture,
             iconTint = Color(0xFFF59E0B), // Amber Gold
             title = "Угол",
+            isChecked = showToolChecks && ToolType.ANGLE in dockedTools,
             onClick = onStartAngleMeasureClick
         )
 
@@ -376,6 +406,7 @@ private fun ToolsSubmenuContent(
             icon = Icons.Rounded.Explore,
             iconTint = Color(0xFF06B6D4), // Cyan
             title = "Азимут",
+            isChecked = showToolChecks && ToolType.AZIMUTH in dockedTools,
             onClick = onStartAzimuthClick
         )
 
@@ -384,23 +415,26 @@ private fun ToolsSubmenuContent(
             icon = Icons.Rounded.Timeline,
             iconTint = Color(0xFFEC4899), // Pink
             title = "Ось разломов",
+            isChecked = showToolChecks && ToolType.FAULT_LINE in dockedTools,
             onClick = onStartFaultLineClick
         )
 
-        // 7. Радиус (Иконка RadioButtonUnchecked / Emerald)
-        MenuItem(
-            icon = Icons.Rounded.RadioButtonUnchecked,
-            iconTint = Color(0xFF10B981), // Emerald
-            title = "Радиус",
-            onClick = onStartRadiusMeasureClick
-        )
-
-        // 8. Смещение (ΔX, ΔY) (Иконка LocationSearching / Indigo)
+        // 7. Смещение (ΔX, ΔY) (Иконка LocationSearching / Indigo)
         MenuItem(
             icon = Icons.Rounded.LocationSearching,
             iconTint = Color(0xFF6366F1), // Indigo
             title = "Смещение (ΔX, ΔY)",
+            isChecked = showToolChecks && ToolType.DELTA_OFFSET in dockedTools,
             onClick = onStartDeltaOffsetClick
+        )
+
+        // 8. Радиус (Иконка RadioButtonUnchecked / Emerald)
+        MenuItem(
+            icon = Icons.Rounded.RadioButtonUnchecked,
+            iconTint = Color(0xFF10B981), // Emerald
+            title = "Радиус",
+            isChecked = showToolChecks && ToolType.RADIUS in dockedTools,
+            onClick = onStartRadiusMeasureClick
         )
 
         // 9. Фильтры (Иконка ColorLens / Sky Blue)
@@ -408,6 +442,7 @@ private fun ToolsSubmenuContent(
             icon = Icons.Rounded.ColorLens,
             iconTint = Color(0xFF38BDF8), // Sky Blue
             title = "Фильтры",
+            isChecked = isMapFilterActive,
             onClick = onOpenMapFiltersClick
         )
 
@@ -636,6 +671,7 @@ private fun MenuItem(
     icon: ImageVector,
     iconTint: Color,
     title: String,
+    isChecked: Boolean = false,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -650,21 +686,34 @@ private fun MenuItem(
             )
             .padding(horizontal = 14.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = title,
-            tint = iconTint,
-            modifier = Modifier.size(17.dp)
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = title,
-            color = AppColors.textPrimary,
-            fontSize = 13.5.sp,
-            fontWeight = FontWeight.Normal
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f, fill = false)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = iconTint,
+                modifier = Modifier.size(17.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = title,
+                color = AppColors.textPrimary,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Normal
+            )
+        }
+        if (isChecked) {
+            Icon(
+                imageVector = Icons.Rounded.Check,
+                contentDescription = "Включено",
+                tint = Color(0xFF10B981),
+                modifier = Modifier.size(17.dp)
+            )
+        }
     }
 }
 

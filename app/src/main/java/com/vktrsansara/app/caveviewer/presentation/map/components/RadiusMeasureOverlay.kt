@@ -51,10 +51,11 @@ fun RadiusMeasureOverlay(
     centerScreenPoint: Offset?,
     currentCenterPx: Pair<Double, Double>?,
     ppm: Double,
+    isActive: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val liveRadiusPx = remember(centerPoint, currentCenterPx) {
-        if (centerPoint != null && currentCenterPx != null) {
+    val liveRadiusPx = remember(centerPoint, currentCenterPx, isActive) {
+        if (isActive && centerPoint != null && currentCenterPx != null) {
             MeasureUtils.distancePx(centerPoint.imagePx, currentCenterPx)
         } else {
             0.0
@@ -69,34 +70,36 @@ fun RadiusMeasureOverlay(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val centerScreen = Offset(size.width / 2f, size.height / 2f)
             if (centerPoint != null && centerScreenPoint != null) {
-                val dx = centerScreen.x - centerScreenPoint.x
-                val dy = centerScreen.y - centerScreenPoint.y
-                val screenRadius = sqrt(dx * dx + dy * dy)
+                if (isActive) {
+                    val dx = centerScreen.x - centerScreenPoint.x
+                    val dy = centerScreen.y - centerScreenPoint.y
+                    val screenRadius = sqrt(dx * dx + dy * dy)
 
-                // 1. Semi-transparent circle fill
-                drawCircle(
-                    color = EmeraldRadiusColor.copy(alpha = 0.15f),
-                    radius = screenRadius,
-                    center = centerScreenPoint
-                )
+                    // 1. Semi-transparent circle fill
+                    drawCircle(
+                        color = EmeraldRadiusColor.copy(alpha = 0.15f),
+                        radius = screenRadius,
+                        center = centerScreenPoint
+                    )
 
-                // 2. Circle boundary outline
-                drawCircle(
-                    color = EmeraldRadiusColor,
-                    radius = screenRadius,
-                    center = centerScreenPoint,
-                    style = Stroke(width = 2.dp.toPx())
-                )
+                    // 2. Circle boundary outline
+                    drawCircle(
+                        color = EmeraldRadiusColor,
+                        radius = screenRadius,
+                        center = centerScreenPoint,
+                        style = Stroke(width = 2.dp.toPx())
+                    )
 
-                // 3. Radius line to screen center cursor
-                val dashEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
-                drawLine(
-                    color = EmeraldRadiusColor,
-                    start = centerScreenPoint,
-                    end = centerScreen,
-                    strokeWidth = 2.dp.toPx(),
-                    pathEffect = dashEffect
-                )
+                    // 3. Radius line to screen center cursor
+                    val dashEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
+                    drawLine(
+                        color = EmeraldRadiusColor,
+                        start = centerScreenPoint,
+                        end = centerScreen,
+                        strokeWidth = 2.dp.toPx(),
+                        pathEffect = dashEffect
+                    )
+                }
 
                 // 4. Center point marker
                 drawCircle(
@@ -118,17 +121,18 @@ fun RadiusMeasureOverlay(
             }
         }
 
-        // Top Info Banner
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp, start = 20.dp, end = 20.dp)
-                .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard.copy(alpha = 0.95f))
-                .border(1.dp, EmeraldRadiusColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 14.dp, vertical = 8.dp)
-        ) {
+        // Top Info Banner (only if active)
+        if (isActive) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp, start = 20.dp, end = 20.dp)
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppColors.bgCard.copy(alpha = 0.95f))
+                    .border(1.dp, EmeraldRadiusColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
             if (centerPoint == null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -183,4 +187,5 @@ fun RadiusMeasureOverlay(
             }
         }
     }
+}
 }

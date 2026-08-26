@@ -51,12 +51,13 @@ fun AreaMeasureOverlay(
     screenPoints: List<Offset>,
     currentCenterPx: Pair<Double, Double>?,
     ppm: Double,
+    isActive: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    // Construct current active polygon image points (fixed + current center)
-    val activePolygonPoints = remember(points, currentCenterPx) {
+    // Construct current active polygon image points (fixed + current center if active)
+    val activePolygonPoints = remember(points, currentCenterPx, isActive) {
         val list = points.map { it.imagePx }.toMutableList()
-        if (currentCenterPx != null) {
+        if (isActive && currentCenterPx != null) {
             list.add(currentCenterPx)
         }
         list
@@ -80,12 +81,12 @@ fun AreaMeasureOverlay(
             val pointCount = minOf(screenPoints.size, points.size)
             val validScreenPoints = if (pointCount > 0) screenPoints.take(pointCount) else emptyList()
             val allScreenPoints = if (validScreenPoints.isNotEmpty()) {
-                validScreenPoints + centerScreen
+                if (isActive) validScreenPoints + centerScreen else validScreenPoints
             } else {
                 emptyList()
             }
 
-            if (pointCount >= 2) {
+            if (allScreenPoints.size >= 3) {
                 // 1. Draw polygon semi-transparent fill
                 val fillPath = Path().apply {
                     moveTo(allScreenPoints[0].x, allScreenPoints[0].y)
@@ -112,25 +113,37 @@ fun AreaMeasureOverlay(
                         pathEffect = dashEffect
                     )
                 }
-
-                // 3. Draw dynamic lines to center cursor:
-                // From last placed point to center
-                drawLine(
-                    color = AreaStrokeColor,
-                    start = validScreenPoints.last(),
-                    end = centerScreen,
-                    strokeWidth = strokeWidthPx,
-                    pathEffect = dashEffect
-                )
-                // From center to first placed point (closing line preview)
-                if (pointCount >= 2) {
+                if (!isActive && pointCount >= 3) {
+                    // Close fixed polygon
                     drawLine(
-                        color = AreaStrokeColor.copy(alpha = 0.75f),
-                        start = centerScreen,
+                        color = AreaStrokeColor,
+                        start = validScreenPoints.last(),
                         end = validScreenPoints.first(),
                         strokeWidth = strokeWidthPx,
                         pathEffect = dashEffect
                     )
+                }
+
+                // 3. Draw dynamic lines to center cursor (only if active)
+                if (isActive) {
+                    // From last placed point to center
+                    drawLine(
+                        color = AreaStrokeColor,
+                        start = validScreenPoints.last(),
+                        end = centerScreen,
+                        strokeWidth = strokeWidthPx,
+                        pathEffect = dashEffect
+                    )
+                    // From center to first placed point (closing line preview)
+                    if (pointCount >= 2) {
+                        drawLine(
+                            color = AreaStrokeColor.copy(alpha = 0.75f),
+                            start = centerScreen,
+                            end = validScreenPoints.first(),
+                            strokeWidth = strokeWidthPx,
+                            pathEffect = dashEffect
+                        )
+                    }
                 }
 
                 // 4. Draw vertices markers
@@ -171,17 +184,18 @@ fun AreaMeasureOverlay(
             }
         }
 
-        // Top Info Banner
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp, start = 20.dp, end = 20.dp)
-                .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard.copy(alpha = 0.95f))
-                .border(1.dp, AppColors.borderColor, RoundedCornerShape(8.dp))
-                .padding(horizontal = 14.dp, vertical = 8.dp)
-        ) {
+        // Top Info Banner (only if active)
+        if (isActive) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp, start = 20.dp, end = 20.dp)
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppColors.bgCard.copy(alpha = 0.95f))
+                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
             if (activePolygonPoints.size < 3) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -270,4 +284,5 @@ fun AreaMeasureOverlay(
             }
         }
     }
+}
 }

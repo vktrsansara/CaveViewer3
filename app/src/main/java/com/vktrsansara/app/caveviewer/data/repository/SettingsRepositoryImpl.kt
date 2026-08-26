@@ -39,6 +39,7 @@ class SettingsRepositoryImpl(
         val GRID_COLOR = longPreferencesKey("grid_color")
         val COLOR_PALETTE_MODE = stringPreferencesKey("color_palette_mode")
         val MAP_FILTER = stringPreferencesKey("map_filter")
+        val FAVORITE_TOOL_PRESET = stringPreferencesKey("favorite_tool_preset")
     }
 
     override val settingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -73,6 +74,8 @@ class SettingsRepositoryImpl(
             } catch (e: IllegalArgumentException) {
                 com.vktrsansara.app.caveviewer.domain.model.MapFilterMode.NONE
             }
+            val favoritePresetStr = preferences[PreferencesKeys.FAVORITE_TOOL_PRESET] ?: ""
+            val favoriteToolPreset = if (favoritePresetStr.isBlank()) emptyList() else favoritePresetStr.split(",").filter { it.isNotBlank() }
 
             AppSettings(
                 theme = theme,
@@ -87,7 +90,8 @@ class SettingsRepositoryImpl(
                 gridCustomSize = gridCustomSize,
                 gridColor = gridColor,
                 colorPaletteMode = colorPaletteMode,
-                mapFilter = mapFilter
+                mapFilter = mapFilter,
+                favoriteToolPreset = favoriteToolPreset
             )
         }
 
@@ -166,6 +170,12 @@ class SettingsRepositoryImpl(
     override suspend fun setMapFilter(mode: com.vktrsansara.app.caveviewer.domain.model.MapFilterMode) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.MAP_FILTER] = mode.name
+        }
+    }
+
+    override suspend fun setFavoriteToolPreset(preset: List<String>) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.FAVORITE_TOOL_PRESET] = preset.joinToString(",")
         }
     }
 }

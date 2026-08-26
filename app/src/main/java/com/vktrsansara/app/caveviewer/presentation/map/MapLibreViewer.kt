@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +40,7 @@ import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutter
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapGridOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.filters.MapFilterUtils
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -66,6 +68,7 @@ fun MapLibreViewer(
     bindingPoints: List<ScaleBindingPoint> = emptyList(),
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit = { _, _, _, _ -> },
     onBindingScreenPointsChanged: (List<Offset>) -> Unit = {},
+    onProjectorReady: (((LatLng) -> Offset) -> Unit)? = null,
     onMapCenterClick: (LatLng) -> Unit = {},
     onResetBearingReady: (() -> Unit) -> Unit = {},
     onMetadataLoaded: (MapMetadata) -> Unit = {},
@@ -178,6 +181,7 @@ fun MapLibreViewer(
                     lifecycleOwner = lifecycleOwner,
                     onCameraPositionChanged = onCameraPositionChanged,
                     onBindingScreenPointsChanged = onBindingScreenPointsChanged,
+                    onProjectorReady = onProjectorReady,
                     onMapCenterClick = onMapCenterClick,
                     onResetBearingReady = onResetBearingReady,
                     modifier = Modifier.fillMaxSize()
@@ -197,6 +201,7 @@ private fun MapLibreMapViewContainer(
     lifecycleOwner: LifecycleOwner,
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit,
     onBindingScreenPointsChanged: (List<Offset>) -> Unit,
+    onProjectorReady: (((LatLng) -> Offset) -> Unit)? = null,
     onMapCenterClick: (LatLng) -> Unit,
     onResetBearingReady: (() -> Unit) -> Unit,
     modifier: Modifier = Modifier
@@ -208,6 +213,7 @@ private fun MapLibreMapViewContainer(
     val currentOnMapCenterClick by rememberUpdatedState(onMapCenterClick)
     val currentOnCameraPositionChanged by rememberUpdatedState(onCameraPositionChanged)
     val currentOnBindingScreenPointsChanged by rememberUpdatedState(onBindingScreenPointsChanged)
+    val currentOnProjectorReady by rememberUpdatedState(onProjectorReady)
     val currentOnResetBearingReady by rememberUpdatedState(onResetBearingReady)
     val currentBindingPoints by rememberUpdatedState(bindingPoints)
 
@@ -259,6 +265,10 @@ private fun MapLibreMapViewContainer(
 
     // Helper to calculate screen offsets of active binding points
     fun calculateScreenPoints(map: MapLibreMap) {
+        currentOnProjectorReady?.invoke { latLng ->
+            val p = map.projection.toScreenLocation(latLng)
+            Offset(p.x, p.y)
+        }
         if (currentBindingPoints.isNotEmpty()) {
             val offsets = currentBindingPoints.map { pt ->
                 val p = map.projection.toScreenLocation(pt.latLng)
@@ -402,10 +412,18 @@ private fun MapLibreMapViewContainer(
         }
     }
 
+    val mapColorFilter = remember(settings?.mapFilter) {
+        settings?.mapFilter?.let { MapFilterUtils.getColorFilter(it) }
+    }
+
     Box(modifier = modifier) {
         AndroidView(
             factory = { mapView },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    this.colorFilter = mapColorFilter
+                }
         )
 
         if (settings != null && settings.gridEnabled) {

@@ -54,19 +54,20 @@ fun AzimuthOverlay(
     currentCenterPx: Pair<Double, Double>?,
     angleNorth: Double,
     ppm: Double,
+    isActive: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     // Dynamic calculations
-    val liveDistancePx = remember(originPoint, currentCenterPx) {
-        if (originPoint != null && currentCenterPx != null) {
+    val liveDistancePx = remember(originPoint, currentCenterPx, isActive) {
+        if (isActive && originPoint != null && currentCenterPx != null) {
             MeasureUtils.distancePx(originPoint.imagePx, currentCenterPx)
         } else {
             0.0
         }
     }
 
-    val liveAzimuth = remember(originPoint, currentCenterPx, angleNorth) {
-        if (originPoint != null && currentCenterPx != null) {
+    val liveAzimuth = remember(originPoint, currentCenterPx, angleNorth, isActive) {
+        if (isActive && originPoint != null && currentCenterPx != null) {
             MeasureUtils.calculateAzimuthDegrees(originPoint.imagePx, currentCenterPx, angleNorth)
         } else {
             0.0
@@ -87,42 +88,44 @@ fun AzimuthOverlay(
             val dashEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 8f), 0f)
 
             if (originPoint != null && originScreenPoint != null) {
-                // 1. Dashed ray from origin to center cursor
-                drawLine(
-                    color = CyanAzimuthColor,
-                    start = originScreenPoint,
-                    end = centerScreen,
-                    strokeWidth = 2.5.dp.toPx(),
-                    pathEffect = dashEffect
-                )
+                // 1. Dashed ray from origin to center cursor (only if active)
+                if (isActive) {
+                    drawLine(
+                        color = CyanAzimuthColor,
+                        start = originScreenPoint,
+                        end = centerScreen,
+                        strokeWidth = 2.5.dp.toPx(),
+                        pathEffect = dashEffect
+                    )
 
-                // 2. Arrowhead at cursor pointing along the ray
-                val dx = centerScreen.x - originScreenPoint.x
-                val dy = centerScreen.y - originScreenPoint.y
-                val angleRad = kotlin.math.atan2(dy, dx)
-                val arrowLen = 14.dp.toPx()
-                val arrowAngle = Math.toRadians(25.0)
-                val arrowP1 = Offset(
-                    centerScreen.x - (arrowLen * cos(angleRad - arrowAngle)).toFloat(),
-                    centerScreen.y - (arrowLen * sin(angleRad - arrowAngle)).toFloat()
-                )
-                val arrowP2 = Offset(
-                    centerScreen.x - (arrowLen * cos(angleRad + arrowAngle)).toFloat(),
-                    centerScreen.y - (arrowLen * sin(angleRad + arrowAngle)).toFloat()
-                )
+                    // 2. Arrowhead at cursor pointing along the ray
+                    val dx = centerScreen.x - originScreenPoint.x
+                    val dy = centerScreen.y - originScreenPoint.y
+                    val angleRad = kotlin.math.atan2(dy, dx)
+                    val arrowLen = 14.dp.toPx()
+                    val arrowAngle = Math.toRadians(25.0)
+                    val arrowP1 = Offset(
+                        centerScreen.x - (arrowLen * cos(angleRad - arrowAngle)).toFloat(),
+                        centerScreen.y - (arrowLen * sin(angleRad - arrowAngle)).toFloat()
+                    )
+                    val arrowP2 = Offset(
+                        centerScreen.x - (arrowLen * cos(angleRad + arrowAngle)).toFloat(),
+                        centerScreen.y - (arrowLen * sin(angleRad + arrowAngle)).toFloat()
+                    )
 
-                drawLine(
-                    color = CyanAzimuthColor,
-                    start = centerScreen,
-                    end = arrowP1,
-                    strokeWidth = 2.5.dp.toPx()
-                )
-                drawLine(
-                    color = CyanAzimuthColor,
-                    start = centerScreen,
-                    end = arrowP2,
-                    strokeWidth = 2.5.dp.toPx()
-                )
+                    drawLine(
+                        color = CyanAzimuthColor,
+                        start = centerScreen,
+                        end = arrowP1,
+                        strokeWidth = 2.5.dp.toPx()
+                    )
+                    drawLine(
+                        color = CyanAzimuthColor,
+                        start = centerScreen,
+                        end = arrowP2,
+                        strokeWidth = 2.5.dp.toPx()
+                    )
+                }
 
                 // 3. Origin Point Marker
                 drawCircle(
@@ -144,17 +147,18 @@ fun AzimuthOverlay(
             }
         }
 
-        // Top Info Banner
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp, start = 20.dp, end = 20.dp)
-                .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard.copy(alpha = 0.95f))
-                .border(1.dp, CyanAzimuthColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 14.dp, vertical = 8.dp)
-        ) {
+        // Top Info Banner (only if active)
+        if (isActive) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp, start = 20.dp, end = 20.dp)
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppColors.bgCard.copy(alpha = 0.95f))
+                    .border(1.dp, CyanAzimuthColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
             if (originPoint == null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -217,4 +221,5 @@ fun AzimuthOverlay(
             }
         }
     }
+}
 }

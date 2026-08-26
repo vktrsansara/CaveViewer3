@@ -51,10 +51,11 @@ fun DeltaOffsetOverlay(
     currentCenterPx: Pair<Double, Double>?,
     angleNorth: Double,
     ppm: Double,
+    isActive: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val metrics = remember(originPoint, currentCenterPx, angleNorth, ppm) {
-        if (originPoint != null && currentCenterPx != null) {
+    val metrics = remember(originPoint, currentCenterPx, angleNorth, ppm, isActive) {
+        if (isActive && originPoint != null && currentCenterPx != null) {
             MeasureUtils.calculateDeltaOffset(originPoint.imagePx, currentCenterPx, angleNorth, ppm)
         } else {
             null
@@ -67,34 +68,36 @@ fun DeltaOffsetOverlay(
             val dashEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 6f), 0f)
 
             if (originPoint != null && originScreenPoint != null) {
-                // 1. Direct line (hypotenuse) to cursor
-                drawLine(
-                    color = IndigoDeltaColor,
-                    start = originScreenPoint,
-                    end = centerScreen,
-                    strokeWidth = 2.dp.toPx()
-                )
+                if (isActive) {
+                    // 1. Direct line (hypotenuse) to cursor
+                    drawLine(
+                        color = IndigoDeltaColor,
+                        start = originScreenPoint,
+                        end = centerScreen,
+                        strokeWidth = 2.dp.toPx()
+                    )
 
-                // 2. Orthogonal projection legs forming right-angled triangle
-                val intermediateScreen = Offset(centerScreen.x, originScreenPoint.y)
+                    // 2. Orthogonal projection legs forming right-angled triangle
+                    val intermediateScreen = Offset(centerScreen.x, originScreenPoint.y)
 
-                // Horizontal leg
-                drawLine(
-                    color = IndigoDeltaColor.copy(alpha = 0.8f),
-                    start = originScreenPoint,
-                    end = intermediateScreen,
-                    strokeWidth = 1.5.dp.toPx(),
-                    pathEffect = dashEffect
-                )
+                    // Horizontal leg
+                    drawLine(
+                        color = IndigoDeltaColor.copy(alpha = 0.8f),
+                        start = originScreenPoint,
+                        end = intermediateScreen,
+                        strokeWidth = 1.5.dp.toPx(),
+                        pathEffect = dashEffect
+                    )
 
-                // Vertical leg
-                drawLine(
-                    color = IndigoDeltaColor.copy(alpha = 0.8f),
-                    start = intermediateScreen,
-                    end = centerScreen,
-                    strokeWidth = 1.5.dp.toPx(),
-                    pathEffect = dashEffect
-                )
+                    // Vertical leg
+                    drawLine(
+                        color = IndigoDeltaColor.copy(alpha = 0.8f),
+                        start = intermediateScreen,
+                        end = centerScreen,
+                        strokeWidth = 1.5.dp.toPx(),
+                        pathEffect = dashEffect
+                    )
+                }
 
                 // 3. Origin Point Marker
                 drawCircle(
@@ -116,17 +119,18 @@ fun DeltaOffsetOverlay(
             }
         }
 
-        // Top Info Banner
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp, start = 20.dp, end = 20.dp)
-                .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard.copy(alpha = 0.95f))
-                .border(1.dp, IndigoDeltaColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 14.dp, vertical = 8.dp)
-        ) {
+        // Top Info Banner (only if active)
+        if (isActive) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp, start = 20.dp, end = 20.dp)
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppColors.bgCard.copy(alpha = 0.95f))
+                    .border(1.dp, IndigoDeltaColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
             if (originPoint == null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -185,4 +189,5 @@ fun DeltaOffsetOverlay(
             }
         }
     }
+}
 }

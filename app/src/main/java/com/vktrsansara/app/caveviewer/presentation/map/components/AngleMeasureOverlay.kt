@@ -51,11 +51,12 @@ fun AngleMeasureOverlay(
     screenPoints: List<Offset>,
     currentCenterPx: Pair<Double, Double>?,
     ppm: Double,
+    isActive: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     // Dynamic angle and ray lengths
-    val liveAngle: Double? = remember(points, currentCenterPx) {
-        if (points.size >= 2 && currentCenterPx != null) {
+    val liveAngle: Double? = remember(points, currentCenterPx, isActive) {
+        if (isActive && points.size >= 2 && currentCenterPx != null) {
             MeasureUtils.calculateAngleDegrees(points[0].imagePx, points[1].imagePx, currentCenterPx)
         } else {
             null
@@ -70,8 +71,8 @@ fun AngleMeasureOverlay(
         }
     }
 
-    val cursorDistancePx = remember(points, currentCenterPx) {
-        if (points.size >= 2 && currentCenterPx != null) {
+    val cursorDistancePx = remember(points, currentCenterPx, isActive) {
+        if (isActive && points.size >= 2 && currentCenterPx != null) {
             MeasureUtils.distancePx(points[1].imagePx, currentCenterPx)
         } else {
             0.0
@@ -90,18 +91,27 @@ fun AngleMeasureOverlay(
             if (pointCount >= 1) {
                 val p1 = validScreenPoints[0]
 
-                // Line 1: From Point 1 to Point 2 (or to center if Point 2 not placed yet)
-                val targetP2 = if (pointCount >= 2) validScreenPoints[1] else centerScreen
-                drawLine(
-                    color = AmberAngleColor,
-                    start = p1,
-                    end = targetP2,
-                    strokeWidth = strokeWidthPx,
-                    pathEffect = if (pointCount >= 2) null else dashEffect
-                )
-
-                // Line 2: From Vertex (Point 2) to center screen cursor
+                // Line 1: From Point 1 to Point 2 (or to center if Point 2 not placed yet and active)
                 if (pointCount >= 2) {
+                    val p2 = validScreenPoints[1]
+                    drawLine(
+                        color = AmberAngleColor,
+                        start = p1,
+                        end = p2,
+                        strokeWidth = strokeWidthPx
+                    )
+                } else if (isActive) {
+                    drawLine(
+                        color = AmberAngleColor,
+                        start = p1,
+                        end = centerScreen,
+                        strokeWidth = strokeWidthPx,
+                        pathEffect = dashEffect
+                    )
+                }
+
+                // Line 2: From Vertex (Point 2) to center screen cursor (only if active)
+                if (isActive && pointCount >= 2) {
                     val p2 = validScreenPoints[1]
                     drawLine(
                         color = AmberAngleColor,
@@ -144,17 +154,18 @@ fun AngleMeasureOverlay(
             }
         }
 
-        // Top Info Banner
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp, start = 20.dp, end = 20.dp)
-                .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp))
-                .background(AppColors.bgCard.copy(alpha = 0.95f))
-                .border(1.dp, AmberAngleColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 14.dp, vertical = 8.dp)
-        ) {
+        // Top Info Banner (only if active)
+        if (isActive) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp, start = 20.dp, end = 20.dp)
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppColors.bgCard.copy(alpha = 0.95f))
+                    .border(1.dp, AmberAngleColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
             when (points.size) {
                 0 -> {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -245,4 +256,5 @@ fun AngleMeasureOverlay(
             }
         }
     }
+}
 }

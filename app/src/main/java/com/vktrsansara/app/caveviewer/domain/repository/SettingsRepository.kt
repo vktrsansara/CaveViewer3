@@ -19,4 +19,5 @@ interface SettingsRepository {
     suspend fun setGridColor(color: Long)
     suspend fun setColorPaletteMode(mode: String)
     suspend fun setMapFilter(mode: com.vktrsansara.app.caveviewer.domain.model.MapFilterMode)
+    suspend fun setFavoriteToolPreset(preset: List<String>)
 }
