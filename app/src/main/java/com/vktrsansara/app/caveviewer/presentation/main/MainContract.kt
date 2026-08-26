@@ -11,7 +11,9 @@ import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
+import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
+import org.maplibre.android.geometry.LatLng
 import java.io.File
 
 enum class AppScreen {
@@ -42,7 +44,12 @@ data class MainUiState(
     val projectSavingName: String = "",
     val projectSavingProgress: Float = 0f,
     val projectSavingStatusText: String = "",
-    val settings: AppSettings = AppSettings()
+    val settings: AppSettings = AppSettings(),
+    // Scale Calibration Mode State
+    val isScaleBindingMode: Boolean = false,
+    val scaleBindingPoints: List<ScaleBindingPoint> = emptyList(),
+    val isScaleBindingHelpVisible: Boolean = false,
+    val isScaleBindingInputVisible: Boolean = false
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -77,6 +84,15 @@ sealed interface MainUiIntent : UiIntent {
         val entrances: List<EntranceCoordinate>? = null,
         val cadastralData: Map<String, List<CadastralItem>>? = null
     ) : MainUiIntent
+
+    // Scale Binding actions
+    data object StartScaleBinding : MainUiIntent
+    data object DismissScaleBindingHelp : MainUiIntent
+    data class AddScaleBindingPoint(val latLng: LatLng) : MainUiIntent
+    data object UndoScaleBindingPoint : MainUiIntent
+    data object CancelScaleBinding : MainUiIntent
+    data object DismissScaleBindingInput : MainUiIntent
+    data class SaveScaleBinding(val pixelsPerMeter: Double, val scaleMeters: Double) : MainUiIntent
 
     // Projects List actions
     data class SelectProject(val projectName: String) : MainUiIntent

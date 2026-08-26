@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +33,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutter
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
@@ -50,13 +52,16 @@ import java.io.File
 /**
  * Professional map viewer powered by MapLibre Native Android SDK in TextureView mode.
  * Renders Equator-centered 256x256 raster tile pyramid with free 360-degree panning, strict center-stopping bounds,
- * and seamless viewport state restoration.
+ * seamless viewport state restoration, and interactive calibration / scale binding.
  */
 @Composable
 fun MapLibreViewer(
     projectDir: File,
     initialCameraPosition: MapCameraPosition? = null,
+    bindingPoints: List<ScaleBindingPoint> = emptyList(),
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit = { _, _, _, _ -> },
+    onBindingScreenPointsChanged: (List<Offset>) -> Unit = {},
+    onMapCenterClick: (LatLng) -> Unit = {},
     onResetBearingReady: (() -> Unit) -> Unit = {},
     onMetadataLoaded: (MapMetadata) -> Unit = {},
     modifier: Modifier = Modifier
@@ -163,8 +168,11 @@ fun MapLibreViewer(
                     meta = meta,
                     tilesDir = tilesDir,
                     initialCameraPosition = initialCameraPosition,
+                    bindingPoints = bindingPoints,
                     lifecycleOwner = lifecycleOwner,
                     onCameraPositionChanged = onCameraPositionChanged,
+                    onBindingScreenPointsChanged = onBindingScreenPointsChanged,
+                    onMapCenterClick = onMapCenterClick,
                     onResetBearingReady = onResetBearingReady,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -178,16 +186,22 @@ private fun MapLibreMapViewContainer(
     meta: MapMetadata,
     tilesDir: File,
     initialCameraPosition: MapCameraPosition?,
+    bindingPoints: List<ScaleBindingPoint>,
     lifecycleOwner: LifecycleOwner,
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit,
+    onBindingScreenPointsChanged: (List<Offset>) -> Unit,
+    onMapCenterClick: (LatLng) -> Unit,
     onResetBearingReady: (() -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var maplibreMapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
 
+    val currentOnMapCenterClick by rememberUpdatedState(onMapCenterClick)
     val currentOnCameraPositionChanged by rememberUpdatedState(onCameraPositionChanged)
+    val currentOnBindingScreenPointsChanged by rememberUpdatedState(onBindingScreenPointsChanged)
     val currentOnResetBearingReady by rememberUpdatedState(onResetBearingReady)
+    val currentBindingPoints by rememberUpdatedState(bindingPoints)
 
     // 1. Calculate Bounds and Map Center using CaveMapBounds (Equator centered)
     val bounds = remember(meta) {
@@ -242,6 +256,26 @@ private fun MapLibreMapViewContainer(
         """.trimIndent()
     }
 
+    // Helper to calculate screen offsets of active binding points
+    fun calculateScreenPoints(map: MapLibreMap) {
+        if (currentBindingPoints.isNotEmpty()) {
+            val offsets = currentBindingPoints.map { pt ->
+                val p = map.projection.toScreenLocation(pt.latLng)
+                Offset(p.x, p.y)
+            }
+            currentOnBindingScreenPointsChanged(offsets)
+        } else {
+            currentOnBindingScreenPointsChanged(emptyList())
+        }
+    }
+
+    // Update screen offsets when bindingPoints change
+    LaunchedEffect(bindingPoints, maplibreMapInstance) {
+        maplibreMapInstance?.let { map ->
+            calculateScreenPoints(map)
+        }
+    }
+
     val mapView = remember(tilesDir) {
         val mapOptions = MapLibreMapOptions.createFromAttributes(context).apply {
             textureMode(true)
@@ -263,6 +297,15 @@ private fun MapLibreMapViewContainer(
                     maplibreMap.easeCamera(CameraUpdateFactory.newCameraPosition(targetCam), 300)
                 }
 
+                // Handle single tap click on map -> provides map center (under cursor)
+                maplibreMap.addOnMapClickListener { _ ->
+                    val center = maplibreMap.cameraPosition.target
+                    if (center != null) {
+                        currentOnMapCenterClick(center)
+                    }
+                    true
+                }
+
                 // Track camera moves with strict boundary clamping:
                 // The center of the screen (cursor) cannot leave the raster rectangle [latitudeSouth..latitudeNorth, longitudeWest..longitudeEast]
                 maplibreMap.addOnCameraMoveListener {
@@ -279,6 +322,7 @@ private fun MapLibreMapViewContainer(
                             currentOnCameraPositionChanged(target.latitude, target.longitude, cam.zoom, cam.bearing)
                         }
                     }
+                    calculateScreenPoints(maplibreMap)
                 }
 
                 // UI & Gesture Settings
@@ -330,6 +374,7 @@ private fun MapLibreMapViewContainer(
                             0.0
                         )
                     }
+                    calculateScreenPoints(maplibreMap)
                 }
             }
         }

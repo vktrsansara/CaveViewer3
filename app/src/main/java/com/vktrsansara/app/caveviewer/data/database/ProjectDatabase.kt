@@ -99,6 +99,16 @@ class ProjectDatabase(private val dbFile: File) {
         }
     }
 
+    fun updateScaleBinding(pixelsPerMeter: Double, scaleMeters: Double): MapMetadata? {
+        val current = getMetadata() ?: return null
+        val updated = current.copy(
+            pixelsPerMeter = pixelsPerMeter,
+            scaleMeters = scaleMeters
+        )
+        saveMetadata(updated)
+        return updated
+    }
+
     fun saveMetadata(metadata: MapMetadata) {
         openDatabase().use { db ->
             val values = ContentValues().apply {

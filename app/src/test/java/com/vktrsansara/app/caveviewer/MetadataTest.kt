@@ -141,4 +141,20 @@ class MetadataTest {
         assertEquals(5, custom.cursorType)
         assertEquals(0xFF10B981L, custom.cursorColor)
     }
+
+    @Test
+    fun testLatLngToImagePixelsConversion() {
+        val width = 4000
+        val height = 2000
+        val maxZoom = 5
+        val (pxX, pxY) = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.latLngToImagePixels(
+            latLng = org.maplibre.android.geometry.LatLng(0.0, 0.0),
+            imageWidth = width,
+            imageHeight = height,
+            maxZoom = maxZoom
+        )
+        // Center of map at (0, 0) should be exactly half-width and half-height
+        assertEquals(2000.0, pxX, 0.01)
+        assertEquals(1000.0, pxY, 0.01)
+    }
 }

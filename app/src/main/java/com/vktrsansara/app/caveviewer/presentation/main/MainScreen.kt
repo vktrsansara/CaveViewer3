@@ -22,18 +22,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
+import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
 import com.vktrsansara.app.caveviewer.presentation.components.FloatingBottomBar
 import com.vktrsansara.app.caveviewer.presentation.components.MenuPopover
 import com.vktrsansara.app.caveviewer.presentation.main.components.NoProjectPlaceholder
 import com.vktrsansara.app.caveviewer.presentation.map.MapLibreViewer
+import com.vktrsansara.app.caveviewer.presentation.map.components.BindingSideControl
 import com.vktrsansara.app.caveviewer.presentation.map.components.CompassWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBarWidget
+import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBindingOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingHelpDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingInputDialog
 import com.vktrsansara.app.caveviewer.presentation.metadata.MetadataEditorScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.CreateRasterProjectScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.FeatureUnderDevelopmentScreen
@@ -43,6 +49,9 @@ import com.vktrsansara.app.caveviewer.presentation.settings.AppSettingsScreen
 import com.vktrsansara.app.caveviewer.presentation.settings.ToolsSettingsScreen
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
+import org.maplibre.android.geometry.LatLng
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * Root Composable host that reacts to MVI state and manages screen navigation.
@@ -79,9 +88,39 @@ fun MainScreen(
         )
     }
 
+    // Scale Binding Help Dialog
+    if (uiState.isScaleBindingHelpVisible) {
+        ScaleBindingHelpDialog(
+            onDismiss = { viewModel.handleIntent(MainUiIntent.DismissScaleBindingHelp) }
+        )
+    }
+
+    // Scale Binding Input Dialog
+    if (uiState.isScaleBindingInputVisible && uiState.scaleBindingPoints.size >= 2) {
+        val p1 = uiState.scaleBindingPoints[0].imagePx
+        val p2 = uiState.scaleBindingPoints[1].imagePx
+        val dx = p2.first - p1.first
+        val dy = p2.second - p1.second
+        val measuredPixels = sqrt(dx * dx + dy * dy).roundToInt()
+
+        ScaleBindingInputDialog(
+            measuredPixels = measuredPixels,
+            onSave = { ppm, meters ->
+                viewModel.handleIntent(MainUiIntent.SaveScaleBinding(ppm, meters))
+            },
+            onCancel = {
+                viewModel.handleIntent(MainUiIntent.DismissScaleBindingInput)
+            }
+        )
+    }
+
     // Handle system back gesture
-    BackHandler(enabled = uiState.currentScreen != AppScreen.MAIN) {
-        viewModel.handleIntent(MainUiIntent.NavigateBack)
+    BackHandler(enabled = uiState.currentScreen != AppScreen.MAIN || uiState.isScaleBindingMode) {
+        if (uiState.isScaleBindingMode) {
+            viewModel.handleIntent(MainUiIntent.CancelScaleBinding)
+        } else {
+            viewModel.handleIntent(MainUiIntent.NavigateBack)
+        }
     }
 
     AnimatedContent(
@@ -182,8 +221,11 @@ fun MainScreenContent(
     val initialPos = uiState.activeProjectCameraPosition
     var mapBearing by remember(initialPos) { mutableDoubleStateOf(initialPos?.bearing ?: 0.0) }
     var currentZoom by remember(initialPos) { mutableDoubleStateOf(initialPos?.zoom ?: 0.0) }
+    var currentTargetLat by remember(initialPos) { mutableDoubleStateOf(initialPos?.targetLat ?: 0.0) }
+    var currentTargetLon by remember(initialPos) { mutableDoubleStateOf(initialPos?.targetLon ?: 0.0) }
     var resetBearingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var mapMetadata by remember(uiState.activeProjectMetadata) { mutableStateOf(uiState.activeProjectMetadata) }
+    var bindingScreenPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
     Box(
         modifier = modifier
@@ -196,7 +238,10 @@ fun MainScreenContent(
             MapLibreViewer(
                 projectDir = activeDir,
                 initialCameraPosition = initialPos,
+                bindingPoints = uiState.scaleBindingPoints,
                 onCameraPositionChanged = { lat, lon, zoom, bearing ->
+                    currentTargetLat = lat
+                    currentTargetLon = lon
                     mapBearing = bearing
                     currentZoom = zoom
                     onIntent(
@@ -210,6 +255,14 @@ fun MainScreenContent(
                         )
                     )
                 },
+                onBindingScreenPointsChanged = { points ->
+                    bindingScreenPoints = points
+                },
+                onMapCenterClick = { centerLatLng ->
+                    if (uiState.isScaleBindingMode) {
+                        onIntent(MainUiIntent.AddScaleBindingPoint(centerLatLng))
+                    }
+                },
                 onResetBearingReady = { action ->
                     resetBearingAction = action
                 },
@@ -220,17 +273,32 @@ fun MainScreenContent(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Central Cursor Overlay (Strictly centered on screen)
+            val meta = mapMetadata ?: uiState.activeProjectMetadata
+
+            // Scale Calibration Overlay
+            if (uiState.isScaleBindingMode && meta != null) {
+                val centerPx = CaveMapBounds.latLngToImagePixels(
+                    latLng = LatLng(currentTargetLat, currentTargetLon),
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    maxZoom = meta.zoomMax
+                )
+                ScaleBindingOverlay(
+                    points = uiState.scaleBindingPoints,
+                    screenPoints = bindingScreenPoints,
+                    currentCenterPx = centerPx
+                )
+            }
+
+            // Central Cursor Overlay (Strictly centered on screen; always visible in calibration mode)
             MapCursorOverlay(
-                cursorShow = uiState.settings.cursorShow,
+                cursorShow = uiState.isScaleBindingMode || uiState.settings.cursorShow,
                 cursorType = uiState.settings.cursorType,
                 cursorColor = uiState.settings.cursorColor
             )
 
-            val meta = mapMetadata ?: uiState.activeProjectMetadata
-
             // 1. Compass Widget (Top-Start: top = 15.dp, start = 15.dp)
-            if (uiState.settings.showCompass && meta != null) {
+            if (uiState.settings.showCompass && meta != null && !uiState.isScaleBindingMode) {
                 CompassWidget(
                     angleNorth = meta.angleNorth.toFloat(),
                     mapBearing = mapBearing,
@@ -242,7 +310,7 @@ fun MainScreenContent(
             }
 
             // 2. Scale Bar Widget (Top-End: top = 15.dp, end = 15.dp)
-            if (uiState.settings.showScaleBar && meta != null && meta.pixelsPerMeter > 0.0 && meta.scaleMeters > 0.0) {
+            if (uiState.settings.showScaleBar && meta != null && meta.pixelsPerMeter > 0.0 && meta.scaleMeters > 0.0 && !uiState.isScaleBindingMode) {
                 ScaleBarWidget(
                     pixelsPerMeter = meta.pixelsPerMeter,
                     zoomMax = meta.zoomMax,
@@ -250,6 +318,18 @@ fun MainScreenContent(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 15.dp, end = 15.dp)
+                )
+            }
+
+            // 3. Side Control Button for Scale Calibration
+            if (uiState.isScaleBindingMode) {
+                BindingSideControl(
+                    pointsCount = uiState.scaleBindingPoints.size,
+                    onClose = { onIntent(MainUiIntent.CancelScaleBinding) },
+                    onUndo = { onIntent(MainUiIntent.UndoScaleBindingPoint) },
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 15.dp)
                 )
             }
         } else {
@@ -290,6 +370,7 @@ fun MainScreenContent(
                 onExportProjectClick = { onIntent(MainUiIntent.ExportProjectClicked) },
                 onCloseProject = { onIntent(MainUiIntent.CloseActiveProject) },
                 onEditMetadataClick = { onIntent(MainUiIntent.OpenMetadataEditor) },
+                onScaleBindingClick = { onIntent(MainUiIntent.StartScaleBinding) },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 

@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
+import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.repository.ProjectRepository
 import com.vktrsansara.app.caveviewer.domain.repository.SettingsRepository
+import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -207,6 +209,10 @@ class MainViewModel(
                             activeProjectDir = null,
                             activeProjectMetadata = null,
                             activeProjectCameraPosition = null,
+                            isScaleBindingMode = false,
+                            scaleBindingPoints = emptyList(),
+                            isScaleBindingHelpVisible = false,
+                            isScaleBindingInputVisible = false,
                             isMenuExpanded = false
                         )
                     }
@@ -225,6 +231,10 @@ class MainViewModel(
                             activeProjectDir = dir,
                             activeProjectMetadata = meta,
                             activeProjectCameraPosition = savedPos,
+                            isScaleBindingMode = false,
+                            scaleBindingPoints = emptyList(),
+                            isScaleBindingHelpVisible = false,
+                            isScaleBindingInputVisible = false,
                             currentScreen = AppScreen.MAIN
                         )
                     }
@@ -326,6 +336,109 @@ class MainViewModel(
                     )
                 }
             }
+            is MainUiIntent.StartScaleBinding -> {
+                viewModelScope.launch {
+                    val activeName = _uiState.value.activeProjectName
+                    val meta = if (activeName != null) projectRepository.getProjectMetadata(activeName) else _uiState.value.activeProjectMetadata
+                    _uiState.update {
+                        it.copy(
+                            activeProjectMetadata = meta ?: it.activeProjectMetadata,
+                            isScaleBindingMode = true,
+                            scaleBindingPoints = emptyList(),
+                            isScaleBindingHelpVisible = true,
+                            isMenuExpanded = false
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.DismissScaleBindingHelp -> {
+                _uiState.update { it.copy(isScaleBindingHelpVisible = false) }
+            }
+            is MainUiIntent.AddScaleBindingPoint -> {
+                viewModelScope.launch {
+                    val currentPoints = _uiState.value.scaleBindingPoints
+                    if (currentPoints.size >= 2) return@launch
+                    val meta = _uiState.value.activeProjectMetadata
+                        ?: _uiState.value.activeProjectName?.let { projectRepository.getProjectMetadata(it) }
+                        ?: return@launch
+
+                    val (pxX, pxY) = CaveMapBounds.latLngToImagePixels(
+                        latLng = intent.latLng,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        maxZoom = meta.zoomMax
+                    )
+                    val newPoint = ScaleBindingPoint(latLng = intent.latLng, imagePx = Pair(pxX, pxY))
+                    val newPoints = currentPoints + newPoint
+                    val isInputVisible = newPoints.size == 2
+
+                    _uiState.update {
+                        it.copy(
+                            scaleBindingPoints = newPoints,
+                            isScaleBindingInputVisible = isInputVisible
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.UndoScaleBindingPoint -> {
+                _uiState.update {
+                    if (it.scaleBindingPoints.isNotEmpty()) {
+                        it.copy(
+                            scaleBindingPoints = it.scaleBindingPoints.dropLast(1),
+                            isScaleBindingInputVisible = false
+                        )
+                    } else {
+                        it
+                    }
+                }
+            }
+            is MainUiIntent.CancelScaleBinding -> {
+                _uiState.update {
+                    it.copy(
+                        isScaleBindingMode = false,
+                        scaleBindingPoints = emptyList(),
+                        isScaleBindingHelpVisible = false,
+                        isScaleBindingInputVisible = false
+                    )
+                }
+            }
+            is MainUiIntent.DismissScaleBindingInput -> {
+                _uiState.update {
+                    it.copy(
+                        scaleBindingPoints = it.scaleBindingPoints.dropLast(1),
+                        isScaleBindingInputVisible = false
+                    )
+                }
+            }
+            is MainUiIntent.SaveScaleBinding -> {
+                viewModelScope.launch {
+                    val activeName = _uiState.value.activeProjectName
+                    if (activeName != null) {
+                        val result = projectRepository.saveScaleBinding(
+                            projectName = activeName,
+                            pixelsPerMeter = intent.pixelsPerMeter,
+                            scaleMeters = intent.scaleMeters
+                        )
+                        result.fold(
+                            onSuccess = { updatedMeta ->
+                                _uiState.update {
+                                    it.copy(
+                                        activeProjectMetadata = updatedMeta,
+                                        isScaleBindingMode = false,
+                                        scaleBindingPoints = emptyList(),
+                                        isScaleBindingHelpVisible = false,
+                                        isScaleBindingInputVisible = false
+                                    )
+                                }
+                                _effect.send(MainUiEffect.ShowToast("Привязка масштаба сохранена"))
+                            },
+                            onFailure = { error ->
+                                _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка сохранения масштаба"))
+                            }
+                        )
+                    }
+                }
+            }
             is MainUiIntent.DismissProjectTypeDialog -> {
                 _uiState.update { it.copy(isProjectTypeDialogVisible = false) }
             }
@@ -391,6 +504,10 @@ class MainViewModel(
                                     activeProjectDir = projectDir,
                                     activeProjectMetadata = meta,
                                     activeProjectCameraPosition = null,
+                                    isScaleBindingMode = false,
+                                    scaleBindingPoints = emptyList(),
+                                    isScaleBindingHelpVisible = false,
+                                    isScaleBindingInputVisible = false,
                                     currentScreen = AppScreen.MAIN
                                 )
                             }

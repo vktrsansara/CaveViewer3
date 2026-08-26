@@ -23,6 +23,7 @@ interface ProjectRepository {
     suspend fun deleteProject(projectName: String): Result<Unit>
     suspend fun getProjectMetadata(projectName: String): MapMetadata?
     suspend fun updateProjectMetadata(originalProjectName: String, metadata: MapMetadata): Result<MapMetadata>
+    suspend fun saveScaleBinding(projectName: String, pixelsPerMeter: Double, scaleMeters: Double): Result<MapMetadata>
     suspend fun getProjectLocation(projectName: String): MapLocation
     suspend fun saveProjectLocation(projectName: String, location: MapLocation): Result<Unit>
     suspend fun getProjectEntrances(projectName: String): List<EntranceCoordinate>

@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -74,16 +75,18 @@ private val IconImportColor = Color(0xFF06B6D4) // Cyan
 private val IconExportColor = Color(0xFFFB923C) // Orange
 private val IconCloseColor = Color(0xFFEF4444)  // Red
 private val IconBackArrowColor = AccentSkyBlue
+private val IconBindingColor = Color(0xFFF59E0B) // Amber
 
 enum class MenuLevel {
     MAIN,
     PROJECTS,
     EDIT,
+    BINDING,
     SETTINGS
 }
 
 /**
- * Popover menu appearing above the bottom control bar with submenus for Project, Edit, and Settings.
+ * Popover menu appearing above the bottom control bar with submenus for Project, Edit, Binding, and Settings.
  */
 @Composable
 fun MenuPopover(
@@ -98,6 +101,7 @@ fun MenuPopover(
     onExportProjectClick: () -> Unit = {},
     onCloseProject: () -> Unit = {},
     onEditMetadataClick: () -> Unit = {},
+    onScaleBindingClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentLevel by remember { mutableStateOf(MenuLevel.MAIN) }
@@ -162,7 +166,14 @@ fun MenuPopover(
                     MenuLevel.EDIT -> {
                         EditSubmenuContent(
                             onMetadataClick = onEditMetadataClick,
+                            onBindingClick = { currentLevel = MenuLevel.BINDING },
                             onBackClick = { currentLevel = MenuLevel.MAIN }
+                        )
+                    }
+                    MenuLevel.BINDING -> {
+                        BindingSubmenuContent(
+                            onScaleClick = onScaleBindingClick,
+                            onBackClick = { currentLevel = MenuLevel.EDIT }
                         )
                     }
                     MenuLevel.SETTINGS -> {
@@ -231,6 +242,7 @@ private fun MainMenuContent(
 @Composable
 private fun EditSubmenuContent(
     onMetadataClick: () -> Unit,
+    onBindingClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -245,6 +257,43 @@ private fun EditSubmenuContent(
             iconTint = AccentSkyBlue,
             title = "Метаданные",
             onClick = onMetadataClick
+        )
+
+        // Item: Привязка (Amber Straighten)
+        MenuItem(
+            icon = Icons.Rounded.Straighten,
+            iconTint = IconBindingColor,
+            title = "Привязка",
+            onClick = onBindingClick
+        )
+
+        // Item: Назад (Sky Blue Arrow)
+        MenuItem(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            iconTint = IconBackArrowColor,
+            title = "Назад",
+            onClick = onBackClick
+        )
+    }
+}
+
+@Composable
+private fun BindingSubmenuContent(
+    onScaleClick: () -> Unit,
+    onBackClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Header
+        MenuHeader(title = "Привязка")
+
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+
+        // Item: Масштаб (Sky Blue Straighten)
+        MenuItem(
+            icon = Icons.Rounded.Straighten,
+            iconTint = AccentSkyBlue,
+            title = "Масштаб",
+            onClick = onScaleClick
         )
 
         // Item: Назад (Sky Blue Arrow)

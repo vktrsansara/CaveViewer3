@@ -150,6 +150,24 @@ class ProjectRepositoryImpl(
         }
     }
 
+    override suspend fun saveScaleBinding(
+        projectName: String,
+        pixelsPerMeter: Double,
+        scaleMeters: Double
+    ): Result<MapMetadata> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            val db = ProjectDatabase(dbFile)
+            val updated = db.updateScaleBinding(pixelsPerMeter, scaleMeters)
+                ?: return@withContext Result.failure(IllegalStateException("Не удалось обновить масштаб в базе данных"))
+            Result.success(updated)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun getProjectLocation(projectName: String): MapLocation = withContext(Dispatchers.IO) {
         val dir = getProjectDir(projectName) ?: return@withContext MapLocation()
         val dbFile = File(dir, "thismap.sqlite")

@@ -96,4 +96,30 @@ object CaveMapBounds {
         val latRad = 2.0 * atan(exp(Math.PI - yMerc)) - Math.PI / 2.0
         return Math.toDegrees(latRad)
     }
+
+    /**
+     * Преобразует LatLng с карты MapLibre в точные пиксели исходного изображения (0..imageWidth, 0..imageHeight)
+     * в соответствии с экваториальной проекцией карты.
+     */
+    fun latLngToImagePixels(
+        latLng: LatLng,
+        imageWidth: Int,
+        imageHeight: Int,
+        maxZoom: Int
+    ): Pair<Double, Double> {
+        val totalWorldPixels = (2.0.pow(maxZoom.toDouble())) * TILE_SIZE.toDouble()
+        
+        // Перевод долготы в мировую координату X
+        val worldX = (latLng.longitude / 360.0 + 0.5) * totalWorldPixels
+        // Перевод широты в мировую координату Y (Web Mercator)
+        val latRad = Math.toRadians(latLng.latitude.coerceIn(-85.0511, 85.0511))
+        val yMerc = Math.PI - kotlin.math.ln(kotlin.math.tan(Math.PI / 4.0 + latRad / 2.0))
+        val worldY = (yMerc / (2.0 * Math.PI)) * totalWorldPixels
+        // Смещение относительно левого верхнего угла центрированного изображения
+        val imageLeftPx = (totalWorldPixels - imageWidth.toDouble()) / 2.0
+        val imageTopPx = (totalWorldPixels - imageHeight.toDouble()) / 2.0
+        val pixelX = worldX - imageLeftPx
+        val pixelY = worldY - imageTopPx
+        return Pair(pixelX, pixelY)
+    }
 }
