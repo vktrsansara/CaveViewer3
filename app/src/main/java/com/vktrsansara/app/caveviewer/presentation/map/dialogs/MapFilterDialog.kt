@@ -37,14 +37,14 @@ fun MapFilterDialog(
     onDismiss: () -> Unit
 ) {
     AppDialogContainer(
-        title = "Фильтры",
+        title = "Фильтры карты",
         onDismissRequest = onDismiss,
         onInfoClick = onOpenHelp,
         buttons = {
             DialogCancelButton(text = "Закрыть", onClick = onDismiss)
         }
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             MapFilterMode.entries.forEach { mode ->
                 val isSelected = mode == currentFilter
                 Row(
@@ -56,7 +56,7 @@ fun MapFilterDialog(
                             indication = ripple(color = AppColors.pressedColor),
                             onClick = { onFilterSelected(mode) }
                         )
-                        .padding(horizontal = 6.dp, vertical = 5.dp),
+                        .padding(horizontal = 6.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(
@@ -69,12 +69,19 @@ fun MapFilterDialog(
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = mode.title,
-                        fontSize = 14.sp,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                        color = if (isSelected) AccentSkyBlue else AppColors.textPrimary
-                    )
+                    Column {
+                        Text(
+                            text = mode.title,
+                            fontSize = 13.5.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            color = if (isSelected) AccentSkyBlue else AppColors.textPrimary
+                        )
+                        Text(
+                            text = mode.shortDesc,
+                            fontSize = 11.5.sp,
+                            color = AppColors.textSecondary
+                        )
+                    }
                 }
             }
         }

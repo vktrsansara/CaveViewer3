@@ -248,13 +248,6 @@ private fun MapLibreMapViewContainer(
           },
           "layers": [
             {
-              "id": "background-layer",
-              "type": "background",
-              "paint": {
-                "background-color": "#202020"
-              }
-            },
-            {
               "id": "cave-raster-layer",
               "type": "raster",
               "source": "cave-raster-source"
@@ -287,6 +280,7 @@ private fun MapLibreMapViewContainer(
     val mapView = remember(tilesDir) {
         val mapOptions = MapLibreMapOptions.createFromAttributes(context).apply {
             textureMode(true)
+            translucentTextureSurface(true)
         }
         MapView(context, mapOptions).apply {
             layoutParams = ViewGroup.LayoutParams(
