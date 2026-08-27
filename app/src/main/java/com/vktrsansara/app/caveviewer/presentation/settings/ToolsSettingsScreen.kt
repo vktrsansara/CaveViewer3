@@ -27,7 +27,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
@@ -126,7 +125,7 @@ fun ToolsSettingsScreen(
     ) {
         // Screen Header
         ToolsSettingsHeader(
-            title = "Инструменты",
+            title = "Настройки инструментов",
             onNavigateBack = onNavigateBack
         )
 
@@ -650,30 +649,50 @@ private fun ToolsSettingsHeader(
     title: String,
     onNavigateBack: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
-            .background(AppColors.bgMain)
-            .padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .background(AppColors.bgSurface)
     ) {
-        IconButton(onClick = onNavigateBack) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Назад",
-                tint = AccentSkyBlue
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Квадратная кнопка "Назад" в рамке 32x32 dp:
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.bgCard)
+                    .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(color = AppColors.pressedColor),
+                        onClick = onNavigateBack
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Назад",
+                    tint = AccentSkyBlue,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Text(
+                text = title,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.textPrimary
             )
         }
 
-        Spacer(modifier = Modifier.width(4.dp))
-
-        Text(
-            text = title,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = AppColors.textPrimary
-        )
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
     }
 }
 

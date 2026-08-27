@@ -7,12 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -44,35 +41,30 @@ fun ColorPaletteHelpDialog(
             )
         }
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
                 text = "Выбор таблицы цветов определяет 15 базовых оттенков в диалоге выбора цвета (для курсора, сетки и будущих инструментов):",
-                fontSize = 13.5.sp,
-                color = AppColors.textPrimary,
-                lineHeight = 19.sp
+                fontSize = 12.sp,
+                color = AppColors.textSecondary,
+                lineHeight = 17.sp
             )
 
             // 1. Standard Palette Section
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(AppColors.bgSurface)
-                    .padding(10.dp)
-            ) {
+            Column {
                 Text(
-                    text = "1. Стандартная палитра",
+                    text = "1. Стандартная палитра:",
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = AccentSkyBlue
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Классические спектральные цвета с максимальной контрастностью.",
                     fontSize = 12.sp,
-                    color = AppColors.textSecondary
+                    color = AppColors.textSecondary,
+                    lineHeight = 17.sp
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -91,33 +83,28 @@ fun ColorPaletteHelpDialog(
                                 .size(22.dp)
                                 .clip(CircleShape)
                                 .background(color)
-                                .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                         )
                     }
                 }
             }
 
             // 2. Muted Palette Section
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(AppColors.bgSurface)
-                    .padding(10.dp)
-            ) {
+            Column {
                 Text(
-                    text = "2. Приглушенные цвета",
+                    text = "2. Приглушенные цвета:",
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = AccentSkyBlue
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Мягкие природные и пастельные тона, комфортные для глаз в темноте.",
                     fontSize = 12.sp,
-                    color = AppColors.textSecondary
+                    color = AppColors.textSecondary,
+                    lineHeight = 17.sp
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -136,7 +123,7 @@ fun ColorPaletteHelpDialog(
                                 .size(22.dp)
                                 .clip(CircleShape)
                                 .background(color)
-                                .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                         )
                     }
                 }

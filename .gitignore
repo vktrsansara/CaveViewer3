@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# AI assistant configs and rules
+.agent
+.agents
+AGENTS.md
+GEMINI.md
