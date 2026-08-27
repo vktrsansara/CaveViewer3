@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDateTimeUtils
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldType
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
@@ -51,10 +53,16 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 fun LayerPropertiesDialog(
     layer: PointLayer,
     onAddCustomFieldClick: () -> Unit,
+    onEditFieldClick: (field: LayerFieldDefinition) -> Unit,
     onDeleteField: (fieldKey: String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var fieldPendingDelete by remember { mutableStateOf<LayerFieldDefinition?>(null) }
+    var isHelpOpen by remember { mutableStateOf(false) }
+
+    if (isHelpOpen) {
+        LayerPropertiesHelpDialog(onDismiss = { isHelpOpen = false })
+    }
 
     if (fieldPendingDelete != null) {
         val target = fieldPendingDelete!!
@@ -88,6 +96,7 @@ fun LayerPropertiesDialog(
     AppDialogContainer(
         title = "Свойства слоя: ${layer.name}",
         onDismissRequest = onDismiss,
+        onInfoClick = { isHelpOpen = true },
         buttons = {
             DialogCancelButton(
                 text = "Закрыть",
@@ -166,6 +175,7 @@ fun LayerPropertiesDialog(
                     layer.fieldsSchema.forEach { field ->
                         FieldItemCard(
                             field = field,
+                            onEdit = { onEditFieldClick(field) },
                             onDelete = { fieldPendingDelete = field }
                         )
                     }
@@ -178,6 +188,7 @@ fun LayerPropertiesDialog(
 @Composable
 private fun FieldItemCard(
     field: LayerFieldDefinition,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Row(
@@ -226,6 +237,7 @@ private fun FieldItemCard(
                     val optsStr = field.options.joinToString(", ")
                     if (field.defaultValue.isNotEmpty()) "${field.defaultValue} (из: $optsStr)" else optsStr
                 }
+                LayerFieldType.DATETIME -> LayerFieldDateTimeUtils.getDisplayDefaultLabel(field.defaultValue)
                 else -> if (field.defaultValue.isNotEmpty()) field.defaultValue else "не задано"
             }
 
@@ -238,26 +250,124 @@ private fun FieldItemCard(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // Delete button
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(AppColors.bgCard)
-                .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(color = AppColors.pressedColor),
-                    onClick = onDelete
-                ),
-            contentAlignment = Alignment.Center
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Rounded.Delete,
-                contentDescription = "Удалить поле",
-                tint = Color(0xFFEF4444),
-                modifier = Modifier.size(15.dp)
+            // Edit button
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.bgCard)
+                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(color = AppColors.pressedColor),
+                        onClick = onEdit
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Edit,
+                    contentDescription = "Редактировать поле",
+                    tint = AccentSkyBlue,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+
+            // Delete button
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.bgCard)
+                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(color = AppColors.pressedColor),
+                        onClick = onDelete
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Delete,
+                    contentDescription = "Удалить поле",
+                    tint = Color(0xFFEF4444),
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Help dialog explaining layer schema properties and custom attributes.
+ */
+@Composable
+fun LayerPropertiesHelpDialog(
+    onDismiss: () -> Unit
+) {
+    AppDialogContainer(
+        title = "Справка: Свойства слоя",
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(
+                text = "Закрыть",
+                onClick = onDismiss
+            )
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            HelpItem(
+                title = "Схема свойств слоя:",
+                description = "Задает структуру данных и набор настраиваемых полей (атрибутов), общих для всех точек текущего слоя."
+            )
+
+            HelpItem(
+                title = "Добавление полей:",
+                description = "Нажмите «+ Добавить поле», чтобы ввести новые характеристики (текст, число, дата/время, список снаряжения, флаг опасности)."
+            )
+
+            HelpItem(
+                title = "Редактирование полей:",
+                description = "Нажмите на иконку карандаша на карточке поля, чтобы изменить его название, тип данных, список вариантов или значение по умолчанию."
+            )
+
+            HelpItem(
+                title = "Форма создания и редактирования:",
+                description = "Все созданные поля автоматически отображаются при добавлении новых точек и в окне их редактирования."
+            )
+
+            HelpItem(
+                title = "Удаление полей:",
+                description = "При удалении поля оно удаляется из схемы слоя, а сохраненные значения этого поля очищаются во всех точках."
+            )
+
+            HelpItem(
+                title = "Отображение в карточке точки:",
+                description = "Заполненные свойства выводятся в подробной информационной карточке точки при тапе по ее маркеру на плане пещеры."
             )
         }
     }
 }
+
+@Composable
+private fun HelpItem(title: String, description: String) {
+    Column {
+        Text(
+            text = title,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AccentSkyBlue
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = description,
+            fontSize = 12.sp,
+            color = AppColors.textSecondary,
+            lineHeight = 17.sp
+        )
+    }
+}
+

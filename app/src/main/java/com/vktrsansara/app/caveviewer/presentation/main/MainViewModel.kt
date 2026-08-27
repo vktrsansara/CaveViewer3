@@ -3,7 +3,9 @@ package com.vktrsansara.app.caveviewer.presentation.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDateTimeUtils
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
+import com.vktrsansara.app.caveviewer.domain.model.LayerFieldType
 import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
@@ -1482,13 +1484,16 @@ class MainViewModel(
                 _uiState.update { it.copy(selectedLayerForProperties = intent.layer) }
             }
             is MainUiIntent.DismissLayerProperties -> {
-                _uiState.update { it.copy(selectedLayerForProperties = null, isAddFieldDialogOpen = false) }
+                _uiState.update { it.copy(selectedLayerForProperties = null, isAddFieldDialogOpen = false, editingFieldDefinition = null) }
             }
             is MainUiIntent.OpenAddFieldDialog -> {
-                _uiState.update { it.copy(isAddFieldDialogOpen = true) }
+                _uiState.update { it.copy(isAddFieldDialogOpen = true, editingFieldDefinition = null) }
+            }
+            is MainUiIntent.OpenEditFieldDialog -> {
+                _uiState.update { it.copy(isAddFieldDialogOpen = true, editingFieldDefinition = intent.field) }
             }
             is MainUiIntent.DismissAddFieldDialog -> {
-                _uiState.update { it.copy(isAddFieldDialogOpen = false) }
+                _uiState.update { it.copy(isAddFieldDialogOpen = false, editingFieldDefinition = null) }
             }
             is MainUiIntent.AddLayerField -> {
                 val activeName = _uiState.value.activeProjectName
@@ -1504,7 +1509,32 @@ class MainViewModel(
                             _uiState.update {
                                 it.copy(
                                     selectedLayerForProperties = updatedLayer,
-                                    isAddFieldDialogOpen = false
+                                    isAddFieldDialogOpen = false,
+                                    editingFieldDefinition = null
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.UpdateLayerField -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        val currentLayer = _uiState.value.pointLayers.find { it.id == intent.layerId }
+                            ?: _uiState.value.selectedLayerForProperties
+                        if (currentLayer != null) {
+                            val updatedSchema = currentLayer.fieldsSchema.map { existing ->
+                                if (existing.key == intent.field.key) intent.field else existing
+                            }
+                            val updatedLayer = currentLayer.copy(fieldsSchema = updatedSchema)
+                            projectRepository.updatePointLayer(activeName, updatedLayer)
+                            loadPointLayers(activeName)
+                            _uiState.update {
+                                it.copy(
+                                    selectedLayerForProperties = updatedLayer,
+                                    isAddFieldDialogOpen = false,
+                                    editingFieldDefinition = null
                                 )
                             }
                         }
@@ -1552,7 +1582,12 @@ class MainViewModel(
                 val currentLayer = _uiState.value.editingPointLayer
                 if (currentLayer != null) {
                     val defaultCustomValues = currentLayer.fieldsSchema.associate { field ->
-                        field.key to field.defaultValue
+                        val defVal = if (field.type == LayerFieldType.DATETIME) {
+                            LayerFieldDateTimeUtils.resolveDefaultValue(field.defaultValue)
+                        } else {
+                            field.defaultValue
+                        }
+                        field.key to defVal
                     }
                     val newPoint = LayerPoint(
                         id = 0L,

@@ -23,7 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddLocationAlt
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -54,6 +54,7 @@ import com.vktrsansara.app.caveviewer.domain.model.PointShape
 import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.presentation.components.DialogSaveButton
+import com.vktrsansara.app.caveviewer.presentation.map.components.PointShapeMarker
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import kotlin.math.cos
@@ -75,6 +76,11 @@ fun LayerManagerDialog(
     onDismiss: () -> Unit
 ) {
     var layerPendingDelete by remember { mutableStateOf<PointLayer?>(null) }
+    var isHelpOpen by remember { mutableStateOf(false) }
+
+    if (isHelpOpen) {
+        LayerManagerHelpDialog(onDismiss = { isHelpOpen = false })
+    }
 
     if (layerPendingDelete != null) {
         val target = layerPendingDelete!!
@@ -108,6 +114,8 @@ fun LayerManagerDialog(
     AppDialogContainer(
         title = "Слои точек",
         onDismissRequest = onDismiss,
+        onInfoClick = { isHelpOpen = true },
+        isScrollable = false,
         buttons = {
             DialogCancelButton(
                 text = "Закрыть",
@@ -290,11 +298,11 @@ private fun LayerItemCard(
                 onClick = onToggleVisibility
             )
 
-            // 2. Style Settings (Palette)
+            // 2. Style Settings (Gear)
             LayerActionButton(
-                icon = Icons.Rounded.Palette,
+                icon = Icons.Rounded.Settings,
                 tint = Color(0xFFF59E0B), // Amber
-                contentDescription = "Стиль маркера",
+                contentDescription = "Настройки слоя",
                 onClick = onEditStyle
             )
 
@@ -349,79 +357,6 @@ private fun LayerActionButton(
     }
 }
 
-/**
- * Canvas rendering the 7 available marker shapes.
- */
-@Composable
-fun PointShapeMarker(
-    shape: PointShape,
-    color: Color,
-    modifier: Modifier = Modifier.size(18.dp)
-) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val cx = w / 2f
-        val cy = h / 2f
-        when (shape) {
-            PointShape.CIRCLE -> {
-                drawCircle(color = color, radius = minOf(cx, cy))
-            }
-            PointShape.SQUARE -> {
-                drawRect(color = color, topLeft = Offset(0f, 0f), size = size)
-            }
-            PointShape.TRIANGLE_UP -> {
-                val path = Path().apply {
-                    moveTo(cx, 0f)
-                    lineTo(w, h)
-                    lineTo(0f, h)
-                    close()
-                }
-                drawPath(path, color)
-            }
-            PointShape.TRIANGLE_DOWN -> {
-                val path = Path().apply {
-                    moveTo(0f, 0f)
-                    lineTo(w, 0f)
-                    lineTo(cx, h)
-                    close()
-                }
-                drawPath(path, color)
-            }
-            PointShape.DIAMOND -> {
-                val path = Path().apply {
-                    moveTo(cx, 0f)
-                    lineTo(w, cy)
-                    lineTo(cx, h)
-                    lineTo(0f, cy)
-                    close()
-                }
-                drawPath(path, color)
-            }
-            PointShape.STAR -> {
-                val path = Path().apply {
-                    val outerR = minOf(cx, cy)
-                    val innerR = outerR * 0.45f
-                    for (i in 0 until 10) {
-                        val r = if (i % 2 == 0) outerR else innerR
-                        val angle = (i * Math.PI / 5 - Math.PI / 2).toFloat()
-                        val x = cx + r * cos(angle)
-                        val y = cy + r * sin(angle)
-                        if (i == 0) moveTo(x, y) else lineTo(x, y)
-                    }
-                    close()
-                }
-                drawPath(path, color)
-            }
-            PointShape.CROSS -> {
-                val strokePx = 2.5.dp.toPx()
-                drawLine(color, Offset(cx, 0f), Offset(cx, h), strokeWidth = strokePx, cap = StrokeCap.Round)
-                drawLine(color, Offset(0f, cy), Offset(w, cy), strokeWidth = strokePx, cap = StrokeCap.Round)
-            }
-        }
-    }
-}
-
 private fun formatPointsCount(count: Int): String {
     val mod10 = count % 10
     val mod100 = count % 100
@@ -433,3 +368,128 @@ private fun formatPointsCount(count: Int): String {
     }
     return "$count $suffix"
 }
+
+/**
+ * Help dialog explaining point layers and actions in the layer manager.
+ */
+@Composable
+fun LayerManagerHelpDialog(
+    onDismiss: () -> Unit
+) {
+    AppDialogContainer(
+        title = "Справка: Слои точек",
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(
+                text = "Закрыть",
+                onClick = onDismiss
+            )
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            HelpItem(
+                title = "Назначение слоев:",
+                description = "Позволяет разделять объекты пещеры по смысловым группам: съемочные пикеты, точки навески, опасные зоны, гидрология, стоянки."
+            )
+
+            HelpItemWithIcon(
+                icon = Icons.Rounded.AddLocationAlt,
+                iconTint = AccentSkyBlue,
+                title = "Расставить точки:",
+                description = "Активирует режим добавления точек на плане пещеры. На правом краю экрана появляется кнопка «+» для быстрой фиксации маркера в центре экрана."
+            )
+
+            HelpItemWithIcon(
+                icon = Icons.Rounded.Visibility,
+                iconTint = AccentSkyBlue,
+                title = "Видимость слоя:",
+                description = "Позволяет быстро скрыть или отобразить все маркеры выбранного слоя на карте."
+            )
+
+            HelpItemWithIcon(
+                icon = Icons.Rounded.Settings,
+                iconTint = Color(0xFFF59E0B),
+                title = "Настройки слоя:",
+                description = "Изменение названия, формы маркера по умолчанию, цвета, прозрачности, размера и отображения подписей."
+            )
+
+            HelpItemWithIcon(
+                icon = Icons.Rounded.Tune,
+                iconTint = Color(0xFF10B981),
+                title = "Свойства и поля:",
+                description = "Управление кастомными атрибутами точек слоя (текст, число, флаг, список вариантов, дата/время)."
+            )
+
+            HelpItemWithIcon(
+                icon = Icons.Rounded.Delete,
+                iconTint = Color(0xFFEF4444),
+                title = "Удаление слоя:",
+                description = "Удаляет слой и все привязанные к нему точки на схеме пещеры."
+            )
+        }
+    }
+}
+
+@Composable
+private fun HelpItemWithIcon(
+    icon: ImageVector,
+    iconTint: Color,
+    title: String,
+    description: String
+) {
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(AppColors.bgSurface)
+                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(13.dp)
+                )
+            }
+            Text(
+                text = title,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = AccentSkyBlue
+            )
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = description,
+            fontSize = 12.sp,
+            color = AppColors.textSecondary,
+            lineHeight = 17.sp
+        )
+    }
+}
+
+@Composable
+private fun HelpItem(title: String, description: String) {
+    Column {
+        Text(
+            text = title,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AccentSkyBlue
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = description,
+            fontSize = 12.sp,
+            color = AppColors.textSecondary,
+            lineHeight = 17.sp
+        )
+    }
+}
+

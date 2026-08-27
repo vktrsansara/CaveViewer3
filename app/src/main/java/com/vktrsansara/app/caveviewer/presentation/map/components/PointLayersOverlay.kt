@@ -63,15 +63,21 @@ fun PointLayersOverlay(
             allPoints.mapNotNull { point ->
                 val layer = layerMap[point.layerId]
                 if (layer != null && layer.isVisible) {
-                    val latLng = CaveMapBounds.imagePixelsToLatLng(
-                        pixelX = point.x,
-                        pixelY = point.y,
-                        imageWidth = imageWidth,
-                        imageHeight = imageHeight,
-                        maxZoom = zoomMax
-                    )
-                    val screenOffset = projector(latLng)
-                    RenderedPoint(point, layer, screenOffset)
+                    try {
+                        val latLng = CaveMapBounds.imagePixelsToLatLng(
+                            pixelX = point.x,
+                            pixelY = point.y,
+                            imageWidth = imageWidth,
+                            imageHeight = imageHeight,
+                            maxZoom = zoomMax
+                        )
+                        val screenOffset = projector(latLng)
+                        if (screenOffset.x.isFinite() && screenOffset.y.isFinite()) {
+                            RenderedPoint(point, layer, screenOffset)
+                        } else null
+                    } catch (_: Exception) {
+                        null
+                    }
                 } else {
                     null
                 }
@@ -81,6 +87,7 @@ fun PointLayersOverlay(
 
     val bgCardColor = AppColors.bgCard
     val borderColor = AppColors.borderColor
+    val textPrimaryColor = AppColors.textPrimary
 
     Canvas(modifier = modifier.fillMaxSize()) {
         renderedPoints.forEach { item ->
@@ -104,7 +111,7 @@ fun PointLayersOverlay(
                 center = screenOffset,
                 sizePx = markerSizePx,
                 fillColor = Color(point.color.toInt()),
-                strokeColor = Color.White,
+                strokeColor = Color.Black,
                 isHazard = isHazard
             )
 
@@ -115,7 +122,7 @@ fun PointLayersOverlay(
                     style = TextStyle(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White
+                        color = textPrimaryColor
                     )
                 )
 

@@ -68,6 +68,7 @@ import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverl
 import com.vktrsansara.app.caveviewer.presentation.map.components.MultiToolSideBar
 import com.vktrsansara.app.caveviewer.presentation.map.components.NorthBindingOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.PointDetailsCard
+import com.vktrsansara.app.caveviewer.presentation.map.components.PointEditorSideControl
 import com.vktrsansara.app.caveviewer.presentation.map.components.PointLayersOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.RadiusMeasureOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.RulerOverlay
@@ -320,6 +321,9 @@ fun MainScreen(
             onAddCustomFieldClick = {
                 viewModel.handleIntent(MainUiIntent.OpenAddFieldDialog)
             },
+            onEditFieldClick = { field ->
+                viewModel.handleIntent(MainUiIntent.OpenEditFieldDialog(field))
+            },
             onDeleteField = { key ->
                 viewModel.handleIntent(
                     MainUiIntent.DeleteLayerField(
@@ -334,16 +338,26 @@ fun MainScreen(
         )
     }
 
-    // Add Field Dialog (New custom field definition)
+    // Add / Edit Field Dialog (New or existing custom field definition)
     if (uiState.isAddFieldDialogOpen && uiState.selectedLayerForProperties != null) {
         AddFieldDialog(
-            onAdd = { field ->
-                viewModel.handleIntent(
-                    MainUiIntent.AddLayerField(
-                        layerId = uiState.selectedLayerForProperties!!.id,
-                        field = field
+            initialField = uiState.editingFieldDefinition,
+            onSave = { field ->
+                if (uiState.editingFieldDefinition != null) {
+                    viewModel.handleIntent(
+                        MainUiIntent.UpdateLayerField(
+                            layerId = uiState.selectedLayerForProperties!!.id,
+                            field = field
+                        )
                     )
-                )
+                } else {
+                    viewModel.handleIntent(
+                        MainUiIntent.AddLayerField(
+                            layerId = uiState.selectedLayerForProperties!!.id,
+                            field = field
+                        )
+                    )
+                }
             },
             onCancel = {
                 viewModel.handleIntent(MainUiIntent.DismissAddFieldDialog)
@@ -599,31 +613,35 @@ fun MainScreenContent(
                     val curMeta = mapMetadata ?: uiState.activeProjectMetadata
                     val isMeasuring = isCalibrationMode || isAnyToolActive || uiState.editingPointLayer != null
                     if (!isMeasuring && curMeta != null && projector != null && uiState.allVisiblePoints.isNotEmpty()) {
-                        val clickedScreen = projector!!.invoke(clickedLatLng)
-                        val hitRadiusPx = 28 * density.density
-                        val hitRadiusSq = hitRadiusPx * hitRadiusPx
-                        val layerMap = uiState.pointLayers.associateBy { it.id }
+                        try {
+                            val clickedScreen = projector!!.invoke(clickedLatLng)
+                            val hitRadiusPx = 28 * density.density
+                            val hitRadiusSq = hitRadiusPx * hitRadiusPx
+                            val layerMap = uiState.pointLayers.associateBy { it.id }
 
-                        val hit = uiState.allVisiblePoints.lastOrNull { point ->
-                            val layer = layerMap[point.layerId]
-                            if (layer != null && layer.isVisible) {
-                                val pointLatLng = CaveMapBounds.imagePixelsToLatLng(
-                                    pixelX = point.x,
-                                    pixelY = point.y,
-                                    imageWidth = curMeta.imageWidth,
-                                    imageHeight = curMeta.imageHeight,
-                                    maxZoom = curMeta.zoomMax
-                                )
-                                val pointScreen = projector!!.invoke(pointLatLng)
-                                val dx = clickedScreen.x - pointScreen.x
-                                val dy = clickedScreen.y - pointScreen.y
-                                (dx * dx + dy * dy) <= hitRadiusSq
-                            } else false
-                        }
+                            val hit = uiState.allVisiblePoints.lastOrNull { point ->
+                                val layer = layerMap[point.layerId]
+                                if (layer != null && layer.isVisible) {
+                                    val pointLatLng = CaveMapBounds.imagePixelsToLatLng(
+                                        pixelX = point.x,
+                                        pixelY = point.y,
+                                        imageWidth = curMeta.imageWidth,
+                                        imageHeight = curMeta.imageHeight,
+                                        maxZoom = curMeta.zoomMax
+                                    )
+                                    val pointScreen = projector!!.invoke(pointLatLng)
+                                    val dx = clickedScreen.x - pointScreen.x
+                                    val dy = clickedScreen.y - pointScreen.y
+                                    (dx * dx + dy * dy) <= hitRadiusSq
+                                } else false
+                            }
 
-                        if (hit != null) {
-                            onIntent(MainUiIntent.SelectPoint(hit))
-                            pointHit = true
+                            if (hit != null) {
+                                onIntent(MainUiIntent.SelectPoint(hit))
+                                pointHit = true
+                            }
+                        } catch (_: Exception) {
+                            // Safe fallback
                         }
                     }
 
@@ -951,68 +969,25 @@ fun MainScreenContent(
                     closeButtonTopInBar = 46.dp,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // [+] Add Point button
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .shadow(4.dp, RoundedCornerShape(8.dp))
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(AppColors.bgCard)
-                                .border(1.5.dp, Color(layer.defaultColor.toInt()), RoundedCornerShape(8.dp))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = ripple(color = AppColors.pressedColor),
-                                    onClick = {
-                                        val curMeta = mapMetadata ?: uiState.activeProjectMetadata
-                                        if (curMeta != null) {
-                                            val liveCenterLatLng = getMapCenter?.invoke() ?: LatLng(currentTargetLat, currentTargetLon)
-                                            val liveCenterPx = CaveMapBounds.latLngToImagePixels(
-                                                latLng = liveCenterLatLng,
-                                                imageWidth = curMeta.imageWidth,
-                                                imageHeight = curMeta.imageHeight,
-                                                maxZoom = curMeta.zoomMax
-                                            )
-                                            onIntent(MainUiIntent.OpenCreatePointDialog(liveCenterPx))
-                                        }
-                                    }
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Add,
-                                contentDescription = "Добавить точку",
-                                tint = Color(layer.defaultColor.toInt()),
-                                modifier = Modifier.size(22.dp)
-                            )
+                    PointEditorSideControl(
+                        layer = layer,
+                        onAddPoint = {
+                            val curMeta = mapMetadata ?: uiState.activeProjectMetadata
+                            if (curMeta != null) {
+                                val liveCenterLatLng = getMapCenter?.invoke() ?: LatLng(currentTargetLat, currentTargetLon)
+                                val liveCenterPx = CaveMapBounds.latLngToImagePixels(
+                                    latLng = liveCenterLatLng,
+                                    imageWidth = curMeta.imageWidth,
+                                    imageHeight = curMeta.imageHeight,
+                                    maxZoom = curMeta.zoomMax
+                                )
+                                onIntent(MainUiIntent.OpenCreatePointDialog(liveCenterPx))
+                            }
+                        },
+                        onClose = {
+                            onIntent(MainUiIntent.ExitPointEditorMode)
                         }
-
-                        // [✕] Close editor mode
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .shadow(4.dp, RoundedCornerShape(8.dp))
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(AppColors.bgCard)
-                                .border(1.5.dp, Color(0xFFEF4444).copy(alpha = 0.8f), RoundedCornerShape(8.dp))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = ripple(color = AppColors.pressedColor),
-                                    onClick = { onIntent(MainUiIntent.ExitPointEditorMode) }
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Close,
-                                contentDescription = "Завершить редактирование",
-                                tint = Color(0xFFEF4444),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
+                    )
                 }
             }
 
@@ -1021,14 +996,16 @@ fun MainScreenContent(
                 val selPoint = uiState.selectedPointForDetails!!
                 val parentLayer = uiState.pointLayers.find { it.id == selPoint.layerId }
                 if (parentLayer != null) {
+                    val curMeta = mapMetadata ?: uiState.activeProjectMetadata
+                    val isSimpleCrs = curMeta?.crs.equals("Simple", ignoreCase = true) || curMeta?.crs.isNullOrBlank()
                     PointDetailsCard(
                         point = selPoint,
                         layer = parentLayer,
+                        isSimpleCrs = isSimpleCrs,
                         onEditClick = {
                             onIntent(MainUiIntent.OpenEditPointDialog(selPoint))
                         },
                         onCenterMapClick = {
-                            val curMeta = mapMetadata ?: uiState.activeProjectMetadata
                             if (curMeta != null) {
                                 val targetLatLng = CaveMapBounds.imagePixelsToLatLng(
                                     pixelX = selPoint.x,

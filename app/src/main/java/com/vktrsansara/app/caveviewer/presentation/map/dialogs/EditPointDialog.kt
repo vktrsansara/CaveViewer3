@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,10 +22,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
@@ -45,8 +50,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDateTimeUtils
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldType
 import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
@@ -54,8 +61,10 @@ import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.PointShape
 import com.vktrsansara.app.caveviewer.presentation.components.AppColorPickerDialog
 import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
+import com.vktrsansara.app.caveviewer.presentation.components.CheckerboardBox
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.presentation.components.DialogSaveButton
+import com.vktrsansara.app.caveviewer.presentation.map.components.PointShapeMarker
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import java.util.Locale
@@ -75,6 +84,7 @@ fun EditPointDialog(
     var shape by remember(point) { mutableStateOf(point.shape) }
     var color by remember(point) { mutableLongStateOf(point.color) }
     var isColorPickerOpen by remember { mutableStateOf(false) }
+    var isShapePickerOpen by remember { mutableStateOf(false) }
 
     // Dynamic field values map
     val customValues = remember(point, layer) {
@@ -85,10 +95,27 @@ fun EditPointDialog(
                 if (existing != null) {
                     put(field.key, existing)
                 } else if (field.defaultValue.isNotEmpty()) {
-                    put(field.key, field.defaultValue)
+                    val resolvedDefault = if (field.type == LayerFieldType.DATETIME) {
+                        LayerFieldDateTimeUtils.resolveDefaultValue(field.defaultValue)
+                    } else {
+                        field.defaultValue
+                    }
+                    put(field.key, resolvedDefault)
                 }
             }
         }
+    }
+
+    if (isShapePickerOpen) {
+        PointShapePickerDialog(
+            selectedShape = shape,
+            markerColor = color,
+            onShapeSelected = { selected ->
+                shape = selected
+                isShapePickerOpen = false
+            },
+            onDismiss = { isShapePickerOpen = false }
+        )
     }
 
     if (isColorPickerOpen) {
@@ -130,14 +157,14 @@ fun EditPointDialog(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // 1. Point Name
+            // 1. Point Name Input
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Название точки *") },
-                placeholder = { Text("Например: ПК-0, Навеска 12м, Осыпь") },
+                label = { Text("Название точки", fontSize = 13.sp) },
+                placeholder = { Text("Например: Пикет 1, Колодец 15м") },
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AccentSkyBlue,
@@ -158,10 +185,10 @@ fun EditPointDialog(
                 color = AppColors.textSecondary
             )
 
-            // 3. Point Shape (7 buttons, 40x40 dp)
+            // 3. Point Shape and Color in one compact row
             Column {
                 Text(
-                    text = "Форма маркера:",
+                    text = "Форма и цвет маркера:",
                     fontSize = 12.5.sp,
                     color = AppColors.textSecondary,
                     fontWeight = FontWeight.Medium
@@ -169,76 +196,93 @@ fun EditPointDialog(
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    PointShape.entries.forEach { pointShape ->
-                        val isSelected = shape == pointShape
-                        Box(
+                    // Shape Button
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.bgSurface)
+                            .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = { isShapePickerOpen = true }
+                            )
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PointShapeMarker(
+                            shape = shape,
+                            color = Color(color.toInt()),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = shape.title,
+                            fontSize = 12.5.sp,
+                            color = AppColors.textPrimary,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowDropDown,
+                            contentDescription = "Выбрать форму",
+                            tint = AppColors.textSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // Color Button
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.bgSurface)
+                            .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = { isColorPickerOpen = true }
+                            )
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CheckerboardBox(
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(if (isSelected) AccentSkyBlue.copy(alpha = 0.15f) else AppColors.bgSurface)
-                                .border(
-                                    width = if (isSelected) 2.dp else 1.dp,
-                                    color = if (isSelected) AccentSkyBlue else AppColors.borderColor,
-                                    shape = RoundedCornerShape(6.dp)
-                                )
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = ripple(color = AppColors.pressedColor),
-                                    onClick = { shape = pointShape }
-                                ),
-                            contentAlignment = Alignment.Center
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+                            squareSizeDp = 3f
                         ) {
-                            PointShapeMarker(
-                                shape = pointShape,
-                                color = Color(color.toInt()),
-                                modifier = Modifier.size(18.dp)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(color.toInt()))
                             )
                         }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Цвет",
+                            fontSize = 12.5.sp,
+                            color = AppColors.textPrimary,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowDropDown,
+                            contentDescription = "Выбрать цвет",
+                            tint = AccentSkyBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
-            }
-
-            // 4. Point Color
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(AppColors.bgSurface)
-                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(color = AppColors.pressedColor),
-                        onClick = { isColorPickerOpen = true }
-                    )
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Индивидуальный цвет",
-                        fontSize = 13.sp,
-                        color = AppColors.textPrimary,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Нажмите для изменения цвета",
-                        fontSize = 11.sp,
-                        color = AppColors.textSecondary
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .clip(CircleShape)
-                        .background(Color(color.toInt()))
-                        .border(1.5.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                )
             }
 
             // 5. Dynamic fields based on layer.fieldsSchema
@@ -348,7 +392,10 @@ private fun DynamicFieldInput(
         }
         LayerFieldType.SELECT -> {
             var isDropdownExpanded by remember { mutableStateOf(false) }
-            val displayValue = currentValue.ifEmpty { field.options.firstOrNull() ?: "" }
+            val selectedSet = remember(currentValue) {
+                currentValue.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+            }
+            val displayValue = if (selectedSet.isEmpty()) "Не выбрано" else field.options.filter { selectedSet.contains(it) }.joinToString(", ")
 
             Column {
                 Text(
@@ -364,7 +411,7 @@ private fun DynamicFieldInput(
                         .background(AppColors.bgSurface)
                         .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
                         .clickable { isDropdownExpanded = true }
-                        .padding(horizontal = 12.dp, vertical = 11.dp)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -372,13 +419,17 @@ private fun DynamicFieldInput(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = displayValue.ifEmpty { "Выберите вариант" },
-                            fontSize = 13.5.sp,
-                            color = if (displayValue.isNotEmpty()) AppColors.textPrimary else AppColors.textSecondary
+                            text = displayValue,
+                            fontSize = 13.sp,
+                            color = if (selectedSet.isNotEmpty()) AppColors.textPrimary else AppColors.textSecondary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
                         )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Icon(
                             imageVector = Icons.Rounded.ArrowDropDown,
-                            contentDescription = "Выбрать вариант",
+                            contentDescription = "Выбрать варианты",
                             tint = AccentSkyBlue
                         )
                     }
@@ -391,23 +442,78 @@ private fun DynamicFieldInput(
                             .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
                     ) {
                         field.options.forEach { opt ->
+                            val isChecked = selectedSet.contains(opt)
                             DropdownMenuItem(
                                 text = {
-                                    Text(
-                                        text = opt,
-                                        color = if (opt == displayValue) AccentSkyBlue else AppColors.textPrimary,
-                                        fontWeight = if (opt == displayValue) FontWeight.Bold else FontWeight.Normal
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Checkbox(
+                                            checked = isChecked,
+                                            onCheckedChange = null,
+                                            colors = CheckboxDefaults.colors(
+                                                checkedColor = AccentSkyBlue,
+                                                uncheckedColor = AppColors.borderColor,
+                                                checkmarkColor = Color.Black
+                                            ),
+                                            modifier = Modifier.scale(0.8f)
+                                        )
+                                        Text(
+                                            text = opt,
+                                            color = if (isChecked) AccentSkyBlue else AppColors.textPrimary,
+                                            fontWeight = if (isChecked) FontWeight.Bold else FontWeight.Normal,
+                                            fontSize = 13.sp
+                                        )
+                                    }
                                 },
                                 onClick = {
-                                    onValueChange(opt)
-                                    isDropdownExpanded = false
+                                    val newSet = if (isChecked) selectedSet - opt else selectedSet + opt
+                                    val newString = field.options.filter { newSet.contains(it) }.joinToString(", ")
+                                    onValueChange(newString)
                                 }
                             )
                         }
                     }
                 }
             }
+        }
+        LayerFieldType.DATETIME -> {
+            OutlinedTextField(
+                value = currentValue,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                placeholder = { Text("ДД.ММ.ГГГГ ЧЧ:ММ") },
+                singleLine = true,
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            val nowVal = LayerFieldDateTimeUtils.resolveDefaultValue(
+                                field.defaultValue.ifEmpty { LayerFieldDateTimeUtils.DEFAULT_NOW_DATETIME }
+                            )
+                            onValueChange(nowVal)
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Schedule,
+                            contentDescription = "Вставить текущее время",
+                            tint = AccentSkyBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AccentSkyBlue,
+                    unfocusedBorderColor = AppColors.borderColor,
+                    focusedLabelColor = AccentSkyBlue,
+                    unfocusedLabelColor = AppColors.textSecondary,
+                    focusedTextColor = AppColors.textPrimary,
+                    unfocusedTextColor = AppColors.textPrimary,
+                    cursorColor = AccentSkyBlue
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

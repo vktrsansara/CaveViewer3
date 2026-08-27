@@ -92,9 +92,10 @@ object CaveMapBounds {
     }
 
     private fun mercatorYToLat(yFraction: Double): Double {
-        val yMerc = yFraction * 2.0 * Math.PI
+        val yClamped = yFraction.coerceIn(0.00001, 0.99999)
+        val yMerc = yClamped * 2.0 * Math.PI
         val latRad = 2.0 * atan(exp(Math.PI - yMerc)) - Math.PI / 2.0
-        return Math.toDegrees(latRad)
+        return Math.toDegrees(latRad).coerceIn(-85.0511, 85.0511)
     }
 
     /**
@@ -107,13 +108,17 @@ object CaveMapBounds {
         imageHeight: Int,
         maxZoom: Int
     ): Pair<Double, Double> {
+        if (imageWidth <= 0 || imageHeight <= 0 || maxZoom <= 0) {
+            return Pair(0.0, 0.0)
+        }
         val totalWorldPixels = (2.0.pow(maxZoom.toDouble())) * TILE_SIZE.toDouble()
         
         // Перевод долготы в мировую координату X
-        val worldX = (latLng.longitude / 360.0 + 0.5) * totalWorldPixels
+        val clLon = latLng.longitude.coerceIn(-180.0, 180.0)
+        val worldX = (clLon / 360.0 + 0.5) * totalWorldPixels
         // Перевод широты в мировую координату Y (Web Mercator)
         val latRad = Math.toRadians(latLng.latitude.coerceIn(-85.0511, 85.0511))
-        val yMerc = Math.PI - kotlin.math.ln(kotlin.math.tan(Math.PI / 4.0 + latRad / 2.0))
+        val yMerc = Math.PI - kotlin.math.ln(kotlin.math.tan(Math.PI / 4.0 + latRad / 2.0).coerceAtLeast(1e-10))
         val worldY = (yMerc / (2.0 * Math.PI)) * totalWorldPixels
         // Смещение относительно левого верхнего угла центрированного изображения
         val imageLeftPx = (totalWorldPixels - imageWidth.toDouble()) / 2.0
@@ -133,6 +138,9 @@ object CaveMapBounds {
         imageHeight: Int,
         maxZoom: Int
     ): LatLng {
+        if (imageWidth <= 0 || imageHeight <= 0 || maxZoom <= 0) {
+            return LatLng(0.0, 0.0)
+        }
         val totalWorldPixels = (2.0.pow(maxZoom.toDouble())) * TILE_SIZE.toDouble()
         val imageLeftPx = (totalWorldPixels - imageWidth.toDouble()) / 2.0
         val imageTopPx = (totalWorldPixels - imageHeight.toDouble()) / 2.0
@@ -140,9 +148,9 @@ object CaveMapBounds {
         val worldX = imageLeftPx + pixelX
         val worldY = imageTopPx + pixelY
 
-        val longitude = ((worldX / totalWorldPixels) - 0.5) * 360.0
-        val yFraction = worldY / totalWorldPixels
-        val latitude = mercatorYToLat(yFraction)
+        val longitude = (((worldX / totalWorldPixels) - 0.5) * 360.0).coerceIn(-180.0, 180.0)
+        val yFraction = (worldY / totalWorldPixels).coerceIn(0.00001, 0.99999)
+        val latitude = mercatorYToLat(yFraction).coerceIn(-85.0511, 85.0511)
 
         return LatLng(latitude, longitude)
     }

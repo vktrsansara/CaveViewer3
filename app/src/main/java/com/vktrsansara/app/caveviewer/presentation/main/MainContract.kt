@@ -105,6 +105,7 @@ data class MainUiState(
     val selectedLayerForSettings: PointLayer? = null,
     val selectedLayerForProperties: PointLayer? = null,
     val isAddFieldDialogOpen: Boolean = false,
+    val editingFieldDefinition: LayerFieldDefinition? = null,
     val editingPointLayer: PointLayer? = null,
     val editingPoint: LayerPoint? = null,
     val isEditPointDialogOpen: Boolean = false,
@@ -272,8 +273,10 @@ sealed interface MainUiIntent : UiIntent {
     data class OpenLayerProperties(val layer: PointLayer) : MainUiIntent
     data object DismissLayerProperties : MainUiIntent
     data object OpenAddFieldDialog : MainUiIntent
+    data class OpenEditFieldDialog(val field: LayerFieldDefinition) : MainUiIntent
     data object DismissAddFieldDialog : MainUiIntent
     data class AddLayerField(val layerId: Long, val field: LayerFieldDefinition) : MainUiIntent
+    data class UpdateLayerField(val layerId: Long, val field: LayerFieldDefinition) : MainUiIntent
     data class DeleteLayerField(val layerId: Long, val fieldKey: String) : MainUiIntent
 
     // Point Editor actions
