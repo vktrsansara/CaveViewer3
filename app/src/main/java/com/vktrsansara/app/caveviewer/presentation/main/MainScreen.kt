@@ -594,7 +594,8 @@ fun MainScreenContent(
                 onMapClick = { clickedLatLng ->
                     var pointHit = false
                     val curMeta = mapMetadata ?: uiState.activeProjectMetadata
-                    if (curMeta != null && projector != null && uiState.allVisiblePoints.isNotEmpty()) {
+                    val isMeasuring = isCalibrationMode || isAnyToolActive || uiState.editingPointLayer != null
+                    if (!isMeasuring && curMeta != null && projector != null && uiState.allVisiblePoints.isNotEmpty()) {
                         val clickedScreen = projector!!.invoke(clickedLatLng)
                         val hitRadiusPx = 28 * density.density
                         val hitRadiusSq = hitRadiusPx * hitRadiusPx
