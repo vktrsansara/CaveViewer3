@@ -13,10 +13,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -137,8 +135,7 @@ fun ToolsSettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 12.dp)
-                .navigationBarsPadding(),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // Card 1: Cursor Settings
@@ -656,7 +653,6 @@ private fun ToolsSettingsHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .statusBarsPadding()
             .height(52.dp)
             .background(AppColors.bgMain)
             .padding(horizontal = 4.dp),
