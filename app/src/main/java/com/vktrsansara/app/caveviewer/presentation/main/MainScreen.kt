@@ -769,7 +769,11 @@ fun MainScreenContent(
                     imageWidth = meta.imageWidth,
                     imageHeight = meta.imageHeight,
                     zoomMax = meta.zoomMax,
-                    projector = projector
+                    projector = projector,
+                    currentTargetLat = currentTargetLat,
+                    currentTargetLon = currentTargetLon,
+                    currentZoom = currentZoom,
+                    mapBearing = mapBearing
                 )
             }
 

@@ -68,6 +68,7 @@ class MainViewModel(
                             val points = projectRepository.getPointsForLayer(activeName, layer.id)
                             pointCounts[layer.id] = points.size
                         }
+                        val allPoints = projectRepository.getAllVisiblePoints(activeName)
                         _uiState.update {
                             it.copy(
                                 hasActiveProject = true,
@@ -79,7 +80,8 @@ class MainViewModel(
                                 activeProjectCadastralData = cadastral,
                                 activeProjectCameraPosition = savedPos,
                                 pointLayers = layers,
-                                layerPointCounts = pointCounts
+                                layerPointCounts = pointCounts,
+                                allVisiblePoints = allPoints
                             )
                         }
                     } else {
@@ -95,6 +97,7 @@ class MainViewModel(
                                 activeProjectCameraPosition = null,
                                 pointLayers = emptyList(),
                                 layerPointCounts = emptyMap(),
+                                allVisiblePoints = emptyList(),
                                 isLayerManagerOpen = false,
                                 isCreateLayerOpen = false
                             )
@@ -113,6 +116,7 @@ class MainViewModel(
                             activeProjectCameraPosition = null,
                             pointLayers = emptyList(),
                             layerPointCounts = emptyMap(),
+                            allVisiblePoints = emptyList(),
                             isLayerManagerOpen = false,
                             isCreateLayerOpen = false
                         )
@@ -281,6 +285,9 @@ class MainViewModel(
                             activeProjectLocation = MapLocation(),
                             activeProjectCadastralData = emptyMap(),
                             activeProjectCameraPosition = null,
+                            pointLayers = emptyList(),
+                            layerPointCounts = emptyMap(),
+                            allVisiblePoints = emptyList(),
                             isScaleBindingMode = false,
                             scaleBindingPoints = emptyList(),
                             isScaleBindingHelpVisible = false,
@@ -308,6 +315,13 @@ class MainViewModel(
                     val location = projectRepository.getProjectLocation(intent.projectName)
                     val cadastral = projectRepository.getProjectCadastralData(intent.projectName)
                     val savedPos = projectCameraPositions[intent.projectName]
+                    val layers = projectRepository.getPointLayers(intent.projectName)
+                    val pointCounts = mutableMapOf<Long, Int>()
+                    layers.forEach { layer ->
+                        val points = projectRepository.getPointsForLayer(intent.projectName, layer.id)
+                        pointCounts[layer.id] = points.size
+                    }
+                    val allPoints = projectRepository.getAllVisiblePoints(intent.projectName)
                     _uiState.update {
                         it.copy(
                             hasActiveProject = true,
@@ -318,6 +332,9 @@ class MainViewModel(
                             activeProjectLocation = location,
                             activeProjectCadastralData = cadastral,
                             activeProjectCameraPosition = savedPos,
+                            pointLayers = layers,
+                            layerPointCounts = pointCounts,
+                            allVisiblePoints = allPoints,
                             isScaleBindingMode = false,
                             scaleBindingPoints = emptyList(),
                             isScaleBindingHelpVisible = false,

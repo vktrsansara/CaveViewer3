@@ -36,12 +36,27 @@ fun PointLayersOverlay(
     imageHeight: Int,
     zoomMax: Int,
     projector: ((LatLng) -> Offset)?,
+    currentTargetLat: Double,
+    currentTargetLon: Double,
+    currentZoom: Double,
+    mapBearing: Double,
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
     val layerMap = remember(pointLayers) { pointLayers.associateBy { it.id } }
 
-    val renderedPoints = remember(allPoints, layerMap, projector, imageWidth, imageHeight, zoomMax) {
+    val renderedPoints = remember(
+        allPoints,
+        layerMap,
+        projector,
+        imageWidth,
+        imageHeight,
+        zoomMax,
+        currentTargetLat,
+        currentTargetLon,
+        currentZoom,
+        mapBearing
+    ) {
         if (projector == null || imageWidth <= 0 || imageHeight <= 0) {
             emptyList()
         } else {
