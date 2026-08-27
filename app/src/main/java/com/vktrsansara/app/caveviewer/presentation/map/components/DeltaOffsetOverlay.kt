@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LocationSearching
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -151,7 +150,7 @@ fun DeltaOffsetOverlay(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     // Line 1: Axis offsets East/West and North/South
                     Text(
-                        text = "📍 ${metrics.deltaXText}   •   ${metrics.deltaYText}",
+                        text = "ΔX: ${metrics.deltaXText}   •   ΔY: ${metrics.deltaYText}",
                         color = AppColors.textPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
@@ -169,21 +168,12 @@ fun DeltaOffsetOverlay(
 
                     if (ppm <= 0.0) {
                         Spacer(modifier = Modifier.height(3.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Warning,
-                                contentDescription = "Внимание",
-                                tint = AmberWarningColor,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Карта без масштаба (px)",
-                                color = AmberWarningColor,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Text(
+                            text = "Карта без масштаба (px)",
+                            color = AmberWarningColor,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -181,7 +180,7 @@ fun AzimuthOverlay(
                     val azStr = String.format(Locale.US, "%.2f°", liveAzimuth)
                     val backAzStr = String.format(Locale.US, "%.2f°", backAzimuth)
                     Text(
-                        text = "🧭 Азимут: $azStr   •   Обратный: $backAzStr",
+                        text = "Азимут: $azStr   •   Обратный: $backAzStr",
                         color = AppColors.textPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
@@ -201,21 +200,12 @@ fun AzimuthOverlay(
 
                     if (ppm <= 0.0) {
                         Spacer(modifier = Modifier.height(3.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Warning,
-                                contentDescription = "Внимание",
-                                tint = AmberWarningColor,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Карта без привязки к метрам (px)",
-                                color = AmberWarningColor,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Text(
+                            text = "Карта без масштаба (px)",
+                            color = AmberWarningColor,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -152,14 +151,14 @@ fun RadiusMeasureOverlay(
             } else {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "⭕ R: ${metrics.radiusText}  (D: ${metrics.diameterText})  •  S: ${metrics.areaText}",
+                        text = "Радиус: ${metrics.radiusText} (Диаметр: ${metrics.diameterText})   •   Площадь: ${metrics.areaText}",
                         color = AppColors.textPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Длина окружности (C): ${metrics.perimeterText}",
+                        text = "Длина окружности: ${metrics.perimeterText}",
                         color = EmeraldRadiusColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -167,21 +166,12 @@ fun RadiusMeasureOverlay(
 
                     if (ppm <= 0.0) {
                         Spacer(modifier = Modifier.height(3.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Warning,
-                                contentDescription = "Внимание",
-                                tint = AmberWarningColor,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Карта без масштаба (px)",
-                                color = AmberWarningColor,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Text(
+                            text = "Карта без масштаба (px)",
+                            color = AmberWarningColor,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SquareFoot
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -217,68 +216,24 @@ fun AreaMeasureOverlay(
                     )
                 }
             } else {
+                val areaStr = MeasureUtils.formatArea(areaPx, ppm)
+                val perimStr = MeasureUtils.formatDistance(perimeterPx, ppm)
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "⬜ Площадь: ",
-                            color = AppColors.textSecondary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = MeasureUtils.formatArea(areaPx, ppm),
-                            color = AppColors.textPrimary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "📏 Периметр: ",
-                            color = AppColors.textSecondary,
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = MeasureUtils.formatDistance(perimeterPx, ppm),
-                            color = AppColors.textPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "(Вершин: ${activePolygonPoints.size})",
-                            color = AppColors.textSecondary,
-                            fontSize = 11.5.sp
-                        )
-                    }
+                    Text(
+                        text = "Площадь: $areaStr   •   Периметр: $perimStr",
+                        color = AppColors.textPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
                     if (ppm <= 0.0) {
                         Spacer(modifier = Modifier.height(3.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Warning,
-                                contentDescription = "Внимание",
-                                tint = WarningAmber,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Карта без привязки к метрам (px²)",
-                                color = WarningAmber,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Text(
+                            text = "Карта без масштаба (px²)",
+                            color = WarningAmber,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }

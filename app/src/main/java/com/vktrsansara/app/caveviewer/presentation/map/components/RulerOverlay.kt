@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Straighten
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -218,48 +217,24 @@ fun RulerOverlay(
                     )
                 }
             } else {
+                val distStr = MeasureUtils.formatDistance(totalLengthPx, ppm)
+                val segmentsCount = points.size
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "📏 Длина: ",
-                            color = AppColors.textSecondary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = MeasureUtils.formatDistance(totalLengthPx, ppm),
-                            color = AppColors.textPrimary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "(Точек: ${points.size + 1})",
-                            color = AppColors.textSecondary,
-                            fontSize = 12.sp
-                        )
-                    }
+                    Text(
+                        text = "Длина: $distStr ($segmentsCount сегм.)",
+                        color = AppColors.textPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
                     if (ppm <= 0.0) {
                         Spacer(modifier = Modifier.height(3.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Warning,
-                                contentDescription = "Внимание",
-                                tint = WarningAmber,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Карта без привязки к метрам (px)",
-                                color = WarningAmber,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Text(
+                            text = "Карта без масштаба (px)",
+                            color = WarningAmber,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }

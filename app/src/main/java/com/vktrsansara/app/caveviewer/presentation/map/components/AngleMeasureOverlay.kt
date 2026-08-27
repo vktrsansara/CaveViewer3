@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Architecture
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -207,49 +206,21 @@ fun AngleMeasureOverlay(
                     val curLenStr = MeasureUtils.formatDistance(cursorDistancePx, ppm)
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "📐 Угол: ",
-                                color = AppColors.textSecondary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = angleStr,
-                                color = AmberAngleColor,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(2.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "База: $baseLenStr  •  Луч: $curLenStr",
-                                color = AppColors.textPrimary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Normal
-                            )
-                        }
+                        Text(
+                            text = "Угол: $angleStr   •   База: $baseLenStr   •   Луч: $curLenStr",
+                            color = AppColors.textPrimary,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
 
                         if (ppm <= 0.0) {
                             Spacer(modifier = Modifier.height(3.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Warning,
-                                    contentDescription = "Внимание",
-                                    tint = AmberAngleColor,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Карта без привязки к метрам (px)",
-                                    color = AmberAngleColor,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
+                            Text(
+                                text = "Карта без масштаба (px)",
+                                color = AmberAngleColor,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
