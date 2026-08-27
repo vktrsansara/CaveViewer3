@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.AddLocation
+import androidx.compose.material.icons.rounded.AddLocationAlt
 import androidx.compose.material.icons.rounded.AppSettingsAlt
 import androidx.compose.material.icons.rounded.Architecture
 import androidx.compose.material.icons.rounded.Build
@@ -134,7 +135,8 @@ fun MenuPopover(
     onScaleBindingClick: () -> Unit = {},
     onNorthBindingClick: () -> Unit = {},
     onEntranceBindingClick: () -> Unit = {},
-    onOpenLayerManagerClick: () -> Unit = {},
+    isPointLayersModeActive: Boolean = false,
+    onTogglePointLayersMode: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentLevel by remember { mutableStateOf(MenuLevel.MAIN) }
@@ -183,7 +185,6 @@ fun MenuPopover(
                             onOpenFavoriteToolsPreset = onOpenFavoriteToolsPreset,
                             onProjectsClick = { currentLevel = MenuLevel.PROJECTS },
                             onEditClick = { currentLevel = MenuLevel.EDIT },
-                            onOpenLayerManagerClick = onOpenLayerManagerClick,
                             onToolsClick = { currentLevel = MenuLevel.TOOLS },
                             onSettingsClick = { currentLevel = MenuLevel.SETTINGS },
                             onExitClick = onExitApp
@@ -202,8 +203,10 @@ fun MenuPopover(
                     }
                     MenuLevel.EDIT -> {
                         EditSubmenuContent(
+                            isPointLayersModeActive = isPointLayersModeActive,
                             onMetadataClick = onEditMetadataClick,
                             onBindingClick = { currentLevel = MenuLevel.BINDING },
+                            onTogglePointLayersMode = onTogglePointLayersMode,
                             onBackClick = { currentLevel = MenuLevel.MAIN }
                         )
                     }
@@ -252,7 +255,6 @@ private fun MainMenuContent(
     onOpenFavoriteToolsPreset: () -> Unit,
     onProjectsClick: () -> Unit,
     onEditClick: () -> Unit,
-    onOpenLayerManagerClick: () -> Unit,
     onToolsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onExitClick: () -> Unit
@@ -278,16 +280,6 @@ private fun MainMenuContent(
                 iconTint = IconEditColor,
                 title = "Редактировать",
                 onClick = onEditClick
-            )
-        }
-
-        // Item 2.5: Слои точек (Sky Blue Layers) - active only if project is loaded
-        if (hasActiveProject) {
-            MenuItem(
-                icon = Icons.Rounded.Layers,
-                iconTint = Color(0xFF38BDF8), // Sky Blue
-                title = "Слои точек",
-                onClick = onOpenLayerManagerClick
             )
         }
 
@@ -472,8 +464,10 @@ private fun ToolsSubmenuContent(
 
 @Composable
 private fun EditSubmenuContent(
+    isPointLayersModeActive: Boolean,
     onMetadataClick: () -> Unit,
     onBindingClick: () -> Unit,
+    onTogglePointLayersMode: () -> Unit,
     onBackClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -482,7 +476,7 @@ private fun EditSubmenuContent(
 
         HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
 
-        // Item: Метаданные (Sky Blue Map)
+        // Item 1: Метаданные (Sky Blue Map)
         MenuItem(
             icon = Icons.Rounded.Map,
             iconTint = AccentSkyBlue,
@@ -490,7 +484,7 @@ private fun EditSubmenuContent(
             onClick = onMetadataClick
         )
 
-        // Item: Привязка (Amber Straighten)
+        // Item 2: Привязка (Amber Straighten)
         MenuItem(
             icon = Icons.Rounded.Straighten,
             iconTint = IconBindingColor,
@@ -498,7 +492,16 @@ private fun EditSubmenuContent(
             onClick = onBindingClick
         )
 
-        // Item: Назад (Sky Blue Arrow)
+        // Item 3: Слои точек (Sky Blue AddLocationAlt) с галочкой активности
+        MenuItem(
+            icon = Icons.Rounded.AddLocationAlt,
+            iconTint = AccentSkyBlue,
+            title = "Слои точек",
+            isChecked = isPointLayersModeActive,
+            onClick = onTogglePointLayersMode
+        )
+
+        // Item 4: Назад (Sky Blue Arrow)
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             iconTint = IconBackArrowColor,

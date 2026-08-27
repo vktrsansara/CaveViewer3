@@ -1148,13 +1148,17 @@ fun MainScreenContent(
                 onScaleBindingClick = { onIntent(MainUiIntent.StartScaleBinding) },
                 onNorthBindingClick = { onIntent(MainUiIntent.StartNorthBinding) },
                 onEntranceBindingClick = { onIntent(MainUiIntent.StartEntranceBinding) },
-                onOpenLayerManagerClick = { onIntent(MainUiIntent.OpenLayerManager) },
+                isPointLayersModeActive = uiState.isPointLayersModeActive,
+                onTogglePointLayersMode = { onIntent(MainUiIntent.TogglePointLayersMode) },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
             // Floating bottom bar
             FloatingBottomBar(
-                onMenuClick = { onIntent(MainUiIntent.ToggleMenu) }
+                onMenuClick = { onIntent(MainUiIntent.ToggleMenu) },
+                isPointLayersModeActive = uiState.isPointLayersModeActive,
+                onPointLayersClick = { onIntent(MainUiIntent.OpenLayerManager) },
+                onClosePointLayersClick = { onIntent(MainUiIntent.DisablePointLayersMode) }
             )
         }
     }

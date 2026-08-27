@@ -112,7 +112,8 @@ data class MainUiState(
     val allVisiblePoints: List<LayerPoint> = emptyList(),
     val selectedPointForDetails: LayerPoint? = null,
     val isPointPlacementControlOpen: Boolean = false,
-    val isPointEditorHelpOpen: Boolean = false
+    val isPointEditorHelpOpen: Boolean = false,
+    val isPointLayersModeActive: Boolean = false
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -262,6 +263,8 @@ sealed interface MainUiIntent : UiIntent {
     data object CancelProjectCreation : MainUiIntent
 
     // Point Layer actions
+    data object TogglePointLayersMode : MainUiIntent
+    data object DisablePointLayersMode : MainUiIntent
     data object OpenLayerManager : MainUiIntent
     data object DismissLayerManager : MainUiIntent
     data object OpenCreateLayerDialog : MainUiIntent

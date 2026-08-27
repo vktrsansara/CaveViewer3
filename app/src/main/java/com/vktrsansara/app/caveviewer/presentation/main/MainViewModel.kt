@@ -1382,6 +1382,28 @@ class MainViewModel(
                 projectCreationJob = null
                 _uiState.update { it.copy(isProjectSaving = false) }
             }
+            is MainUiIntent.TogglePointLayersMode -> {
+                val newActive = !_uiState.value.isPointLayersModeActive
+                _uiState.update {
+                    it.copy(
+                        isPointLayersModeActive = newActive,
+                        isMenuExpanded = false,
+                        editingPointLayer = if (!newActive) null else it.editingPointLayer,
+                        isLayerManagerOpen = if (!newActive) false else it.isLayerManagerOpen
+                    )
+                }
+            }
+            is MainUiIntent.DisablePointLayersMode -> {
+                _uiState.update {
+                    it.copy(
+                        isPointLayersModeActive = false,
+                        isLayerManagerOpen = false,
+                        editingPointLayer = null,
+                        editingPoint = null,
+                        isEditPointDialogOpen = false
+                    )
+                }
+            }
             is MainUiIntent.OpenLayerManager -> {
                 val activeName = _uiState.value.activeProjectName
                 if (activeName != null) {
