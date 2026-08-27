@@ -90,6 +90,9 @@ import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MapFilterHelpDial
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MultiToolDockHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingInputDialog
+import com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.PointEditorHelpDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.PointPlacementControlDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingInputDialog
 import com.vktrsansara.app.caveviewer.presentation.metadata.MetadataEditorScreen
@@ -383,6 +386,28 @@ fun MainScreen(
         }
     }
 
+    // Point Placement Control Dialog («Управление»)
+    if (uiState.isPointPlacementControlOpen) {
+        PointPlacementControlDialog(
+            currentMode = uiState.settings.pointPlacementMode,
+            onApply = { newMode ->
+                viewModel.handleIntent(MainUiIntent.SavePointPlacementMode(newMode))
+            },
+            onDismiss = {
+                viewModel.handleIntent(MainUiIntent.DismissPointPlacementControl)
+            }
+        )
+    }
+
+    // Point Editor Help Dialog («Справка: Редактор точек»)
+    if (uiState.isPointEditorHelpOpen) {
+        PointEditorHelpDialog(
+            onDismiss = {
+                viewModel.handleIntent(MainUiIntent.DismissPointEditorHelp)
+            }
+        )
+    }
+
     // Handle system back gesture
     BackHandler(
         enabled = uiState.currentScreen != AppScreen.MAIN ||
@@ -611,8 +636,8 @@ fun MainScreenContent(
                 onMapClick = { clickedLatLng ->
                     var pointHit = false
                     val curMeta = mapMetadata ?: uiState.activeProjectMetadata
-                    val isMeasuring = isCalibrationMode || isAnyToolActive || uiState.editingPointLayer != null
-                    if (!isMeasuring && curMeta != null && projector != null && uiState.allVisiblePoints.isNotEmpty()) {
+                    val isMeasuringTools = isCalibrationMode || isAnyToolActive
+                    if (!isMeasuringTools && curMeta != null && projector != null && uiState.allVisiblePoints.isNotEmpty()) {
                         try {
                             val clickedScreen = projector!!.invoke(clickedLatLng)
                             val hitRadiusPx = 28 * density.density
@@ -645,8 +670,38 @@ fun MainScreenContent(
                         }
                     }
 
-                    if (!pointHit && uiState.selectedPointForDetails != null) {
-                        onIntent(MainUiIntent.DismissPointDetails)
+                    if (!pointHit) {
+                        if (uiState.selectedPointForDetails != null) {
+                            onIntent(MainUiIntent.DismissPointDetails)
+                        } else if (uiState.editingPointLayer != null && curMeta != null) {
+                            when (uiState.settings.pointPlacementMode) {
+                                PointPlacementMode.CURSOR_BUTTON_AND_TAP,
+                                PointPlacementMode.CURSOR_TAP_ONLY -> {
+                                    val liveCenterLatLng = getMapCenter?.invoke() ?: LatLng(currentTargetLat, currentTargetLon)
+                                    val liveCenterPx = CaveMapBounds.latLngToImagePixels(
+                                        latLng = liveCenterLatLng,
+                                        imageWidth = curMeta.imageWidth,
+                                        imageHeight = curMeta.imageHeight,
+                                        maxZoom = curMeta.zoomMax
+                                    )
+                                    onIntent(MainUiIntent.OpenCreatePointDialog(liveCenterPx))
+                                    pointHit = true
+                                }
+                                PointPlacementMode.FREE_TAP -> {
+                                    val clickedPx = CaveMapBounds.latLngToImagePixels(
+                                        latLng = clickedLatLng,
+                                        imageWidth = curMeta.imageWidth,
+                                        imageHeight = curMeta.imageHeight,
+                                        maxZoom = curMeta.zoomMax
+                                    )
+                                    onIntent(MainUiIntent.OpenCreatePointDialog(clickedPx))
+                                    pointHit = true
+                                }
+                                PointPlacementMode.CURSOR_BUTTON_ONLY -> {
+                                    // Do nothing on tap
+                                }
+                            }
+                        }
                     }
 
                     pointHit
@@ -971,6 +1026,7 @@ fun MainScreenContent(
                 ) {
                     PointEditorSideControl(
                         layer = layer,
+                        placementMode = uiState.settings.pointPlacementMode,
                         onAddPoint = {
                             val curMeta = mapMetadata ?: uiState.activeProjectMetadata
                             if (curMeta != null) {
@@ -986,13 +1042,19 @@ fun MainScreenContent(
                         },
                         onClose = {
                             onIntent(MainUiIntent.ExitPointEditorMode)
+                        },
+                        onSettingsClick = {
+                            onIntent(MainUiIntent.OpenPointPlacementControl)
+                        },
+                        onHelpClick = {
+                            onIntent(MainUiIntent.OpenPointEditorHelp)
                         }
                     )
                 }
             }
 
             // Selected Point Details Card
-            if (uiState.selectedPointForDetails != null && !isCalibrationMode && uiState.editingPointLayer == null) {
+            if (uiState.selectedPointForDetails != null && !isCalibrationMode) {
                 val selPoint = uiState.selectedPointForDetails!!
                 val parentLayer = uiState.pointLayers.find { it.id == selPoint.layerId }
                 if (parentLayer != null) {

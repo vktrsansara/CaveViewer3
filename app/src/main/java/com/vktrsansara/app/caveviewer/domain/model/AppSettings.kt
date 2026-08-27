@@ -11,6 +11,13 @@ enum class CompassTapMode {
     SCREEN_NORTH  // Выравнивание по экрану (Север строго вверх)
 }
 
+enum class PointPlacementMode(val title: String) {
+    CURSOR_BUTTON_AND_TAP("Кнопка «+» и Тап"),
+    CURSOR_BUTTON_ONLY("Только Кнопка «+»"),
+    CURSOR_TAP_ONLY("Только Тап"),
+    FREE_TAP("Тап в нужном месте")
+}
+
 data class AppSettings(
     val theme: ThemeMode = ThemeMode.AUTO,
     val isFullscreen: Boolean = false,
@@ -26,5 +33,6 @@ data class AppSettings(
     val gridColor: Long = 0x9973FF00L,     // Grid color (with alpha)
     val colorPaletteMode: String = "standard", // "standard" or "muted"
     val mapFilter: MapFilterMode = MapFilterMode.NONE,
-    val favoriteToolPreset: List<String> = emptyList() // ToolType.name list
+    val favoriteToolPreset: List<String> = emptyList(), // ToolType.name list
+    val pointPlacementMode: PointPlacementMode = PointPlacementMode.CURSOR_BUTTON_AND_TAP
 )

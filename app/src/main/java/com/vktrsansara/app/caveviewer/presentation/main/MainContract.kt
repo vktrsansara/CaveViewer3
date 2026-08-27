@@ -110,7 +110,9 @@ data class MainUiState(
     val editingPoint: LayerPoint? = null,
     val isEditPointDialogOpen: Boolean = false,
     val allVisiblePoints: List<LayerPoint> = emptyList(),
-    val selectedPointForDetails: LayerPoint? = null
+    val selectedPointForDetails: LayerPoint? = null,
+    val isPointPlacementControlOpen: Boolean = false,
+    val isPointEditorHelpOpen: Boolean = false
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -290,6 +292,11 @@ sealed interface MainUiIntent : UiIntent {
     data class SelectPoint(val point: LayerPoint) : MainUiIntent
     data object DismissPointDetails : MainUiIntent
     data class CenterOnPoint(val point: LayerPoint) : MainUiIntent
+    data object OpenPointPlacementControl : MainUiIntent
+    data object DismissPointPlacementControl : MainUiIntent
+    data class SavePointPlacementMode(val mode: com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode) : MainUiIntent
+    data object OpenPointEditorHelp : MainUiIntent
+    data object DismissPointEditorHelp : MainUiIntent
 }
 
 sealed interface MainUiEffect : UiEffect {

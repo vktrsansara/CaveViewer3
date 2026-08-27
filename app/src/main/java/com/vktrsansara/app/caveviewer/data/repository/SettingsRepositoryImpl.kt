@@ -42,6 +42,7 @@ class SettingsRepositoryImpl(
         val COLOR_PALETTE_MODE = stringPreferencesKey("color_palette_mode")
         val MAP_FILTER = stringPreferencesKey("map_filter")
         val FAVORITE_TOOL_PRESET = stringPreferencesKey("favorite_tool_preset")
+        val POINT_PLACEMENT_MODE = stringPreferencesKey("point_placement_mode")
     }
 
     override val settingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -84,6 +85,12 @@ class SettingsRepositoryImpl(
             }
             val favoritePresetStr = preferences[PreferencesKeys.FAVORITE_TOOL_PRESET] ?: ""
             val favoriteToolPreset = if (favoritePresetStr.isBlank()) emptyList() else favoritePresetStr.split(",").filter { it.isNotBlank() }
+            val placementModeStr = preferences[PreferencesKeys.POINT_PLACEMENT_MODE] ?: com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode.CURSOR_BUTTON_AND_TAP.name
+            val pointPlacementMode = try {
+                com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode.valueOf(placementModeStr)
+            } catch (e: IllegalArgumentException) {
+                com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode.CURSOR_BUTTON_AND_TAP
+            }
 
             AppSettings(
                 theme = theme,
@@ -100,7 +107,8 @@ class SettingsRepositoryImpl(
                 gridColor = gridColor,
                 colorPaletteMode = colorPaletteMode,
                 mapFilter = mapFilter,
-                favoriteToolPreset = favoriteToolPreset
+                favoriteToolPreset = favoriteToolPreset,
+                pointPlacementMode = pointPlacementMode
             )
         }
 
@@ -191,6 +199,12 @@ class SettingsRepositoryImpl(
     override suspend fun setFavoriteToolPreset(preset: List<String>) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.FAVORITE_TOOL_PRESET] = preset.joinToString(",")
+        }
+    }
+
+    override suspend fun setPointPlacementMode(mode: com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.POINT_PLACEMENT_MODE] = mode.name
         }
     }
 }

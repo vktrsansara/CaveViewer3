@@ -1687,6 +1687,24 @@ class MainViewModel(
                     }
                 }
             }
+            is MainUiIntent.OpenPointPlacementControl -> {
+                _uiState.update { it.copy(isPointPlacementControlOpen = true) }
+            }
+            is MainUiIntent.DismissPointPlacementControl -> {
+                _uiState.update { it.copy(isPointPlacementControlOpen = false) }
+            }
+            is MainUiIntent.SavePointPlacementMode -> {
+                viewModelScope.launch {
+                    settingsRepository.setPointPlacementMode(intent.mode)
+                    _uiState.update { it.copy(isPointPlacementControlOpen = false) }
+                }
+            }
+            is MainUiIntent.OpenPointEditorHelp -> {
+                _uiState.update { it.copy(isPointEditorHelpOpen = true) }
+            }
+            is MainUiIntent.DismissPointEditorHelp -> {
+                _uiState.update { it.copy(isPointEditorHelpOpen = false) }
+            }
         }
     }
 
