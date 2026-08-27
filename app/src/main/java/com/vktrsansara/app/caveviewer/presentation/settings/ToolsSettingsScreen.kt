@@ -279,7 +279,7 @@ fun ToolsSettingsScreen(
                             ) {
                                 CursorPreviewCanvas(
                                     type = settings.cursorType,
-                                    cursorColor = Color(settings.cursorColor),
+                                    cursorColor = Color(settings.cursorColor.toInt()),
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -306,7 +306,7 @@ fun ToolsSettingsScreen(
                                     modifier = Modifier
                                         .size(26.dp)
                                         .clip(CircleShape)
-                                        .background(Color(settings.cursorColor))
+                                        .background(Color(settings.cursorColor.toInt()))
                                         .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
                                 )
                             }
@@ -521,7 +521,7 @@ fun ToolsSettingsScreen(
                                 modifier = Modifier
                                     .size(26.dp)
                                     .clip(CircleShape)
-                                    .background(Color(settings.gridColor))
+                                    .background(Color(settings.gridColor.toInt()))
                                     .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
                             )
                         }

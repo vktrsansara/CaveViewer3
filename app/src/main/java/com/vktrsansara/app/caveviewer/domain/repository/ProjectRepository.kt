@@ -3,8 +3,10 @@ package com.vktrsansara.app.caveviewer.domain.repository
 import android.net.Uri
 import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutProgress
 import kotlinx.coroutines.flow.Flow
@@ -32,4 +34,18 @@ interface ProjectRepository {
     suspend fun addProjectEntrance(projectName: String, entrance: EntranceCoordinate): Result<List<EntranceCoordinate>>
     suspend fun getProjectCadastralData(projectName: String): Map<String, List<CadastralItem>>
     suspend fun saveProjectCadastralData(projectName: String, data: Map<String, List<CadastralItem>>): Result<Unit>
+
+    // Point Layers
+    suspend fun getPointLayers(projectName: String): List<PointLayer>
+    suspend fun insertPointLayer(projectName: String, layer: PointLayer): Result<Long>
+    suspend fun updatePointLayer(projectName: String, layer: PointLayer): Result<Unit>
+    suspend fun deletePointLayer(projectName: String, layerId: Long): Result<Unit>
+    suspend fun toggleLayerVisibility(projectName: String, layerId: Long, isVisible: Boolean): Result<Unit>
+
+    // Layer Points
+    suspend fun getPointsForLayer(projectName: String, layerId: Long): List<LayerPoint>
+    suspend fun getAllVisiblePoints(projectName: String): List<LayerPoint>
+    suspend fun insertLayerPoint(projectName: String, point: LayerPoint): Result<Long>
+    suspend fun updateLayerPoint(projectName: String, point: LayerPoint): Result<Unit>
+    suspend fun deleteLayerPoint(projectName: String, pointId: Long): Result<Unit>
 }

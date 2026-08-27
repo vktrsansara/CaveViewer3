@@ -188,7 +188,7 @@ fun AppColorPickerDialog(
                                     .weight(1f)
                                     .aspectRatio(1.2f)
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(colorValue))
+                                    .background(Color(colorValue.toInt()))
                                     .border(
                                         width = if (isSelected) 2.5.dp else 1.dp,
                                         color = if (isSelected) AccentSkyBlue else Color.White.copy(alpha = 0.25f),
@@ -328,7 +328,7 @@ fun AppColorPickerDialog(
                         modifier = Modifier
                             .size(26.dp)
                             .clip(CircleShape)
-                            .background(Color(finalColorLong))
+                            .background(Color(finalColorLong.toInt()))
                             .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
                     )
                 }

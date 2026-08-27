@@ -32,7 +32,7 @@ fun MapGridOverlay(
     if (!settings.gridEnabled || map == null) return
 
     val gridColor = remember(settings.gridColor) {
-        Color(settings.gridColor)
+        Color(settings.gridColor.toInt())
     }
 
     // Step size in raster image pixels

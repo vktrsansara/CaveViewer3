@@ -26,7 +26,7 @@ fun MapCursorOverlay(
 ) {
     if (!cursorShow) return
 
-    val color = Color(cursorColor)
+    val color = Color(cursorColor.toInt())
     val shadowAlpha = 0.35f * color.alpha
     val shadowColor = Color.Black.copy(alpha = shadowAlpha)
 

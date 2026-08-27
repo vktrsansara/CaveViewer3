@@ -8,9 +8,12 @@ import com.vktrsansara.app.caveviewer.domain.model.AppSettings
 import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.CompassTapMode
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
+import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.model.ThemeMode
@@ -93,7 +96,20 @@ data class MainUiState(
     val isDeltaOffsetHelpVisible: Boolean = false,
     // Map Filter Dialogs
     val isMapFilterDialogVisible: Boolean = false,
-    val isMapFilterHelpDialogVisible: Boolean = false
+    val isMapFilterHelpDialogVisible: Boolean = false,
+    // Point Layers State
+    val pointLayers: List<PointLayer> = emptyList(),
+    val layerPointCounts: Map<Long, Int> = emptyMap(),
+    val isLayerManagerOpen: Boolean = false,
+    val isCreateLayerOpen: Boolean = false,
+    val selectedLayerForSettings: PointLayer? = null,
+    val selectedLayerForProperties: PointLayer? = null,
+    val isAddFieldDialogOpen: Boolean = false,
+    val editingPointLayer: PointLayer? = null,
+    val editingPoint: LayerPoint? = null,
+    val isEditPointDialogOpen: Boolean = false,
+    val allVisiblePoints: List<LayerPoint> = emptyList(),
+    val selectedPointForDetails: LayerPoint? = null
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -241,6 +257,36 @@ sealed interface MainUiIntent : UiIntent {
     // Project Creation
     data class CreateRasterProject(val projectName: String, val imageUri: Uri) : MainUiIntent
     data object CancelProjectCreation : MainUiIntent
+
+    // Point Layer actions
+    data object OpenLayerManager : MainUiIntent
+    data object DismissLayerManager : MainUiIntent
+    data object OpenCreateLayerDialog : MainUiIntent
+    data object DismissCreateLayerDialog : MainUiIntent
+    data class CreatePointLayer(val name: String) : MainUiIntent
+    data class ToggleLayerVisibility(val layerId: Long) : MainUiIntent
+    data class DeletePointLayer(val layerId: Long) : MainUiIntent
+    data class OpenLayerSettings(val layer: PointLayer) : MainUiIntent
+    data object DismissLayerSettings : MainUiIntent
+    data class SaveLayerSettings(val updatedLayer: PointLayer) : MainUiIntent
+    data class OpenLayerProperties(val layer: PointLayer) : MainUiIntent
+    data object DismissLayerProperties : MainUiIntent
+    data object OpenAddFieldDialog : MainUiIntent
+    data object DismissAddFieldDialog : MainUiIntent
+    data class AddLayerField(val layerId: Long, val field: LayerFieldDefinition) : MainUiIntent
+    data class DeleteLayerField(val layerId: Long, val fieldKey: String) : MainUiIntent
+
+    // Point Editor actions
+    data class StartPointEditorMode(val layer: PointLayer) : MainUiIntent
+    data object ExitPointEditorMode : MainUiIntent
+    data class OpenCreatePointDialog(val cursorPx: Pair<Double, Double>) : MainUiIntent
+    data class OpenEditPointDialog(val point: LayerPoint) : MainUiIntent
+    data object DismissEditPointDialog : MainUiIntent
+    data class SaveLayerPoint(val point: LayerPoint) : MainUiIntent
+    data class DeleteLayerPoint(val pointId: Long) : MainUiIntent
+    data class SelectPoint(val point: LayerPoint) : MainUiIntent
+    data object DismissPointDetails : MainUiIntent
+    data class CenterOnPoint(val point: LayerPoint) : MainUiIntent
 }
 
 sealed interface MainUiEffect : UiEffect {

@@ -69,7 +69,9 @@ fun MapLibreViewer(
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit = { _, _, _, _ -> },
     onBindingScreenPointsChanged: (List<Offset>) -> Unit = {},
     onProjectorReady: (((LatLng) -> Offset) -> Unit)? = null,
+    onGetMapCenterReady: (((() -> LatLng)) -> Unit)? = null,
     onMapCenterClick: (LatLng) -> Unit = {},
+    onMapClick: ((LatLng) -> Boolean)? = null,
     onResetBearingReady: ((Double) -> Unit) -> Unit = {},
     onMetadataLoaded: (MapMetadata) -> Unit = {},
     modifier: Modifier = Modifier
@@ -182,7 +184,9 @@ fun MapLibreViewer(
                     onCameraPositionChanged = onCameraPositionChanged,
                     onBindingScreenPointsChanged = onBindingScreenPointsChanged,
                     onProjectorReady = onProjectorReady,
+                    onGetMapCenterReady = onGetMapCenterReady,
                     onMapCenterClick = onMapCenterClick,
+                    onMapClick = onMapClick,
                     onResetBearingReady = onResetBearingReady,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -202,7 +206,9 @@ private fun MapLibreMapViewContainer(
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit,
     onBindingScreenPointsChanged: (List<Offset>) -> Unit,
     onProjectorReady: (((LatLng) -> Offset) -> Unit)? = null,
+    onGetMapCenterReady: (((() -> LatLng)) -> Unit)? = null,
     onMapCenterClick: (LatLng) -> Unit,
+    onMapClick: ((LatLng) -> Boolean)? = null,
     onResetBearingReady: ((Double) -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -210,10 +216,12 @@ private fun MapLibreMapViewContainer(
     var maplibreMapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
     var cameraVersion by remember { mutableLongStateOf(0L) }
 
+    val currentOnMapClick by rememberUpdatedState(onMapClick)
     val currentOnMapCenterClick by rememberUpdatedState(onMapCenterClick)
     val currentOnCameraPositionChanged by rememberUpdatedState(onCameraPositionChanged)
     val currentOnBindingScreenPointsChanged by rememberUpdatedState(onBindingScreenPointsChanged)
     val currentOnProjectorReady by rememberUpdatedState(onProjectorReady)
+    val currentOnGetMapCenterReady by rememberUpdatedState(onGetMapCenterReady)
     val currentOnResetBearingReady by rememberUpdatedState(onResetBearingReady)
     val currentBindingPoints by rememberUpdatedState(bindingPoints)
 
@@ -302,6 +310,11 @@ private fun MapLibreMapViewContainer(
             getMapAsync { maplibreMap ->
                 maplibreMapInstance = maplibreMap
 
+                // Provide callback to get live map center
+                currentOnGetMapCenterReady?.invoke {
+                    maplibreMap.cameraPosition.target ?: mapCenter
+                }
+
                 // Provide callback to reset rotation bearing smoothly to specified target bearing
                 currentOnResetBearingReady { targetBearing ->
                     val currentCam = maplibreMap.cameraPosition
@@ -309,11 +322,17 @@ private fun MapLibreMapViewContainer(
                     maplibreMap.easeCamera(CameraUpdateFactory.newCameraPosition(targetCam), 350)
                 }
 
-                // Handle single tap click on map -> provides map center (under cursor)
-                maplibreMap.addOnMapClickListener { _ ->
-                    val center = maplibreMap.cameraPosition.target
-                    if (center != null) {
-                        currentOnMapCenterClick(center)
+                // Handle single tap click on map -> provides map click / center (under cursor)
+                maplibreMap.addOnMapClickListener { clickedLatLng ->
+                    var consumed = false
+                    if (currentOnMapClick != null) {
+                        consumed = currentOnMapClick!!(clickedLatLng)
+                    }
+                    if (!consumed) {
+                        val center = maplibreMap.cameraPosition.target
+                        if (center != null) {
+                            currentOnMapCenterClick(center)
+                        }
                     }
                     true
                 }

@@ -81,7 +81,7 @@ fun CursorColorPickerDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(CursorPaletteColors) { colorLong ->
-                    val color = Color(colorLong)
+                    val color = Color(colorLong.toInt())
                     val isSelected = colorLong == selectedColor
 
                     Box(

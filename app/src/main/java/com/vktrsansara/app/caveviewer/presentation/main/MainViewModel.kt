@@ -3,8 +3,12 @@ package com.vktrsansara.app.caveviewer.presentation.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
+import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
+import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.model.ToolType
 import com.vktrsansara.app.caveviewer.domain.repository.ProjectRepository
@@ -58,6 +62,12 @@ class MainViewModel(
                         val entrances = projectRepository.getProjectEntrances(activeName)
                         val location = projectRepository.getProjectLocation(activeName)
                         val cadastral = projectRepository.getProjectCadastralData(activeName)
+                        val layers = projectRepository.getPointLayers(activeName)
+                        val pointCounts = mutableMapOf<Long, Int>()
+                        layers.forEach { layer ->
+                            val points = projectRepository.getPointsForLayer(activeName, layer.id)
+                            pointCounts[layer.id] = points.size
+                        }
                         _uiState.update {
                             it.copy(
                                 hasActiveProject = true,
@@ -67,7 +77,9 @@ class MainViewModel(
                                 activeProjectEntrances = entrances,
                                 activeProjectLocation = location,
                                 activeProjectCadastralData = cadastral,
-                                activeProjectCameraPosition = savedPos
+                                activeProjectCameraPosition = savedPos,
+                                pointLayers = layers,
+                                layerPointCounts = pointCounts
                             )
                         }
                     } else {
@@ -80,7 +92,11 @@ class MainViewModel(
                                 activeProjectEntrances = emptyList(),
                                 activeProjectLocation = MapLocation(),
                                 activeProjectCadastralData = emptyMap(),
-                                activeProjectCameraPosition = null
+                                activeProjectCameraPosition = null,
+                                pointLayers = emptyList(),
+                                layerPointCounts = emptyMap(),
+                                isLayerManagerOpen = false,
+                                isCreateLayerOpen = false
                             )
                         }
                     }
@@ -94,7 +110,11 @@ class MainViewModel(
                             activeProjectEntrances = emptyList(),
                             activeProjectLocation = MapLocation(),
                             activeProjectCadastralData = emptyMap(),
-                            activeProjectCameraPosition = null
+                            activeProjectCameraPosition = null,
+                            pointLayers = emptyList(),
+                            layerPointCounts = emptyMap(),
+                            isLayerManagerOpen = false,
+                            isCreateLayerOpen = false
                         )
                     }
                 }
@@ -1343,6 +1363,267 @@ class MainViewModel(
                 projectCreationJob = null
                 _uiState.update { it.copy(isProjectSaving = false) }
             }
+            is MainUiIntent.OpenLayerManager -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        loadPointLayers(activeName)
+                        _uiState.update {
+                            it.copy(
+                                isLayerManagerOpen = true,
+                                isMenuExpanded = false
+                            )
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.DismissLayerManager -> {
+                _uiState.update { it.copy(isLayerManagerOpen = false) }
+            }
+            is MainUiIntent.OpenCreateLayerDialog -> {
+                _uiState.update { it.copy(isCreateLayerOpen = true) }
+            }
+            is MainUiIntent.DismissCreateLayerDialog -> {
+                _uiState.update { it.copy(isCreateLayerOpen = false) }
+            }
+            is MainUiIntent.CreatePointLayer -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        val newLayer = PointLayer(name = intent.name)
+                        projectRepository.insertPointLayer(activeName, newLayer)
+                        loadPointLayers(activeName)
+                        _uiState.update { it.copy(isCreateLayerOpen = false) }
+                    }
+                }
+            }
+            is MainUiIntent.ToggleLayerVisibility -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        val currentLayer = _uiState.value.pointLayers.find { it.id == intent.layerId }
+                        val currentVis = currentLayer?.isVisible ?: true
+                        projectRepository.toggleLayerVisibility(activeName, intent.layerId, !currentVis)
+                        loadPointLayers(activeName)
+                    }
+                }
+            }
+            is MainUiIntent.DeletePointLayer -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        projectRepository.deletePointLayer(activeName, intent.layerId)
+                        loadPointLayers(activeName)
+                    }
+                }
+            }
+            is MainUiIntent.OpenLayerSettings -> {
+                _uiState.update { it.copy(selectedLayerForSettings = intent.layer) }
+            }
+            is MainUiIntent.DismissLayerSettings -> {
+                _uiState.update { it.copy(selectedLayerForSettings = null) }
+            }
+            is MainUiIntent.SaveLayerSettings -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        projectRepository.updatePointLayer(activeName, intent.updatedLayer)
+                        loadPointLayers(activeName)
+                        _uiState.update { it.copy(selectedLayerForSettings = null) }
+                    }
+                }
+            }
+            is MainUiIntent.OpenLayerProperties -> {
+                _uiState.update { it.copy(selectedLayerForProperties = intent.layer) }
+            }
+            is MainUiIntent.DismissLayerProperties -> {
+                _uiState.update { it.copy(selectedLayerForProperties = null, isAddFieldDialogOpen = false) }
+            }
+            is MainUiIntent.OpenAddFieldDialog -> {
+                _uiState.update { it.copy(isAddFieldDialogOpen = true) }
+            }
+            is MainUiIntent.DismissAddFieldDialog -> {
+                _uiState.update { it.copy(isAddFieldDialogOpen = false) }
+            }
+            is MainUiIntent.AddLayerField -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        val currentLayer = _uiState.value.pointLayers.find { it.id == intent.layerId }
+                            ?: _uiState.value.selectedLayerForProperties
+                        if (currentLayer != null) {
+                            val updatedSchema = currentLayer.fieldsSchema + intent.field
+                            val updatedLayer = currentLayer.copy(fieldsSchema = updatedSchema)
+                            projectRepository.updatePointLayer(activeName, updatedLayer)
+                            loadPointLayers(activeName)
+                            _uiState.update {
+                                it.copy(
+                                    selectedLayerForProperties = updatedLayer,
+                                    isAddFieldDialogOpen = false
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.DeleteLayerField -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        val currentLayer = _uiState.value.pointLayers.find { it.id == intent.layerId }
+                            ?: _uiState.value.selectedLayerForProperties
+                        if (currentLayer != null) {
+                            val updatedSchema = currentLayer.fieldsSchema.filterNot { it.key == intent.fieldKey }
+                            val updatedLayer = currentLayer.copy(fieldsSchema = updatedSchema)
+                            projectRepository.updatePointLayer(activeName, updatedLayer)
+                            loadPointLayers(activeName)
+                            _uiState.update {
+                                it.copy(selectedLayerForProperties = updatedLayer)
+                            }
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.StartPointEditorMode -> {
+                _uiState.update {
+                    it.copy(
+                        editingPointLayer = intent.layer,
+                        isLayerManagerOpen = false,
+                        isEditPointDialogOpen = false,
+                        editingPoint = null
+                    )
+                }
+            }
+            is MainUiIntent.ExitPointEditorMode -> {
+                _uiState.update {
+                    it.copy(
+                        editingPointLayer = null,
+                        editingPoint = null,
+                        isEditPointDialogOpen = false
+                    )
+                }
+            }
+            is MainUiIntent.OpenCreatePointDialog -> {
+                val currentLayer = _uiState.value.editingPointLayer
+                if (currentLayer != null) {
+                    val defaultCustomValues = currentLayer.fieldsSchema.associate { field ->
+                        field.key to field.defaultValue
+                    }
+                    val newPoint = LayerPoint(
+                        id = 0L,
+                        layerId = currentLayer.id,
+                        name = "",
+                        x = intent.cursorPx.first,
+                        y = intent.cursorPx.second,
+                        shape = currentLayer.defaultShape,
+                        color = currentLayer.defaultColor,
+                        customValues = defaultCustomValues
+                    )
+                    _uiState.update {
+                        it.copy(
+                            editingPoint = newPoint,
+                            isEditPointDialogOpen = true
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.OpenEditPointDialog -> {
+                _uiState.update {
+                    it.copy(
+                        editingPoint = intent.point,
+                        isEditPointDialogOpen = true
+                    )
+                }
+            }
+            is MainUiIntent.DismissEditPointDialog -> {
+                _uiState.update {
+                    it.copy(
+                        editingPoint = null,
+                        isEditPointDialogOpen = false
+                    )
+                }
+            }
+            is MainUiIntent.SaveLayerPoint -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        if (intent.point.id == 0L) {
+                            projectRepository.insertLayerPoint(activeName, intent.point)
+                        } else {
+                            projectRepository.updateLayerPoint(activeName, intent.point)
+                        }
+                        loadPointLayers(activeName)
+                        _uiState.update {
+                            it.copy(
+                                editingPoint = null,
+                                isEditPointDialogOpen = false,
+                                selectedPointForDetails = if (it.selectedPointForDetails?.id == intent.point.id) intent.point else it.selectedPointForDetails
+                            )
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.DeleteLayerPoint -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        projectRepository.deleteLayerPoint(activeName, intent.pointId)
+                        loadPointLayers(activeName)
+                        _uiState.update {
+                            it.copy(
+                                editingPoint = null,
+                                isEditPointDialogOpen = false,
+                                selectedPointForDetails = if (it.selectedPointForDetails?.id == intent.pointId) null else it.selectedPointForDetails
+                            )
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.SelectPoint -> {
+                _uiState.update { it.copy(selectedPointForDetails = intent.point) }
+            }
+            is MainUiIntent.DismissPointDetails -> {
+                _uiState.update { it.copy(selectedPointForDetails = null) }
+            }
+            is MainUiIntent.CenterOnPoint -> {
+                val meta = _uiState.value.activeProjectMetadata
+                if (meta != null) {
+                    val targetLatLng = CaveMapBounds.imagePixelsToLatLng(
+                        pixelX = intent.point.x,
+                        pixelY = intent.point.y,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        maxZoom = meta.zoomMax
+                    )
+                    _uiState.update {
+                        it.copy(
+                            activeProjectCameraPosition = MapCameraPosition(
+                                targetLat = targetLatLng.latitude,
+                                targetLon = targetLatLng.longitude,
+                                zoom = it.activeProjectCameraPosition?.zoom ?: (meta.zoomMax.toDouble() - 1.0),
+                                bearing = it.activeProjectCameraPosition?.bearing ?: 0.0
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun loadPointLayers(projectName: String) {
+        val layers = projectRepository.getPointLayers(projectName)
+        val pointCounts = mutableMapOf<Long, Int>()
+        layers.forEach { layer ->
+            val points = projectRepository.getPointsForLayer(projectName, layer.id)
+            pointCounts[layer.id] = points.size
+        }
+        val allPoints = projectRepository.getAllVisiblePoints(projectName)
+        _uiState.update {
+            it.copy(
+                pointLayers = layers,
+                layerPointCounts = pointCounts,
+                allVisiblePoints = allPoints
+            )
         }
     }
 

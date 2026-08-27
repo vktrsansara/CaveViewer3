@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GridOn
+import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.LocationSearching
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -133,6 +134,7 @@ fun MenuPopover(
     onScaleBindingClick: () -> Unit = {},
     onNorthBindingClick: () -> Unit = {},
     onEntranceBindingClick: () -> Unit = {},
+    onOpenLayerManagerClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentLevel by remember { mutableStateOf(MenuLevel.MAIN) }
@@ -181,6 +183,7 @@ fun MenuPopover(
                             onOpenFavoriteToolsPreset = onOpenFavoriteToolsPreset,
                             onProjectsClick = { currentLevel = MenuLevel.PROJECTS },
                             onEditClick = { currentLevel = MenuLevel.EDIT },
+                            onOpenLayerManagerClick = onOpenLayerManagerClick,
                             onToolsClick = { currentLevel = MenuLevel.TOOLS },
                             onSettingsClick = { currentLevel = MenuLevel.SETTINGS },
                             onExitClick = onExitApp
@@ -249,6 +252,7 @@ private fun MainMenuContent(
     onOpenFavoriteToolsPreset: () -> Unit,
     onProjectsClick: () -> Unit,
     onEditClick: () -> Unit,
+    onOpenLayerManagerClick: () -> Unit,
     onToolsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onExitClick: () -> Unit
@@ -274,6 +278,16 @@ private fun MainMenuContent(
                 iconTint = IconEditColor,
                 title = "Редактировать",
                 onClick = onEditClick
+            )
+        }
+
+        // Item 2.5: Слои точек (Sky Blue Layers) - active only if project is loaded
+        if (hasActiveProject) {
+            MenuItem(
+                icon = Icons.Rounded.Layers,
+                iconTint = Color(0xFF38BDF8), // Sky Blue
+                title = "Слои точек",
+                onClick = onOpenLayerManagerClick
             )
         }
 

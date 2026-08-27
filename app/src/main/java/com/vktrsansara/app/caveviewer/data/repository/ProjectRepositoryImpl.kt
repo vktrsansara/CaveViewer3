@@ -14,8 +14,10 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
 import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
 import com.vktrsansara.app.caveviewer.domain.repository.ProjectRepository
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutProgress
@@ -354,6 +356,115 @@ class ProjectRepositoryImpl(
                     dir.deleteRecursively()
                 } catch (_: Exception) {}
             }
+            Result.failure(e)
+        }
+    }
+
+    // ==========================================
+    // Point Layers & Layer Points CRUD
+    // ==========================================
+
+    override suspend fun getPointLayers(projectName: String): List<PointLayer> = withContext(Dispatchers.IO) {
+        val dir = getProjectDir(projectName) ?: return@withContext emptyList()
+        val dbFile = File(dir, "thismap.sqlite")
+        if (!dbFile.exists()) return@withContext emptyList()
+        ProjectDatabase(dbFile).getPointLayers()
+    }
+
+    override suspend fun insertPointLayer(projectName: String, layer: PointLayer): Result<Long> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            val id = ProjectDatabase(dbFile).insertPointLayer(layer)
+            Result.success(id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updatePointLayer(projectName: String, layer: PointLayer): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).updatePointLayer(layer)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deletePointLayer(projectName: String, layerId: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).deletePointLayer(layerId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun toggleLayerVisibility(projectName: String, layerId: Long, isVisible: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).toggleLayerVisibility(layerId, isVisible)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getPointsForLayer(projectName: String, layerId: Long): List<LayerPoint> = withContext(Dispatchers.IO) {
+        val dir = getProjectDir(projectName) ?: return@withContext emptyList()
+        val dbFile = File(dir, "thismap.sqlite")
+        if (!dbFile.exists()) return@withContext emptyList()
+        ProjectDatabase(dbFile).getPointsForLayer(layerId)
+    }
+
+    override suspend fun getAllVisiblePoints(projectName: String): List<LayerPoint> = withContext(Dispatchers.IO) {
+        val dir = getProjectDir(projectName) ?: return@withContext emptyList()
+        val dbFile = File(dir, "thismap.sqlite")
+        if (!dbFile.exists()) return@withContext emptyList()
+        ProjectDatabase(dbFile).getAllVisiblePoints()
+    }
+
+    override suspend fun insertLayerPoint(projectName: String, point: LayerPoint): Result<Long> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            val id = ProjectDatabase(dbFile).insertLayerPoint(point)
+            Result.success(id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateLayerPoint(projectName: String, point: LayerPoint): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).updateLayerPoint(point)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteLayerPoint(projectName: String, pointId: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).deleteLayerPoint(pointId)
+            Result.success(Unit)
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }
