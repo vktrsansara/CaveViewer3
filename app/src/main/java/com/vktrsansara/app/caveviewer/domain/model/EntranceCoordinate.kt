@@ -9,4 +9,6 @@ data class EntranceCoordinate(
     val lat: Double? = null,
     val lon: Double? = null,
     val alt: Double? = null
-)
+) {
+    val isValidGps: Boolean get() = lat != null && lon != null && lat in -90.0..90.0 && lon in -180.0..180.0
+}

@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -102,78 +103,86 @@ fun OsmEntranceBindingViewer(
     val currentOnEntranceTapped by rememberUpdatedState(onEntranceTapped)
     val currentEntrances by rememberUpdatedState(entrances)
 
+    val initialTarget = remember(entrances) {
+        entrances.firstOrNull { it.isValidGps }?.let {
+            LatLng(it.lat!!, it.lon!!)
+        } ?: LatLng(55.751244, 37.618423) // Moscow default
+    }
+
+    val initialZoom = remember(entrances) {
+        if (entrances.any { it.isValidGps }) 14.0 else 5.0
+    }
+
+    fun calculateScreenPositions(map: MapLibreMap) {
+        val projection = map.projection
+        val newPositions = currentEntrances.mapNotNull { entrance ->
+            if (entrance.isValidGps) {
+                val pointF = projection.toScreenLocation(LatLng(entrance.lat!!, entrance.lon!!))
+                Pair(entrance, Offset(pointF.x, pointF.y))
+            } else {
+                null
+            }
+        }
+        entranceScreenPositions = newPositions
+    }
+
+    val mapView = remember {
+        val options = MapLibreMapOptions.createFromAttributes(context).apply {
+            textureMode(true)
+            attributionEnabled(false)
+            logoEnabled(false)
+            compassEnabled(false)
+            camera(
+                CameraPosition.Builder()
+                    .target(initialTarget)
+                    .zoom(initialZoom)
+                    .build()
+            )
+        }
+        MapView(context, options).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            onCreate(null)
+
+            getMapAsync { maplibreMap ->
+                mapInstance = maplibreMap
+                maplibreMap.setStyle(Style.Builder().fromJson(OSM_STYLE_JSON)) {
+                    // Style loaded
+                }
+
+                maplibreMap.addOnCameraMoveListener {
+                    calculateScreenPositions(maplibreMap)
+                }
+
+                maplibreMap.addOnMapClickListener {
+                    val target = maplibreMap.cameraPosition.target
+                    if (target != null) {
+                        currentOnEntranceTapped(target)
+                    }
+                    true
+                }
+
+                calculateScreenPositions(maplibreMap)
+            }
+        }
+    }
+
+    LaunchedEffect(entrances, mapInstance) {
+        mapInstance?.let { map ->
+            calculateScreenPositions(map)
+        }
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(AppColors.bgMain)
     ) {
-        val oneThirdFromBottom = maxHeight / 3
-
         // 1. AndroidView hosting MapLibre MapView with OpenStreetMap Style
         AndroidView(
-            factory = { ctx ->
-                val initialTarget = currentEntrances.firstOrNull { it.lat != null && it.lon != null }?.let {
-                    LatLng(it.lat!!, it.lon!!)
-                } ?: LatLng(55.751244, 37.618423) // Moscow default
-
-                val initialZoom = if (currentEntrances.any { it.lat != null && it.lon != null }) 14.0 else 5.0
-
-                val options = MapLibreMapOptions.createFromAttributes(ctx)
-                    .textureMode(true)
-                    .attributionEnabled(false)
-                    .logoEnabled(false)
-                    .compassEnabled(false)
-                    .camera(
-                        CameraPosition.Builder()
-                            .target(initialTarget)
-                            .zoom(initialZoom)
-                            .build()
-                    )
-
-                MapView(ctx, options).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-
-                    getMapAsync { maplibreMap ->
-                        mapInstance = maplibreMap
-                        maplibreMap.setStyle(Style.Builder().fromJson(OSM_STYLE_JSON)) {
-                            // Style loaded
-                        }
-
-                        // Update entrance projected screen coordinates on camera move
-                        fun updateEntranceScreenPositions() {
-                            val projection = maplibreMap.projection
-                            val newPositions = currentEntrances.mapNotNull { entrance ->
-                                val lat = entrance.lat
-                                val lon = entrance.lon
-                                if (lat != null && lon != null) {
-                                    val pointF = projection.toScreenLocation(LatLng(lat, lon))
-                                    Pair(entrance, Offset(pointF.x, pointF.y))
-                                } else {
-                                    null
-                                }
-                            }
-                            entranceScreenPositions = newPositions
-                        }
-
-                        maplibreMap.addOnCameraMoveListener {
-                            updateEntranceScreenPositions()
-                        }
-
-                        maplibreMap.addOnMapClickListener {
-                            val target = maplibreMap.cameraPosition.target
-                            if (target != null) {
-                                currentOnEntranceTapped(target)
-                            }
-                            true
-                        }
-
-                        updateEntranceScreenPositions()
-                    }
-                }
-            },
+            factory = { mapView },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -218,15 +227,17 @@ fun OsmEntranceBindingViewer(
         ) {
             OsmSearchBar(
                 onSelectLocation = { lat, lon ->
-                    mapInstance?.easeCamera(
-                        CameraUpdateFactory.newCameraPosition(
-                            CameraPosition.Builder()
-                                .target(LatLng(lat, lon))
-                                .zoom(15.0)
-                                .build()
-                        ),
-                        800
-                    )
+                    if (lat in -90.0..90.0 && lon in -180.0..180.0) {
+                        mapInstance?.easeCamera(
+                            CameraUpdateFactory.newCameraPosition(
+                                CameraPosition.Builder()
+                                    .target(LatLng(lat, lon))
+                                    .zoom(15.0)
+                                    .build()
+                            ),
+                            800
+                        )
+                    }
                 }
             )
 
@@ -263,20 +274,21 @@ fun OsmEntranceBindingViewer(
     }
 
     // Lifecycle handling for MapView
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, mapView) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> {}
-                Lifecycle.Event.ON_RESUME -> {}
-                Lifecycle.Event.ON_PAUSE -> {}
-                Lifecycle.Event.ON_STOP -> {}
-                Lifecycle.Event.ON_DESTROY -> {}
-                else -> {}
+                Lifecycle.Event.ON_START -> mapView.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
+                else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView.onDestroy()
         }
     }
 }
