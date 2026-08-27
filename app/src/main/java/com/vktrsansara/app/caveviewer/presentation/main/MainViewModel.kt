@@ -1431,6 +1431,16 @@ class MainViewModel(
                     viewModelScope.launch {
                         projectRepository.deletePointLayer(activeName, intent.layerId)
                         loadPointLayers(activeName)
+                        _uiState.update {
+                            it.copy(
+                                editingPointLayer = if (it.editingPointLayer?.id == intent.layerId) null else it.editingPointLayer,
+                                selectedPointForDetails = if (it.selectedPointForDetails?.layerId == intent.layerId) null else it.selectedPointForDetails,
+                                selectedLayerForSettings = if (it.selectedLayerForSettings?.id == intent.layerId) null else it.selectedLayerForSettings,
+                                selectedLayerForProperties = if (it.selectedLayerForProperties?.id == intent.layerId) null else it.selectedLayerForProperties,
+                                editingPoint = if (it.editingPoint?.layerId == intent.layerId) null else it.editingPoint,
+                                isEditPointDialogOpen = if (it.editingPoint?.layerId == intent.layerId) false else it.isEditPointDialogOpen
+                            )
+                        }
                     }
                 }
             }
