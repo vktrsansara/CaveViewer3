@@ -288,6 +288,7 @@ fun MainScreen(
     // Create Layer Dialog
     if (uiState.isCreateLayerOpen) {
         CreateLayerDialog(
+            existingNames = uiState.pointLayers.map { it.name },
             onSave = { name ->
                 viewModel.handleIntent(MainUiIntent.CreatePointLayer(name))
             },
@@ -299,8 +300,10 @@ fun MainScreen(
 
     // Layer Settings Dialog (Marker Shape, Color, Size, Labels)
     if (uiState.selectedLayerForSettings != null) {
+        val currentSelected = uiState.selectedLayerForSettings!!
         LayerSettingsDialog(
-            layer = uiState.selectedLayerForSettings!!,
+            layer = currentSelected,
+            existingNames = uiState.pointLayers.filter { it.id != currentSelected.id }.map { it.name },
             onSave = { updated ->
                 viewModel.handleIntent(MainUiIntent.SaveLayerSettings(updated))
             },

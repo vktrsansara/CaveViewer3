@@ -53,10 +53,15 @@ import kotlin.math.roundToInt
 @Composable
 fun LayerSettingsDialog(
     layer: PointLayer,
+    existingNames: List<String> = emptyList(),
     onSave: (updatedLayer: PointLayer) -> Unit,
     onDismiss: () -> Unit
 ) {
     var name by remember { mutableStateOf(layer.name) }
+    val trimmed = name.trim()
+    val isDuplicate = remember(trimmed, existingNames) {
+        trimmed.isNotEmpty() && existingNames.any { it.equals(trimmed, ignoreCase = true) }
+    }
     var shape by remember { mutableStateOf(layer.defaultShape) }
     var color by remember { mutableLongStateOf(layer.defaultColor) }
     var size by remember { mutableFloatStateOf(layer.defaultSize) }
@@ -86,11 +91,11 @@ fun LayerSettingsDialog(
             Spacer(modifier = Modifier.width(8.dp))
             DialogSaveButton(
                 text = "Сохранить",
-                enabled = name.isNotBlank(),
+                enabled = trimmed.isNotBlank() && !isDuplicate,
                 onClick = {
                     onSave(
                         layer.copy(
-                            name = name.trim(),
+                            name = trimmed,
                             defaultShape = shape,
                             defaultColor = color,
                             defaultSize = size,
@@ -111,11 +116,18 @@ fun LayerSettingsDialog(
                 onValueChange = { name = it },
                 label = { Text("Название слоя") },
                 singleLine = true,
+                isError = isDuplicate,
+                supportingText = if (isDuplicate) {
+                    { Text("Слой с таким названием уже существует", color = Color(0xFFEF4444)) }
+                } else null,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AccentSkyBlue,
-                    unfocusedBorderColor = AppColors.borderColor,
-                    focusedLabelColor = AccentSkyBlue,
-                    unfocusedLabelColor = AppColors.textSecondary,
+                    focusedBorderColor = if (isDuplicate) Color(0xFFEF4444) else AccentSkyBlue,
+                    unfocusedBorderColor = if (isDuplicate) Color(0xFFEF4444) else AppColors.borderColor,
+                    focusedLabelColor = if (isDuplicate) Color(0xFFEF4444) else AccentSkyBlue,
+                    unfocusedLabelColor = if (isDuplicate) Color(0xFFEF4444) else AppColors.textSecondary,
+                    errorBorderColor = Color(0xFFEF4444),
+                    errorLabelColor = Color(0xFFEF4444),
+                    errorSupportingTextColor = Color(0xFFEF4444),
                     focusedTextColor = AppColors.textPrimary,
                     unfocusedTextColor = AppColors.textPrimary,
                     cursorColor = AccentSkyBlue

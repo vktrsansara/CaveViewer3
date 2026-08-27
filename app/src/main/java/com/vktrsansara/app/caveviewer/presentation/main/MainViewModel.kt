@@ -1406,11 +1406,19 @@ class MainViewModel(
             is MainUiIntent.CreatePointLayer -> {
                 val activeName = _uiState.value.activeProjectName
                 if (activeName != null) {
-                    viewModelScope.launch {
-                        val newLayer = PointLayer(name = intent.name)
-                        projectRepository.insertPointLayer(activeName, newLayer)
-                        loadPointLayers(activeName)
-                        _uiState.update { it.copy(isCreateLayerOpen = false) }
+                    val trimmed = intent.name.trim()
+                    val isDuplicate = _uiState.value.pointLayers.any { it.name.equals(trimmed, ignoreCase = true) }
+                    if (isDuplicate) {
+                        viewModelScope.launch {
+                            _effect.send(MainUiEffect.ShowToast("Слой с названием «$trimmed» уже существует"))
+                        }
+                    } else {
+                        viewModelScope.launch {
+                            val newLayer = PointLayer(name = trimmed)
+                            projectRepository.insertPointLayer(activeName, newLayer)
+                            loadPointLayers(activeName)
+                            _uiState.update { it.copy(isCreateLayerOpen = false) }
+                        }
                     }
                 }
             }
@@ -1453,10 +1461,20 @@ class MainViewModel(
             is MainUiIntent.SaveLayerSettings -> {
                 val activeName = _uiState.value.activeProjectName
                 if (activeName != null) {
-                    viewModelScope.launch {
-                        projectRepository.updatePointLayer(activeName, intent.updatedLayer)
-                        loadPointLayers(activeName)
-                        _uiState.update { it.copy(selectedLayerForSettings = null) }
+                    val trimmed = intent.updatedLayer.name.trim()
+                    val isDuplicate = _uiState.value.pointLayers.any {
+                        it.id != intent.updatedLayer.id && it.name.equals(trimmed, ignoreCase = true)
+                    }
+                    if (isDuplicate) {
+                        viewModelScope.launch {
+                            _effect.send(MainUiEffect.ShowToast("Слой с названием «$trimmed» уже существует"))
+                        }
+                    } else {
+                        viewModelScope.launch {
+                            projectRepository.updatePointLayer(activeName, intent.updatedLayer.copy(name = trimmed))
+                            loadPointLayers(activeName)
+                            _uiState.update { it.copy(selectedLayerForSettings = null) }
+                        }
                     }
                 }
             }
