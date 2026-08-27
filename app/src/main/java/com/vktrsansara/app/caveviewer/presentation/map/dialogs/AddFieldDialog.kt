@@ -43,6 +43,7 @@ import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.presentation.components.DialogSaveButton
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
+import java.util.Locale
 
 @Composable
 fun AddFieldDialog(
@@ -74,9 +75,9 @@ fun AddFieldDialog(
                 text = "Добавить",
                 enabled = isValid,
                 onClick = {
-                    val sanitizedKey = name.trim().lowercase()
+                    val safeKey = name.trim().lowercase(Locale.US)
                         .replace(Regex("[^a-z0-9а-я_]"), "_")
-                        .ifEmpty { "field_${System.currentTimeMillis()}" }
+                        .ifBlank { "field_${System.currentTimeMillis()}" }
 
                     val finalDefault = when (type) {
                         LayerFieldType.BOOLEAN -> if (booleanDefault) "true" else "false"
@@ -86,7 +87,7 @@ fun AddFieldDialog(
 
                     onAdd(
                         LayerFieldDefinition(
-                            key = sanitizedKey,
+                            key = safeKey,
                             name = name.trim(),
                             type = type,
                             defaultValue = finalDefault,
