@@ -73,6 +73,7 @@ fun MapLibreViewer(
     onMapCenterClick: (LatLng) -> Unit = {},
     onMapClick: ((LatLng) -> Boolean)? = null,
     onResetBearingReady: ((Double) -> Unit) -> Unit = {},
+    onMoveCameraReady: (((LatLng, Double?) -> Unit) -> Unit)? = null,
     onMetadataLoaded: (MapMetadata) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -188,6 +189,7 @@ fun MapLibreViewer(
                     onMapCenterClick = onMapCenterClick,
                     onMapClick = onMapClick,
                     onResetBearingReady = onResetBearingReady,
+                    onMoveCameraReady = onMoveCameraReady,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -210,6 +212,7 @@ private fun MapLibreMapViewContainer(
     onMapCenterClick: (LatLng) -> Unit,
     onMapClick: ((LatLng) -> Boolean)? = null,
     onResetBearingReady: ((Double) -> Unit) -> Unit,
+    onMoveCameraReady: (((LatLng, Double?) -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -223,6 +226,7 @@ private fun MapLibreMapViewContainer(
     val currentOnProjectorReady by rememberUpdatedState(onProjectorReady)
     val currentOnGetMapCenterReady by rememberUpdatedState(onGetMapCenterReady)
     val currentOnResetBearingReady by rememberUpdatedState(onResetBearingReady)
+    val currentOnMoveCameraReady by rememberUpdatedState(onMoveCameraReady)
     val currentBindingPoints by rememberUpdatedState(bindingPoints)
 
     // 1. Calculate Bounds and Map Center using CaveMapBounds (Equator centered)
@@ -320,6 +324,20 @@ private fun MapLibreMapViewContainer(
                     val currentCam = maplibreMap.cameraPosition
                     val targetCam = CameraPosition.Builder(currentCam).bearing(targetBearing).build()
                     maplibreMap.easeCamera(CameraUpdateFactory.newCameraPosition(targetCam), 350)
+                }
+
+                // Provide callback to move camera smoothly to target LatLng and optional zoom
+                currentOnMoveCameraReady?.invoke { targetLatLng, targetZoom ->
+                    if (targetZoom != null) {
+                        val currentCam = maplibreMap.cameraPosition
+                        val targetCam = CameraPosition.Builder(currentCam)
+                            .target(targetLatLng)
+                            .zoom(targetZoom)
+                            .build()
+                        maplibreMap.easeCamera(CameraUpdateFactory.newCameraPosition(targetCam), 400)
+                    } else {
+                        maplibreMap.easeCamera(CameraUpdateFactory.newLatLng(targetLatLng), 400)
+                    }
                 }
 
                 // Handle single tap click on map -> provides map click / center (under cursor)

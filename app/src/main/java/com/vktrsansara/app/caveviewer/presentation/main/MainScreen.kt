@@ -513,6 +513,7 @@ fun MainScreenContent(
     var currentTargetLat by remember { mutableDoubleStateOf(initialPos?.targetLat ?: 0.0) }
     var currentTargetLon by remember { mutableDoubleStateOf(initialPos?.targetLon ?: 0.0) }
     var resetBearingAction by remember { mutableStateOf<((Double) -> Unit)?>(null) }
+    var moveCameraAction by remember { mutableStateOf<((LatLng, Double?) -> Unit)?>(null) }
     var getMapCenter by remember { mutableStateOf<(() -> LatLng)?>(null) }
     var mapMetadata by remember(uiState.activeProjectMetadata) { mutableStateOf(uiState.activeProjectMetadata) }
     var bindingScreenPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
@@ -644,6 +645,9 @@ fun MainScreenContent(
                 },
                 onResetBearingReady = { action ->
                     resetBearingAction = action
+                },
+                onMoveCameraReady = { action ->
+                    moveCameraAction = action
                 },
                 onMetadataLoaded = { meta ->
                     mapMetadata = meta
@@ -1020,6 +1024,17 @@ fun MainScreenContent(
                             onIntent(MainUiIntent.OpenEditPointDialog(selPoint))
                         },
                         onCenterMapClick = {
+                            val curMeta = mapMetadata ?: uiState.activeProjectMetadata
+                            if (curMeta != null) {
+                                val targetLatLng = CaveMapBounds.imagePixelsToLatLng(
+                                    pixelX = selPoint.x,
+                                    pixelY = selPoint.y,
+                                    imageWidth = curMeta.imageWidth,
+                                    imageHeight = curMeta.imageHeight,
+                                    maxZoom = curMeta.zoomMax
+                                )
+                                moveCameraAction?.invoke(targetLatLng, null)
+                            }
                             onIntent(MainUiIntent.CenterOnPoint(selPoint))
                         },
                         onDeleteClick = {
