@@ -113,7 +113,7 @@ class ProjectDatabase(private val dbFile: File) {
                     default_shape TEXT NOT NULL DEFAULT 'CIRCLE',
                     default_color INTEGER NOT NULL DEFAULT -13058824,
                     default_size REAL NOT NULL DEFAULT 6.0,
-                    show_labels INTEGER NOT NULL DEFAULT 1,
+                    show_labels INTEGER NOT NULL DEFAULT 0,
                     fields_schema_json TEXT NOT NULL DEFAULT '[]',
                     created_at INTEGER NOT NULL
                 );

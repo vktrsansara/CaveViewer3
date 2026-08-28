@@ -120,7 +120,7 @@ data class PointLayer(
     val defaultShape: PointShape = PointShape.CIRCLE,
     val defaultColor: Long = 0xFF38BDF8, // Цвет по умолчанию (Sky Blue)
     val defaultSize: Float = 6f,
-    val showLabels: Boolean = true,
+    val showLabels: Boolean = false,
     val fieldsSchema: List<LayerFieldDefinition> = emptyList(),
     val createdAt: Long = System.currentTimeMillis()
 )
