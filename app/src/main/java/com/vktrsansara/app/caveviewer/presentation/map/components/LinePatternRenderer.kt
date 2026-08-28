@@ -149,7 +149,105 @@ object LinePatternRenderer {
                         }
                     }
 
-                    // 7. Свой цвет / Пользовательский
+                    // 7. Тяга воздуха: двойной шеврон ветра >>
+                    LineEnvironmentType.AIR_DRAFT -> {
+                        val arrowLen = tickSizePx * 1.0f
+                        val arrowAngle = Math.toRadians(35.0).toFloat()
+                        val spacing = tickSizePx * 0.55f
+                        for (k in listOf(-spacing / 2f, spacing / 2f)) {
+                            val shiftX = cos(angle) * k
+                            val shiftY = sin(angle) * k
+                            val path = Path().apply {
+                                moveTo(
+                                    cx + shiftX - arrowLen * cos(angle - arrowAngle),
+                                    cy + shiftY - arrowLen * sin(angle - arrowAngle)
+                                )
+                                lineTo(cx + shiftX, cy + shiftY)
+                                lineTo(
+                                    cx + shiftX - arrowLen * cos(angle + arrowAngle),
+                                    cy + shiftY - arrowLen * sin(angle + arrowAngle)
+                                )
+                            }
+                            drawScope.drawPath(path, patternColor, style = Stroke(width = lineWidthPx.coerceAtLeast(2.0f)))
+                        }
+                    }
+
+                    // 8. Песок / Гравий: три микро-точки треугольником ⁖
+                    LineEnvironmentType.SAND -> {
+                        val r = tickSizePx * 0.32f
+                        val spread = tickSizePx * 0.55f
+                        // Верхняя точка
+                        drawScope.drawCircle(patternColor, r, Offset(cx - sinNorm * spread, cy + cosNorm * spread))
+                        // Две нижние точки
+                        val b1x = cx + sinNorm * spread * 0.6f - cos(angle) * spread * 0.7f
+                        val b1y = cy - cosNorm * spread * 0.6f - sin(angle) * spread * 0.7f
+                        val b2x = cx + sinNorm * spread * 0.6f + cos(angle) * spread * 0.7f
+                        val b2y = cy - cosNorm * spread * 0.6f + sin(angle) * spread * 0.7f
+                        drawScope.drawCircle(patternColor, r, Offset(b1x, b1y))
+                        drawScope.drawCircle(patternColor, r, Offset(b2x, b2y))
+                    }
+
+                    // 9. Навеска / Перила / Веревка: полый круг-узел ○
+                    LineEnvironmentType.ROPE -> {
+                        drawScope.drawCircle(
+                            color = patternColor,
+                            radius = tickSizePx * 0.65f,
+                            center = Offset(cx, cy),
+                            style = Stroke(width = lineWidthPx.coerceAtLeast(2.0f))
+                        )
+                    }
+
+                    // 10. Узость / Калибр: смыкающиеся треугольники-зажимы ><
+                    LineEnvironmentType.SQUEEZE -> {
+                        val h = tickSizePx * 0.9f
+                        val w = tickSizePx * 0.6f
+                        val pTop = Path().apply {
+                            moveTo(cx - cos(angle) * w - cosNorm * h, cy - sin(angle) * w - sinNorm * h)
+                            lineTo(cx - cosNorm * (h * 0.2f), cy - sinNorm * (h * 0.2f))
+                            lineTo(cx + cos(angle) * w - cosNorm * h, cy + sin(angle) * w - sinNorm * h)
+                        }
+                        val pBottom = Path().apply {
+                            moveTo(cx - cos(angle) * w + cosNorm * h, cy - sin(angle) * w + sinNorm * h)
+                            lineTo(cx + cosNorm * (h * 0.2f), cy + sinNorm * (h * 0.2f))
+                            lineTo(cx + cos(angle) * w + cosNorm * h, cy + sin(angle) * w + sinNorm * h)
+                        }
+                        drawScope.drawPath(pTop, patternColor, style = Stroke(width = lineWidthPx.coerceAtLeast(2.0f)))
+                        drawScope.drawPath(pBottom, patternColor, style = Stroke(width = lineWidthPx.coerceAtLeast(2.0f)))
+                    }
+
+                    // 11. Уступ / Сброс: Т-образный зубчик уступа ┰
+                    LineEnvironmentType.DROP -> {
+                        val h = tickSizePx * 1.1f
+                        val barW = tickSizePx * 0.6f
+                        // Стержень уступа
+                        val endX = cx + cosNorm * h
+                        val endY = cy + sinNorm * h
+                        drawScope.drawLine(patternColor, Offset(cx, cy), Offset(endX, endY), lineWidthPx.coerceAtLeast(2.0f))
+                        // Перекладина
+                        drawScope.drawLine(
+                            patternColor,
+                            Offset(endX - cos(angle) * barW, endY - sin(angle) * barW),
+                            Offset(endX + cos(angle) * barW, endY + sin(angle) * barW),
+                            lineWidthPx.coerceAtLeast(2.0f)
+                        )
+                    }
+
+                    // 12. Натеки / Кальцит: полукруглая дуга-чешуйка ⌒
+                    LineEnvironmentType.FLOWSTONE -> {
+                        val r = tickSizePx * 0.85f
+                        val path = Path().apply {
+                            moveTo(cx - cos(angle) * r, cy - sin(angle) * r)
+                            quadraticTo(
+                                cx - cosNorm * (r * 1.3f),
+                                cy - sinNorm * (r * 1.3f),
+                                cx + cos(angle) * r,
+                                cy + sin(angle) * r
+                            )
+                        }
+                        drawScope.drawPath(path, patternColor, style = Stroke(width = lineWidthPx.coerceAtLeast(2.0f)))
+                    }
+
+                    // 13. Свой цвет / Пользовательский
                     LineEnvironmentType.CUSTOM -> {
                         drawScope.drawCircle(
                             color = patternColor,

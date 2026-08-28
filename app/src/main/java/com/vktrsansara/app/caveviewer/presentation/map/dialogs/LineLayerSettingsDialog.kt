@@ -451,7 +451,7 @@ fun LineLayerSettingsDialog(
                         }
 
                         Text(
-                            text = if (env == LineEnvironmentType.NONE) env.title else "${env.title.substringBefore(" /")} ${env.symbol}",
+                            text = if (env == LineEnvironmentType.NONE) env.title else "${env.title.substringBefore(" /").substringBefore(" (")} ${env.symbol}",
                             fontSize = 12.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             color = if (isSelected) AccentSkyBlue else AppColors.textPrimary
@@ -498,7 +498,7 @@ fun LineLayerSettingsHelpDialog(
 
             HelpItem(
                 title = "Топографическая текстура хода (Среда UIS):",
-                description = "Векторные спелеологические обозначения вдоль линии хода: стрелки течения воды (водоток), перпендикулярная гребенка (завалы), крапинки (глина), двойные штрихи (сифоны) или ромбики (лед)."
+                description = "Векторные спелеологические обозначения стандарта UIS/Therion вдоль ходов: водоток, завалы, глина, сифоны, лед, загазованность, тяга воздуха (ветер), песок/осыпь, перила/навеска, узости/калибры, уступы/сбросы и натеки/кальцит."
             )
         }
     }
