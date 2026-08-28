@@ -44,6 +44,13 @@ class SettingsRepositoryImpl(
         val FAVORITE_TOOL_PRESET = stringPreferencesKey("favorite_tool_preset")
         val POINT_PLACEMENT_MODE = stringPreferencesKey("point_placement_mode")
         val LINE_PLACEMENT_MODE = stringPreferencesKey("line_placement_mode")
+        val SNAP_ENABLED = booleanPreferencesKey("snap_enabled")
+        val SNAP_TO_VERTICES = booleanPreferencesKey("snap_to_vertices")
+        val SNAP_TO_EDGES = booleanPreferencesKey("snap_to_edges")
+        val SNAP_TO_POINTS = booleanPreferencesKey("snap_to_points")
+        val SNAP_POINTS_TO_LINES = booleanPreferencesKey("snap_points_to_lines")
+        val SNAP_RADIUS_DP = doublePreferencesKey("snap_radius_dp")
+        val SNAP_INTERSECTION_MODE = stringPreferencesKey("snap_intersection_mode")
     }
 
     override val settingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -99,6 +106,28 @@ class SettingsRepositoryImpl(
                 com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode.CURSOR_BUTTON_AND_TAP
             }
 
+            val snapEnabled = preferences[PreferencesKeys.SNAP_ENABLED] ?: true
+            val snapToVertices = preferences[PreferencesKeys.SNAP_TO_VERTICES] ?: true
+            val snapToEdges = preferences[PreferencesKeys.SNAP_TO_EDGES] ?: false
+            val snapToPoints = preferences[PreferencesKeys.SNAP_TO_POINTS] ?: true
+            val snapPointsToLines = preferences[PreferencesKeys.SNAP_POINTS_TO_LINES] ?: true
+            val snapRadiusDp = (preferences[PreferencesKeys.SNAP_RADIUS_DP] ?: 12.0).toFloat()
+            val snapInterModeStr = preferences[PreferencesKeys.SNAP_INTERSECTION_MODE] ?: com.vktrsansara.app.caveviewer.domain.model.IntersectionMode.NO.name
+            val snapIntersectionMode = try {
+                com.vktrsansara.app.caveviewer.domain.model.IntersectionMode.valueOf(snapInterModeStr)
+            } catch (e: IllegalArgumentException) {
+                com.vktrsansara.app.caveviewer.domain.model.IntersectionMode.NO
+            }
+            val snappingSettings = com.vktrsansara.app.caveviewer.domain.model.SnappingSettings(
+                isEnabled = snapEnabled,
+                snapToVertices = snapToVertices,
+                snapToEdges = snapToEdges,
+                snapToPoints = snapToPoints,
+                snapPointsToLines = snapPointsToLines,
+                snapRadiusDp = snapRadiusDp,
+                intersectionMode = snapIntersectionMode
+            )
+
             AppSettings(
                 theme = theme,
                 isFullscreen = isFullscreen,
@@ -116,7 +145,8 @@ class SettingsRepositoryImpl(
                 mapFilter = mapFilter,
                 favoriteToolPreset = favoriteToolPreset,
                 pointPlacementMode = pointPlacementMode,
-                linePlacementMode = linePlacementMode
+                linePlacementMode = linePlacementMode,
+                snappingSettings = snappingSettings
             )
         }
 
@@ -219,6 +249,18 @@ class SettingsRepositoryImpl(
     override suspend fun setLinePlacementMode(mode: com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.LINE_PLACEMENT_MODE] = mode.name
+        }
+    }
+
+    override suspend fun setSnappingSettings(settings: com.vktrsansara.app.caveviewer.domain.model.SnappingSettings) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SNAP_ENABLED] = settings.isEnabled
+            preferences[PreferencesKeys.SNAP_TO_VERTICES] = settings.snapToVertices
+            preferences[PreferencesKeys.SNAP_TO_EDGES] = settings.snapToEdges
+            preferences[PreferencesKeys.SNAP_TO_POINTS] = settings.snapToPoints
+            preferences[PreferencesKeys.SNAP_POINTS_TO_LINES] = settings.snapPointsToLines
+            preferences[PreferencesKeys.SNAP_RADIUS_DP] = settings.snapRadiusDp.toDouble()
+            preferences[PreferencesKeys.SNAP_INTERSECTION_MODE] = settings.intersectionMode.name
         }
     }
 }

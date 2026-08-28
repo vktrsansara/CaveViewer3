@@ -133,7 +133,8 @@ data class MainUiState(
     val isEditLineDialogOpen: Boolean = false,
     val selectedLineForDetails: LayerLine? = null,
     val isLinePlacementControlOpen: Boolean = false,
-    val isLineDrawingHelpOpen: Boolean = false
+    val isLineDrawingHelpOpen: Boolean = false,
+    val isSnappingSettingsDialogOpen: Boolean = false
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -361,6 +362,9 @@ sealed interface MainUiIntent : UiIntent {
     data class SaveLinePlacementMode(val mode: com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode) : MainUiIntent
     data object OpenLineDrawingHelp : MainUiIntent
     data object DismissLineDrawingHelp : MainUiIntent
+    data object OpenSnappingSettingsDialog : MainUiIntent
+    data object DismissSnappingSettingsDialog : MainUiIntent
+    data class SaveSnappingSettings(val settings: com.vktrsansara.app.caveviewer.domain.model.SnappingSettings) : MainUiIntent
 }
 
 sealed interface MainUiEffect : UiEffect {

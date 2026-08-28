@@ -82,6 +82,7 @@ import com.vktrsansara.app.caveviewer.presentation.map.components.getBindingSide
 import com.vktrsansara.app.caveviewer.presentation.map.components.getMultiToolSideBarCloseOffset
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBarWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBindingOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.components.SnappingIndicatorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.AddFieldDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.CreateLayerDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.CreateLineLayerDialog
@@ -101,6 +102,9 @@ import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MapFilterHelpDial
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MultiToolDockHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingInputDialog
+import androidx.compose.ui.platform.LocalDensity
+import com.vktrsansara.app.caveviewer.domain.engine.SnapTarget
+import com.vktrsansara.app.caveviewer.domain.engine.SnappingEngine
 import com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode
 import com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LineDrawingHelpDialog
@@ -109,6 +113,7 @@ import com.vktrsansara.app.caveviewer.presentation.map.dialogs.PointEditorHelpDi
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.PointPlacementControlDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingInputDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.SnappingSettingsDialog
 import com.vktrsansara.app.caveviewer.presentation.metadata.MetadataEditorScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.CreateRasterProjectScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.FeatureUnderDevelopmentScreen
@@ -119,6 +124,7 @@ import com.vktrsansara.app.caveviewer.presentation.settings.ToolsSettingsScreen
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import com.vktrsansara.app.caveviewer.ui.theme.CaveViewerTheme
 import org.maplibre.android.geometry.LatLng
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
@@ -573,6 +579,19 @@ fun MainScreen(
         )
     }
 
+    // Snapping Settings Dialog («Настройки привязки»)
+    if (uiState.isSnappingSettingsDialogOpen) {
+        SnappingSettingsDialog(
+            currentSettings = uiState.settings.snappingSettings,
+            onApply = { newSettings ->
+                viewModel.handleIntent(MainUiIntent.SaveSnappingSettings(newSettings))
+            },
+            onDismiss = {
+                viewModel.handleIntent(MainUiIntent.DismissSnappingSettingsDialog)
+            }
+        )
+    }
+
     // Handle system back gesture
     BackHandler(
         enabled = uiState.currentScreen != AppScreen.MAIN ||
@@ -906,7 +925,41 @@ fun MainScreenContent(
                                         imageWidth = curMeta.imageWidth,
                                         maxZoom = curMeta.zoomMax
                                     )
-                                    onIntent(MainUiIntent.AddDrawingLineVertex(liveCenterLatLng, liveCenterPx))
+                                    val effectiveTarget = if (uiState.settings.snappingSettings.isEnabled && projector != null) {
+                                        val cursorScreenOffset = projector?.invoke(liveCenterLatLng)
+                                        val snap = if (cursorScreenOffset != null) {
+                                            val snapRadiusScreenPx = with(density) {
+                                                uiState.settings.snappingSettings.snapRadiusDp.dp.toPx()
+                                            }
+                                            SnappingEngine.findSnapTarget(
+                                                cursorScreenOffset = cursorScreenOffset,
+                                                visibleLines = uiState.allVisibleLines,
+                                                visiblePoints = uiState.allVisiblePoints,
+                                                imageWidth = curMeta.imageWidth,
+                                                imageHeight = curMeta.imageHeight,
+                                                zoomMax = curMeta.zoomMax,
+                                                projector = projector!!,
+                                                settings = uiState.settings.snappingSettings,
+                                                snapRadiusScreenPx = snapRadiusScreenPx
+                                            )
+                                        } else null
+
+                                        if (snap != null) {
+                                            val snapLatLng = CaveMapBounds.imagePixelsToLatLng(
+                                                pixelX = snap.px.first,
+                                                pixelY = snap.px.second,
+                                                imageWidth = curMeta.imageWidth,
+                                                imageHeight = curMeta.imageHeight,
+                                                maxZoom = curMeta.zoomMax
+                                            )
+                                            Pair(snapLatLng, snap.px)
+                                        } else {
+                                            Pair(liveCenterLatLng, liveCenterPx)
+                                        }
+                                    } else {
+                                        Pair(liveCenterLatLng, liveCenterPx)
+                                    }
+                                    onIntent(MainUiIntent.AddDrawingLineVertex(effectiveTarget.first, effectiveTarget.second))
                                     pointHit = true
                                 }
                                 LinePlacementMode.FREE_TAP -> {
@@ -916,7 +969,41 @@ fun MainScreenContent(
                                         imageHeight = curMeta.imageHeight,
                                         maxZoom = curMeta.zoomMax
                                     )
-                                    onIntent(MainUiIntent.AddDrawingLineVertex(clickedLatLng, clickedPx))
+                                    val effectiveTarget = if (uiState.settings.snappingSettings.isEnabled && projector != null) {
+                                        val clickedScreenOffset = projector?.invoke(clickedLatLng)
+                                        val snap = if (clickedScreenOffset != null) {
+                                            val snapRadiusScreenPx = with(density) {
+                                                SnappingEngine.TOUCH_SNAP_RADIUS_DP.dp.toPx()
+                                            }
+                                            SnappingEngine.findSnapTarget(
+                                                cursorScreenOffset = clickedScreenOffset,
+                                                visibleLines = uiState.allVisibleLines,
+                                                visiblePoints = uiState.allVisiblePoints,
+                                                imageWidth = curMeta.imageWidth,
+                                                imageHeight = curMeta.imageHeight,
+                                                zoomMax = curMeta.zoomMax,
+                                                projector = projector!!,
+                                                settings = uiState.settings.snappingSettings,
+                                                snapRadiusScreenPx = snapRadiusScreenPx
+                                            )
+                                        } else null
+
+                                        if (snap != null) {
+                                            val snapLatLng = CaveMapBounds.imagePixelsToLatLng(
+                                                pixelX = snap.px.first,
+                                                pixelY = snap.px.second,
+                                                imageWidth = curMeta.imageWidth,
+                                                imageHeight = curMeta.imageHeight,
+                                                maxZoom = curMeta.zoomMax
+                                            )
+                                            Pair(snapLatLng, snap.px)
+                                        } else {
+                                            Pair(clickedLatLng, clickedPx)
+                                        }
+                                    } else {
+                                        Pair(clickedLatLng, clickedPx)
+                                    }
+                                    onIntent(MainUiIntent.AddDrawingLineVertex(effectiveTarget.first, effectiveTarget.second))
                                     pointHit = true
                                 }
                                 LinePlacementMode.CURSOR_BUTTON_ONLY -> {
@@ -934,7 +1021,30 @@ fun MainScreenContent(
                                         imageHeight = curMeta.imageHeight,
                                         maxZoom = curMeta.zoomMax
                                     )
-                                    onIntent(MainUiIntent.OpenCreatePointDialog(liveCenterPx))
+                                    val effectivePx = if (uiState.settings.snappingSettings.isEnabled && projector != null) {
+                                        val cursorScreenOffset = projector?.invoke(liveCenterLatLng)
+                                        val snap = if (cursorScreenOffset != null) {
+                                            val snapRadiusScreenPx = with(density) {
+                                                uiState.settings.snappingSettings.snapRadiusDp.dp.toPx()
+                                            }
+                                            SnappingEngine.findSnapTarget(
+                                                cursorScreenOffset = cursorScreenOffset,
+                                                visibleLines = uiState.allVisibleLines,
+                                                visiblePoints = uiState.allVisiblePoints,
+                                                imageWidth = curMeta.imageWidth,
+                                                imageHeight = curMeta.imageHeight,
+                                                zoomMax = curMeta.zoomMax,
+                                                projector = projector!!,
+                                                settings = uiState.settings.snappingSettings,
+                                                snapRadiusScreenPx = snapRadiusScreenPx,
+                                                forPointCreation = true
+                                            )
+                                        } else null
+                                        snap?.px ?: liveCenterPx
+                                    } else {
+                                        liveCenterPx
+                                    }
+                                    onIntent(MainUiIntent.OpenCreatePointDialog(effectivePx))
                                     pointHit = true
                                 }
                                 PointPlacementMode.FREE_TAP -> {
@@ -944,7 +1054,30 @@ fun MainScreenContent(
                                         imageHeight = curMeta.imageHeight,
                                         maxZoom = curMeta.zoomMax
                                     )
-                                    onIntent(MainUiIntent.OpenCreatePointDialog(clickedPx))
+                                    val effectivePx = if (uiState.settings.snappingSettings.isEnabled && projector != null) {
+                                        val clickedScreenOffset = projector?.invoke(clickedLatLng)
+                                        val snap = if (clickedScreenOffset != null) {
+                                            val snapRadiusScreenPx = with(density) {
+                                                SnappingEngine.TOUCH_SNAP_RADIUS_DP.dp.toPx()
+                                            }
+                                            SnappingEngine.findSnapTarget(
+                                                cursorScreenOffset = clickedScreenOffset,
+                                                visibleLines = uiState.allVisibleLines,
+                                                visiblePoints = uiState.allVisiblePoints,
+                                                imageWidth = curMeta.imageWidth,
+                                                imageHeight = curMeta.imageHeight,
+                                                zoomMax = curMeta.zoomMax,
+                                                projector = projector!!,
+                                                settings = uiState.settings.snappingSettings,
+                                                snapRadiusScreenPx = snapRadiusScreenPx,
+                                                forPointCreation = true
+                                            )
+                                        } else null
+                                        snap?.px ?: clickedPx
+                                    } else {
+                                        clickedPx
+                                    }
+                                    onIntent(MainUiIntent.OpenCreatePointDialog(effectivePx))
                                     pointHit = true
                                 }
                                 PointPlacementMode.CURSOR_BUTTON_ONLY -> {
@@ -992,6 +1125,34 @@ fun MainScreenContent(
                     maxZoom = meta.zoomMax
                 )
             } else null
+
+            val isFreeTapLineMode = uiState.editingLineLayer != null && uiState.settings.linePlacementMode == LinePlacementMode.FREE_TAP
+            val isFreeTapPointMode = uiState.editingPointLayer != null && uiState.settings.pointPlacementMode == PointPlacementMode.FREE_TAP
+            val isFreeTapActive = isFreeTapLineMode || isFreeTapPointMode
+            val isSnappingActiveMode = uiState.editingLineLayer != null || uiState.editingPointLayer != null
+
+            val snapTarget = if (meta != null && projector != null && uiState.settings.snappingSettings.isEnabled && isSnappingActiveMode && !isFreeTapActive) {
+                val cursorScreenOffset = projector?.invoke(LatLng(currentTargetLat, currentTargetLon))
+                if (cursorScreenOffset != null) {
+                    val snapRadiusScreenPx = with(density) {
+                        uiState.settings.snappingSettings.snapRadiusDp.dp.toPx()
+                    }
+                    SnappingEngine.findSnapTarget(
+                        cursorScreenOffset = cursorScreenOffset,
+                        visibleLines = uiState.allVisibleLines,
+                        visiblePoints = uiState.allVisiblePoints,
+                        imageWidth = meta.imageWidth,
+                        imageHeight = meta.imageHeight,
+                        zoomMax = meta.zoomMax,
+                        projector = projector!!,
+                        settings = uiState.settings.snappingSettings,
+                        snapRadiusScreenPx = snapRadiusScreenPx,
+                        forPointCreation = (uiState.editingPointLayer != null)
+                    )
+                } else null
+            } else null
+
+            val snapScreenPoint = snapTarget?.screenOffset
 
             // Scale Calibration Overlay
             if (uiState.isScaleBindingMode && meta != null && centerPx != null) {
@@ -1127,7 +1288,7 @@ fun MainScreenContent(
                 )
             }
 
-            // Line Drawing Overlay (Real-time vertices and live dashed ray)
+            // Line Drawing Overlay (Real-time vertices, live dashed ray, and magnetic snapping)
             if (uiState.editingLineLayer != null) {
                 LineDrawingOverlay(
                     layer = uiState.editingLineLayer!!,
@@ -1136,6 +1297,17 @@ fun MainScreenContent(
                     currentCenterPx = centerPx,
                     ppm = meta?.pixelsPerMeter ?: 0.0,
                     placementMode = uiState.settings.linePlacementMode,
+                    snapTarget = snapTarget,
+                    snapScreenPoint = snapScreenPoint,
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
+            // Point Editor Snapping Target Overlay (shows pink QGIS target at cursor)
+            if (uiState.editingPointLayer != null && snapTarget != null && snapScreenPoint != null) {
+                SnappingIndicatorOverlay(
+                    snapTarget = snapTarget,
+                    snapScreenPoint = snapScreenPoint,
                     modifier = Modifier.fillMaxSize().clipToBounds()
                 )
             }
@@ -1163,6 +1335,16 @@ fun MainScreenContent(
 
             // Point Editor Top Banner
             if (uiState.editingPointLayer != null) {
+                val bannerText = buildString {
+                    append("Редактор точек: ${uiState.editingPointLayer!!.name}")
+                    if (snapTarget != null) {
+                        append(" • [🧲 ${snapTarget.title}]")
+                    } else if (uiState.settings.pointPlacementMode == PointPlacementMode.FREE_TAP) {
+                        append(" • Коснитесь экрана для установки точки")
+                    } else {
+                        append(" • Наведите курсор на объект и нажмите [+]")
+                    }
+                }
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -1170,11 +1352,11 @@ fun MainScreenContent(
                         .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
                         .clip(RoundedCornerShape(8.dp))
                         .background(AppColors.bgCard.copy(alpha = 0.95f))
-                        .border(1.dp, AccentSkyBlue, RoundedCornerShape(8.dp))
+                        .border(1.dp, if (snapTarget != null) Color(0xFFF43F5E) else AccentSkyBlue, RoundedCornerShape(8.dp))
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        text = "Редактор точек: ${uiState.editingPointLayer!!.name} • Наведите курсор на объект и нажмите [+]",
+                        text = bannerText,
                         color = AppColors.textPrimary,
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium
@@ -1319,7 +1501,30 @@ fun MainScreenContent(
                                     imageHeight = curMeta.imageHeight,
                                     maxZoom = curMeta.zoomMax
                                 )
-                                onIntent(MainUiIntent.OpenCreatePointDialog(liveCenterPx))
+                                val effectivePx = if (uiState.settings.snappingSettings.isEnabled && projector != null) {
+                                    val cursorScreenOffset = projector?.invoke(liveCenterLatLng)
+                                    val snap = if (cursorScreenOffset != null) {
+                                        val snapRadiusScreenPx = with(density) {
+                                            uiState.settings.snappingSettings.snapRadiusDp.dp.toPx()
+                                        }
+                                        SnappingEngine.findSnapTarget(
+                                            cursorScreenOffset = cursorScreenOffset,
+                                            visibleLines = uiState.allVisibleLines,
+                                            visiblePoints = uiState.allVisiblePoints,
+                                            imageWidth = curMeta.imageWidth,
+                                            imageHeight = curMeta.imageHeight,
+                                            zoomMax = curMeta.zoomMax,
+                                            projector = projector!!,
+                                            settings = uiState.settings.snappingSettings,
+                                            snapRadiusScreenPx = snapRadiusScreenPx,
+                                            forPointCreation = true
+                                        )
+                                    } else null
+                                    snap?.px ?: liveCenterPx
+                                } else {
+                                    liveCenterPx
+                                }
+                                onIntent(MainUiIntent.OpenCreatePointDialog(effectivePx))
                             }
                         },
                         onClose = {
@@ -1346,14 +1551,48 @@ fun MainScreenContent(
                         onAddVertex = {
                             val curMeta = mapMetadata ?: uiState.activeProjectMetadata
                             if (curMeta != null) {
-                                val liveCenterLatLng = getMapCenter?.invoke() ?: LatLng(currentTargetLat, currentTargetLon)
-                                val liveCenterPx = CaveMapBounds.latLngToImagePixels(
-                                    latLng = liveCenterLatLng,
+                                val rawCenterLatLng = getMapCenter?.invoke() ?: LatLng(currentTargetLat, currentTargetLon)
+                                val rawCenterPx = CaveMapBounds.latLngToImagePixels(
+                                    latLng = rawCenterLatLng,
                                     imageWidth = curMeta.imageWidth,
                                     imageHeight = curMeta.imageHeight,
                                     maxZoom = curMeta.zoomMax
                                 )
-                                onIntent(MainUiIntent.AddDrawingLineVertex(liveCenterLatLng, liveCenterPx))
+                                val effectiveTarget = if (uiState.settings.snappingSettings.isEnabled && projector != null) {
+                                    val cursorScreenOffset = projector?.invoke(rawCenterLatLng)
+                                    val snap = if (cursorScreenOffset != null) {
+                                        val snapRadiusScreenPx = with(density) {
+                                            uiState.settings.snappingSettings.snapRadiusDp.dp.toPx()
+                                        }
+                                        SnappingEngine.findSnapTarget(
+                                            cursorScreenOffset = cursorScreenOffset,
+                                            visibleLines = uiState.allVisibleLines,
+                                            visiblePoints = uiState.allVisiblePoints,
+                                            imageWidth = curMeta.imageWidth,
+                                            imageHeight = curMeta.imageHeight,
+                                            zoomMax = curMeta.zoomMax,
+                                            projector = projector!!,
+                                            settings = uiState.settings.snappingSettings,
+                                            snapRadiusScreenPx = snapRadiusScreenPx
+                                        )
+                                    } else null
+
+                                    if (snap != null) {
+                                        val snapLatLng = CaveMapBounds.imagePixelsToLatLng(
+                                            pixelX = snap.px.first,
+                                            pixelY = snap.px.second,
+                                            imageWidth = curMeta.imageWidth,
+                                            imageHeight = curMeta.imageHeight,
+                                            maxZoom = curMeta.zoomMax
+                                        )
+                                        Pair(snapLatLng, snap.px)
+                                    } else {
+                                        Pair(rawCenterLatLng, rawCenterPx)
+                                    }
+                                } else {
+                                    Pair(rawCenterLatLng, rawCenterPx)
+                                }
+                                onIntent(MainUiIntent.AddDrawingLineVertex(effectiveTarget.first, effectiveTarget.second))
                             }
                         },
                         onUndo = {
@@ -1523,6 +1762,9 @@ fun MainScreenContent(
             // Floating bottom bar
             FloatingBottomBar(
                 onMenuClick = { onIntent(MainUiIntent.ToggleMenu) },
+                showMagnetButton = (uiState.isLineLayersModeActive || uiState.editingLineLayer != null || uiState.isPointLayersModeActive || uiState.editingPointLayer != null),
+                isMagnetEnabled = uiState.settings.snappingSettings.isEnabled,
+                onMagnetClick = { onIntent(MainUiIntent.OpenSnappingSettingsDialog) },
                 isPointLayersModeActive = uiState.isPointLayersModeActive,
                 onPointLayersClick = { onIntent(MainUiIntent.OpenLayerManager) },
                 onClosePointLayersClick = { onIntent(MainUiIntent.DisablePointLayersMode) },

@@ -23,9 +23,11 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vktrsansara.app.caveviewer.domain.engine.SnapTarget
 import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
+import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import java.util.Locale
 import kotlin.math.sqrt
@@ -34,8 +36,9 @@ import kotlin.math.sqrt
  * Visual canvas overlay for interactive line drawing mode:
  * - Top informative banner with real-time length and vertex count
  * - Fixed segments between accumulated vertices
- * - Dynamic dashed ray from the last vertex to current center cursor (in cursor placement modes)
+ * - Dynamic dashed ray from the last vertex to current center cursor or snapped target
  * - Distinct vertex circular markers (5.dp radius)
+ * - Glowing magnetic snapping indicator (8.dp ring + crosshair)
  */
 @Composable
 fun LineDrawingOverlay(
@@ -45,6 +48,8 @@ fun LineDrawingOverlay(
     currentCenterPx: Pair<Double, Double>?,
     ppm: Double,
     placementMode: LinePlacementMode = LinePlacementMode.CURSOR_BUTTON_AND_TAP,
+    snapTarget: SnapTarget? = null,
+    snapScreenPoint: Offset? = null,
     modifier: Modifier = Modifier
 ) {
     val isFreeTap = placementMode == LinePlacementMode.FREE_TAP
@@ -61,8 +66,9 @@ fun LineDrawingOverlay(
 
     val liveRayPx = if (!isFreeTap && points.isNotEmpty() && currentCenterPx != null) {
         val last = points.last().imagePx
-        val dx = currentCenterPx.first - last.first
-        val dy = currentCenterPx.second - last.second
+        val targetPx = snapTarget?.px ?: currentCenterPx
+        val dx = targetPx.first - last.first
+        val dy = targetPx.second - last.second
         val dist = sqrt(dx * dx + dy * dy)
         if (dist >= 1.0) dist else 0.0
     } else {
@@ -79,11 +85,12 @@ fun LineDrawingOverlay(
             "Рисование линии: ${layer.name} • Нажмите [+] для установки первой вершины"
         }
     } else {
+        val snapSuffix = if (snapTarget != null) " • [🧲 ${snapTarget.title}]" else ""
         if (ppm > 0.0) {
             val meters = totalPx / ppm
-            "Рисование линии: ${layer.name} • Длина: ${String.format(Locale.US, "%.2f", meters)} м ($totalVertices верш.)"
+            "Рисование линии: ${layer.name} • Длина: ${String.format(Locale.US, "%.2f", meters)} м ($totalVertices верш.)$snapSuffix"
         } else {
-            "Рисование линии: ${layer.name} • Длина: ${String.format(Locale.US, "%.1f", totalPx)} px ($totalVertices верш.) • Без масштаба (px)"
+            "Рисование линии: ${layer.name} • Длина: ${String.format(Locale.US, "%.1f", totalPx)} px ($totalVertices верш.)$snapSuffix • Без масштаба (px)"
         }
     }
 
@@ -99,6 +106,7 @@ fun LineDrawingOverlay(
                 bottom = size.height
             ) {
                 val centerScreen = Offset(size.width / 2f, size.height / 2f)
+                val targetEndScreen = if (!isFreeTap && snapScreenPoint != null) snapScreenPoint else centerScreen
                 val strokeWidth = layer.defaultWidth.coerceIn(1.5f, 6.0f).dp.toPx()
                 val dashPathEffect = PathEffect.dashPathEffect(floatArrayOf(16.dp.toPx(), 10.dp.toPx()), 0f)
 
@@ -115,16 +123,16 @@ fun LineDrawingOverlay(
                     }
                 }
 
-                // 2. Draw live dashed ray to center cursor (only in cursor placement modes and if moved from last vertex)
+                // 2. Draw live dashed ray to center cursor / snap target
                 if (!isFreeTap && screenPoints.isNotEmpty() && liveRayPx > 0.0) {
                     val lastScreen = screenPoints.last()
-                    val dxScreen = centerScreen.x - lastScreen.x
-                    val dyScreen = centerScreen.y - lastScreen.y
+                    val dxScreen = targetEndScreen.x - lastScreen.x
+                    val dyScreen = targetEndScreen.y - lastScreen.y
                     if (sqrt(dxScreen * dxScreen + dyScreen * dyScreen) >= 3f) {
                         drawLine(
                             color = layerColor.copy(alpha = 0.85f),
                             start = lastScreen,
-                            end = centerScreen,
+                            end = targetEndScreen,
                             strokeWidth = strokeWidth,
                             pathEffect = dashPathEffect,
                             cap = StrokeCap.Round
@@ -153,6 +161,89 @@ fun LineDrawingOverlay(
                         radius = 1.5.dp.toPx(),
                         center = pt
                     )
+                }
+
+                // 4. Draw QGIS/CAD-style magnetic snapping target indicator
+                if (snapScreenPoint != null && snapTarget != null) {
+                    val snapPink = Color(0xFFF43F5E) // Ярко-розовая мишень QGIS / CAD
+
+                    when (snapTarget) {
+                        is SnapTarget.Vertex, is SnapTarget.Point -> {
+                            // Стиль ⊙ (Вершина / Точка): розовая точка с микро-кольцом
+                            // 1. Тонкое внешнее микро-кольцо (6.5 dp, обводка 1.2 dp)
+                            drawCircle(
+                                color = snapPink.copy(alpha = 0.85f),
+                                radius = 6.5.dp.toPx(),
+                                center = snapScreenPoint,
+                                style = Stroke(width = 1.2.dp.toPx())
+                            )
+                            // 2. Центральная плотная розовая точка (3.5 dp)
+                            drawCircle(
+                                color = snapPink,
+                                radius = 3.5.dp.toPx(),
+                                center = snapScreenPoint
+                            )
+                            // 3. Белая контрастная сердцевинка (1.2 dp)
+                            drawCircle(
+                                color = Color.White,
+                                radius = 1.2.dp.toPx(),
+                                center = snapScreenPoint
+                            )
+                        }
+                        is SnapTarget.Edge -> {
+                            // Стиль ◇ (Ребро): микро-ромбик на линии
+                            val diamondHalf = 5.5.dp.toPx()
+                            val diamondPath = androidx.compose.ui.graphics.Path().apply {
+                                moveTo(snapScreenPoint.x, snapScreenPoint.y - diamondHalf)
+                                lineTo(snapScreenPoint.x + diamondHalf, snapScreenPoint.y)
+                                lineTo(snapScreenPoint.x, snapScreenPoint.y + diamondHalf)
+                                lineTo(snapScreenPoint.x - diamondHalf, snapScreenPoint.y)
+                                close()
+                            }
+                            // Тонкая обводка ромбика
+                            drawPath(
+                                path = diamondPath,
+                                color = snapPink,
+                                style = Stroke(width = 1.4.dp.toPx())
+                            )
+                            // Центральная розовая точка
+                            drawCircle(
+                                color = snapPink,
+                                radius = 2.2.dp.toPx(),
+                                center = snapScreenPoint
+                            )
+                            // Белая микро-сердцевинка
+                            drawCircle(
+                                color = Color.White,
+                                radius = 1.0.dp.toPx(),
+                                center = snapScreenPoint
+                            )
+                        }
+                        is SnapTarget.Intersection -> {
+                            // Стиль ✕ (Перекресток): микро-крестик
+                            val crossHalf = 4.5.dp.toPx()
+                            drawLine(
+                                color = snapPink,
+                                start = Offset(snapScreenPoint.x - crossHalf, snapScreenPoint.y - crossHalf),
+                                end = Offset(snapScreenPoint.x + crossHalf, snapScreenPoint.y + crossHalf),
+                                strokeWidth = 1.6.dp.toPx(),
+                                cap = StrokeCap.Round
+                            )
+                            drawLine(
+                                color = snapPink,
+                                start = Offset(snapScreenPoint.x - crossHalf, snapScreenPoint.y + crossHalf),
+                                end = Offset(snapScreenPoint.x + crossHalf, snapScreenPoint.y - crossHalf),
+                                strokeWidth = 1.6.dp.toPx(),
+                                cap = StrokeCap.Round
+                            )
+                            // Белая микро-точка в центре
+                            drawCircle(
+                                color = Color.White,
+                                radius = 1.2.dp.toPx(),
+                                center = snapScreenPoint
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -42,5 +42,6 @@ data class AppSettings(
     val mapFilter: MapFilterMode = MapFilterMode.NONE,
     val favoriteToolPreset: List<String> = emptyList(), // ToolType.name list
     val pointPlacementMode: PointPlacementMode = PointPlacementMode.CURSOR_BUTTON_AND_TAP,
-    val linePlacementMode: LinePlacementMode = LinePlacementMode.CURSOR_BUTTON_AND_TAP
+    val linePlacementMode: LinePlacementMode = LinePlacementMode.CURSOR_BUTTON_AND_TAP,
+    val snappingSettings: SnappingSettings = SnappingSettings()
 )

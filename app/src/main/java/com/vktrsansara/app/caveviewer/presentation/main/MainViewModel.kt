@@ -2228,6 +2228,17 @@ class MainViewModel(
             is MainUiIntent.DismissLineDrawingHelp -> {
                 _uiState.update { it.copy(isLineDrawingHelpOpen = false) }
             }
+            is MainUiIntent.OpenSnappingSettingsDialog -> {
+                _uiState.update { it.copy(isSnappingSettingsDialogOpen = true) }
+            }
+            is MainUiIntent.DismissSnappingSettingsDialog -> {
+                _uiState.update { it.copy(isSnappingSettingsDialogOpen = false) }
+            }
+            is MainUiIntent.SaveSnappingSettings -> {
+                viewModelScope.launch {
+                    settingsRepository.setSnappingSettings(intent.settings)
+                }
+            }
         }
     }
 

@@ -1,21 +1,32 @@
 package com.vktrsansara.app.caveviewer.presentation.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.rounded.AddLocationAlt
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Polyline
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
@@ -23,11 +34,14 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 /**
  * Floating bottom control bar with 8.dp rounded shape and menu button,
- * plus dynamically added Point Layers and Line Layers mode buttons.
+ * plus dynamically added Magnet, Point Layers, and Line Layers mode buttons.
  */
 @Composable
 fun FloatingBottomBar(
     onMenuClick: () -> Unit,
+    showMagnetButton: Boolean = false,
+    isMagnetEnabled: Boolean = true,
+    onMagnetClick: () -> Unit = {},
     isPointLayersModeActive: Boolean = false,
     onPointLayersClick: () -> Unit = {},
     onClosePointLayersClick: () -> Unit = {},
@@ -53,6 +67,44 @@ fun FloatingBottomBar(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Кнопка магнита слева от кнопки Меню
+        if (showMagnetButton) {
+            val interactionSource = remember { MutableInteractionSource() }
+            val isPressed by interactionSource.collectIsPressedAsState()
+            val scale by animateFloatAsState(
+                targetValue = if (isPressed) 0.92f else 1f,
+                animationSpec = spring(dampingRatio = 0.7f, stiffness = 600f),
+                label = "MagnetButtonScale"
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.bgCard)
+                    .border(
+                        width = 1.dp,
+                        color = if (isMagnetEnabled) AccentSkyBlue.copy(alpha = 0.6f) else AppColors.borderColor,
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = ripple(color = AppColors.pressedColor),
+                        onClick = onMagnetClick
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                MagnetIcon(
+                    size = 18.dp,
+                    isEnabled = isMagnetEnabled
+                )
+            }
+        }
+
         // Кнопка меню
         BarIconButton(
             icon = Icons.Rounded.Menu,
@@ -112,6 +164,8 @@ fun FloatingBottomBar(
 private fun FloatingBottomBarPreview() {
     FloatingBottomBar(
         onMenuClick = {},
+        showMagnetButton = true,
+        isMagnetEnabled = true,
         isPointLayersModeActive = true,
         isLineLayersModeActive = true
     )

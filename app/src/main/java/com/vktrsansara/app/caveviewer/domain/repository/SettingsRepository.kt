@@ -24,4 +24,5 @@ interface SettingsRepository {
     suspend fun setFavoriteToolPreset(preset: List<String>)
     suspend fun setPointPlacementMode(mode: com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode)
     suspend fun setLinePlacementMode(mode: com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode)
+    suspend fun setSnappingSettings(settings: com.vktrsansara.app.caveviewer.domain.model.SnappingSettings)
 }
