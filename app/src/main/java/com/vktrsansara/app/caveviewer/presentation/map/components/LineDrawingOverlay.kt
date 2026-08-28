@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vktrsansara.app.caveviewer.domain.model.LineLayer
+import com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import java.util.Locale
@@ -33,7 +34,7 @@ import kotlin.math.sqrt
  * Visual canvas overlay for interactive line drawing mode:
  * - Top informative banner with real-time length and vertex count
  * - Fixed segments between accumulated vertices
- * - Dynamic dashed ray from the last vertex to current center cursor
+ * - Dynamic dashed ray from the last vertex to current center cursor (in cursor placement modes)
  * - Distinct vertex circular markers (5.dp radius)
  */
 @Composable
@@ -43,8 +44,11 @@ fun LineDrawingOverlay(
     screenPoints: List<Offset>,
     currentCenterPx: Pair<Double, Double>?,
     ppm: Double,
+    placementMode: LinePlacementMode = LinePlacementMode.CURSOR_BUTTON_AND_TAP,
     modifier: Modifier = Modifier
 ) {
+    val isFreeTap = placementMode == LinePlacementMode.FREE_TAP
+
     // 1. Calculate live cumulative distance in map image pixels
     var segmentsPx = 0.0
     for (i in 0 until points.size - 1) {
@@ -55,7 +59,7 @@ fun LineDrawingOverlay(
         segmentsPx += sqrt(dx * dx + dy * dy)
     }
 
-    val liveRayPx = if (points.isNotEmpty() && currentCenterPx != null) {
+    val liveRayPx = if (!isFreeTap && points.isNotEmpty() && currentCenterPx != null) {
         val last = points.last().imagePx
         val dx = currentCenterPx.first - last.first
         val dy = currentCenterPx.second - last.second
@@ -66,10 +70,14 @@ fun LineDrawingOverlay(
     }
 
     val totalPx = segmentsPx + liveRayPx
-    val totalVertices = points.size + (if (liveRayPx > 0.0 && points.isNotEmpty()) 1 else 0)
+    val totalVertices = points.size + (if (!isFreeTap && liveRayPx > 0.0 && points.isNotEmpty()) 1 else 0)
 
     val infoText = if (points.isEmpty()) {
-        "Рисование линии: ${layer.name} • Нажмите [+] для установки первой вершины"
+        if (isFreeTap) {
+            "Рисование линии: ${layer.name} • Коснитесь карты для установки первой вершины"
+        } else {
+            "Рисование линии: ${layer.name} • Нажмите [+] для установки первой вершины"
+        }
     } else {
         if (ppm > 0.0) {
             val meters = totalPx / ppm
@@ -107,8 +115,8 @@ fun LineDrawingOverlay(
                     }
                 }
 
-                // 2. Draw live dashed ray to center cursor (if moved from last vertex)
-                if (screenPoints.isNotEmpty() && liveRayPx > 0.0) {
+                // 2. Draw live dashed ray to center cursor (only in cursor placement modes and if moved from last vertex)
+                if (!isFreeTap && screenPoints.isNotEmpty() && liveRayPx > 0.0) {
                     val lastScreen = screenPoints.last()
                     val dxScreen = centerScreen.x - lastScreen.x
                     val dyScreen = centerScreen.y - lastScreen.y

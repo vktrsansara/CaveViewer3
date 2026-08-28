@@ -130,7 +130,9 @@ data class MainUiState(
     val drawingLinePoints: List<ScaleBindingPoint> = emptyList(),
     val editingLine: LayerLine? = null,
     val isEditLineDialogOpen: Boolean = false,
-    val selectedLineForDetails: LayerLine? = null
+    val selectedLineForDetails: LayerLine? = null,
+    val isLinePlacementControlOpen: Boolean = false,
+    val isLineDrawingHelpOpen: Boolean = false
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -351,6 +353,11 @@ sealed interface MainUiIntent : UiIntent {
     data class SelectLine(val line: LayerLine) : MainUiIntent
     data object DismissLineDetails : MainUiIntent
     data class CenterOnLine(val line: LayerLine) : MainUiIntent
+    data object OpenLinePlacementControl : MainUiIntent
+    data object DismissLinePlacementControl : MainUiIntent
+    data class SaveLinePlacementMode(val mode: com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode) : MainUiIntent
+    data object OpenLineDrawingHelp : MainUiIntent
+    data object DismissLineDrawingHelp : MainUiIntent
 }
 
 sealed interface MainUiEffect : UiEffect {

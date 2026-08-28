@@ -5,10 +5,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.PanToolAlt
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.vktrsansara.app.caveviewer.domain.model.LineLayer
+import com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode
 import com.vktrsansara.app.caveviewer.presentation.components.FloatingBarButton
 import com.vktrsansara.app.caveviewer.presentation.components.FloatingBarContainer
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
@@ -17,19 +22,24 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 /**
  * Floating side control bar for interactive line drawing mode.
  * Contains:
- * - [+] Add vertex at center cursor
+ * - [+] / [Touch/Hand] Add vertex at center cursor (or indicator for tap modes)
  * - [←] Undo last vertex
  * - [✓] Complete drawing and open EditLineDialog (enabled when >= 2 vertices)
  * - [✕] Cancel drawing and exit mode
+ * - [⚙️] Line placement settings control
+ * - [ℹ️] Line drawing help
  */
 @Composable
 fun LineDrawingSideControl(
     layer: LineLayer,
+    placementMode: LinePlacementMode,
     pointsCount: Int,
     onAddVertex: () -> Unit,
     onUndo: () -> Unit,
     onComplete: () -> Unit,
     onClose: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onHelpClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val canUndo = pointsCount > 0
@@ -37,13 +47,34 @@ fun LineDrawingSideControl(
     val layerColor = if (layer.isHeatmapEnabled) Color(0xFF10B981) else Color(layer.defaultColor.toInt())
 
     FloatingBarContainer(modifier = modifier) {
-        // 1. Add vertex [+]
-        FloatingBarButton(
-            icon = Icons.Rounded.Add,
-            contentDescription = "Добавить вершину",
-            iconTint = layerColor,
-            onClick = onAddVertex
-        )
+        // 1. Верхняя кнопка установки (динамическая иконка по режиму)
+        when (placementMode) {
+            LinePlacementMode.CURSOR_BUTTON_AND_TAP,
+            LinePlacementMode.CURSOR_BUTTON_ONLY -> {
+                FloatingBarButton(
+                    icon = Icons.Rounded.Add,
+                    contentDescription = "Добавить вершину",
+                    iconTint = layerColor,
+                    onClick = onAddVertex
+                )
+            }
+            LinePlacementMode.CURSOR_TAP_ONLY -> {
+                FloatingBarButton(
+                    icon = Icons.Rounded.TouchApp,
+                    contentDescription = "Режим тапа от курсора",
+                    iconTint = layerColor,
+                    onClick = { /* Индикатор: действия по кнопке отключены */ }
+                )
+            }
+            LinePlacementMode.FREE_TAP -> {
+                FloatingBarButton(
+                    icon = Icons.Rounded.PanToolAlt,
+                    contentDescription = "Свободная установка тапом",
+                    iconTint = layerColor,
+                    onClick = { /* Индикатор: действия по кнопке отключены */ }
+                )
+            }
+        }
 
         // 2. Undo vertex [←]
         FloatingBarButton(
@@ -71,6 +102,22 @@ fun LineDrawingSideControl(
             contentDescription = "Отменить рисование",
             isDanger = true,
             onClick = onClose
+        )
+
+        // 5. Кнопка «Управление» (Шестерёнка)
+        FloatingBarButton(
+            icon = Icons.Rounded.Settings,
+            contentDescription = "Управление",
+            iconTint = AccentSkyBlue,
+            onClick = onSettingsClick
+        )
+
+        // 6. Кнопка «Справка» (Зелёная)
+        FloatingBarButton(
+            icon = Icons.Rounded.Info,
+            contentDescription = "Справка по рисованию линий",
+            iconTint = Color(0xFF10B981),
+            onClick = onHelpClick
         )
     }
 }

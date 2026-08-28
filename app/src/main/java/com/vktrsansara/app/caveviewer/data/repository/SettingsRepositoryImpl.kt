@@ -43,6 +43,7 @@ class SettingsRepositoryImpl(
         val MAP_FILTER = stringPreferencesKey("map_filter")
         val FAVORITE_TOOL_PRESET = stringPreferencesKey("favorite_tool_preset")
         val POINT_PLACEMENT_MODE = stringPreferencesKey("point_placement_mode")
+        val LINE_PLACEMENT_MODE = stringPreferencesKey("line_placement_mode")
     }
 
     override val settingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -91,6 +92,12 @@ class SettingsRepositoryImpl(
             } catch (e: IllegalArgumentException) {
                 com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode.CURSOR_BUTTON_AND_TAP
             }
+            val linePlacementModeStr = preferences[PreferencesKeys.LINE_PLACEMENT_MODE] ?: com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode.CURSOR_BUTTON_AND_TAP.name
+            val linePlacementMode = try {
+                com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode.valueOf(linePlacementModeStr)
+            } catch (e: IllegalArgumentException) {
+                com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode.CURSOR_BUTTON_AND_TAP
+            }
 
             AppSettings(
                 theme = theme,
@@ -108,7 +115,8 @@ class SettingsRepositoryImpl(
                 colorPaletteMode = colorPaletteMode,
                 mapFilter = mapFilter,
                 favoriteToolPreset = favoriteToolPreset,
-                pointPlacementMode = pointPlacementMode
+                pointPlacementMode = pointPlacementMode,
+                linePlacementMode = linePlacementMode
             )
         }
 
@@ -205,6 +213,12 @@ class SettingsRepositoryImpl(
     override suspend fun setPointPlacementMode(mode: com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.POINT_PLACEMENT_MODE] = mode.name
+        }
+    }
+
+    override suspend fun setLinePlacementMode(mode: com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LINE_PLACEMENT_MODE] = mode.name
         }
     }
 }

@@ -18,6 +18,13 @@ enum class PointPlacementMode(val title: String) {
     FREE_TAP("Тап в нужном месте")
 }
 
+enum class LinePlacementMode(val title: String) {
+    CURSOR_BUTTON_AND_TAP("Кнопка «+» и Тап"),
+    CURSOR_BUTTON_ONLY("Только Кнопка «+»"),
+    CURSOR_TAP_ONLY("Только Тап"),
+    FREE_TAP("Тап в нужном месте")
+}
+
 data class AppSettings(
     val theme: ThemeMode = ThemeMode.AUTO,
     val isFullscreen: Boolean = false,
@@ -34,5 +41,6 @@ data class AppSettings(
     val colorPaletteMode: String = "standard", // "standard" or "muted"
     val mapFilter: MapFilterMode = MapFilterMode.NONE,
     val favoriteToolPreset: List<String> = emptyList(), // ToolType.name list
-    val pointPlacementMode: PointPlacementMode = PointPlacementMode.CURSOR_BUTTON_AND_TAP
+    val pointPlacementMode: PointPlacementMode = PointPlacementMode.CURSOR_BUTTON_AND_TAP,
+    val linePlacementMode: LinePlacementMode = LinePlacementMode.CURSOR_BUTTON_AND_TAP
 )

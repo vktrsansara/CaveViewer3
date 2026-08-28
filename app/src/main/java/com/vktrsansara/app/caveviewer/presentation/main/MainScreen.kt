@@ -102,6 +102,9 @@ import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MultiToolDockHelp
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingInputDialog
 import com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode
+import com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LineDrawingHelpDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LinePlacementControlDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.PointEditorHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.PointPlacementControlDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingHelpDialog
@@ -548,6 +551,28 @@ fun MainScreen(
         )
     }
 
+    // Line Placement Control Dialog («Управление»)
+    if (uiState.isLinePlacementControlOpen) {
+        LinePlacementControlDialog(
+            currentMode = uiState.settings.linePlacementMode,
+            onApply = { newMode ->
+                viewModel.handleIntent(MainUiIntent.SaveLinePlacementMode(newMode))
+            },
+            onDismiss = {
+                viewModel.handleIntent(MainUiIntent.DismissLinePlacementControl)
+            }
+        )
+    }
+
+    // Line Drawing Help Dialog («Справка: Рисование линий»)
+    if (uiState.isLineDrawingHelpOpen) {
+        LineDrawingHelpDialog(
+            onDismiss = {
+                viewModel.handleIntent(MainUiIntent.DismissLineDrawingHelp)
+            }
+        )
+    }
+
     // Handle system back gesture
     BackHandler(
         enabled = uiState.currentScreen != AppScreen.MAIN ||
@@ -871,15 +896,33 @@ fun MainScreenContent(
                         } else if (uiState.selectedLineForDetails != null) {
                             onIntent(MainUiIntent.DismissLineDetails)
                         } else if (uiState.editingLineLayer != null && curMeta != null) {
-                            val liveCenterLatLng = getMapCenter?.invoke() ?: LatLng(currentTargetLat, currentTargetLon)
-                            val liveCenterPx = CaveMapBounds.latLngToImagePixels(
-                                latLng = liveCenterLatLng,
-                                imageHeight = curMeta.imageHeight,
-                                imageWidth = curMeta.imageWidth,
-                                maxZoom = curMeta.zoomMax
-                            )
-                            onIntent(MainUiIntent.AddDrawingLineVertex(liveCenterLatLng, liveCenterPx))
-                            pointHit = true
+                            when (uiState.settings.linePlacementMode) {
+                                LinePlacementMode.CURSOR_BUTTON_AND_TAP,
+                                LinePlacementMode.CURSOR_TAP_ONLY -> {
+                                    val liveCenterLatLng = getMapCenter?.invoke() ?: LatLng(currentTargetLat, currentTargetLon)
+                                    val liveCenterPx = CaveMapBounds.latLngToImagePixels(
+                                        latLng = liveCenterLatLng,
+                                        imageHeight = curMeta.imageHeight,
+                                        imageWidth = curMeta.imageWidth,
+                                        maxZoom = curMeta.zoomMax
+                                    )
+                                    onIntent(MainUiIntent.AddDrawingLineVertex(liveCenterLatLng, liveCenterPx))
+                                    pointHit = true
+                                }
+                                LinePlacementMode.FREE_TAP -> {
+                                    val clickedPx = CaveMapBounds.latLngToImagePixels(
+                                        latLng = clickedLatLng,
+                                        imageWidth = curMeta.imageWidth,
+                                        imageHeight = curMeta.imageHeight,
+                                        maxZoom = curMeta.zoomMax
+                                    )
+                                    onIntent(MainUiIntent.AddDrawingLineVertex(clickedLatLng, clickedPx))
+                                    pointHit = true
+                                }
+                                LinePlacementMode.CURSOR_BUTTON_ONLY -> {
+                                    // Do nothing on tap (only via [+] button)
+                                }
+                            }
                         } else if (uiState.editingPointLayer != null && curMeta != null) {
                             when (uiState.settings.pointPlacementMode) {
                                 PointPlacementMode.CURSOR_BUTTON_AND_TAP,
@@ -1092,6 +1135,7 @@ fun MainScreenContent(
                     screenPoints = lineDrawingScreenPoints,
                     currentCenterPx = centerPx,
                     ppm = meta?.pixelsPerMeter ?: 0.0,
+                    placementMode = uiState.settings.linePlacementMode,
                     modifier = Modifier.fillMaxSize().clipToBounds()
                 )
             }
@@ -1292,11 +1336,12 @@ fun MainScreenContent(
             } else if (uiState.editingLineLayer != null) {
                 val layer = uiState.editingLineLayer!!
                 FloatingDockAnchorLayout(
-                    closeButtonTopInBar = 138.dp,
+                    closeButtonTopInBar = 114.dp,
                     modifier = Modifier.fillMaxSize()
                 ) {
                     LineDrawingSideControl(
                         layer = layer,
+                        placementMode = uiState.settings.linePlacementMode,
                         pointsCount = uiState.drawingLinePoints.size,
                         onAddVertex = {
                             val curMeta = mapMetadata ?: uiState.activeProjectMetadata
@@ -1319,6 +1364,12 @@ fun MainScreenContent(
                         },
                         onClose = {
                             onIntent(MainUiIntent.ExitLineDrawingMode)
+                        },
+                        onSettingsClick = {
+                            onIntent(MainUiIntent.OpenLinePlacementControl)
+                        },
+                        onHelpClick = {
+                            onIntent(MainUiIntent.OpenLineDrawingHelp)
                         }
                     )
                 }

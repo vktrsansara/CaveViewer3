@@ -2155,6 +2155,23 @@ class MainViewModel(
             is MainUiIntent.CenterOnLine -> {
                 // Focus camera handled in UI
             }
+            is MainUiIntent.OpenLinePlacementControl -> {
+                _uiState.update { it.copy(isLinePlacementControlOpen = true) }
+            }
+            is MainUiIntent.DismissLinePlacementControl -> {
+                _uiState.update { it.copy(isLinePlacementControlOpen = false) }
+            }
+            is MainUiIntent.SaveLinePlacementMode -> {
+                viewModelScope.launch {
+                    settingsRepository.setLinePlacementMode(intent.mode)
+                }
+            }
+            is MainUiIntent.OpenLineDrawingHelp -> {
+                _uiState.update { it.copy(isLineDrawingHelpOpen = true) }
+            }
+            is MainUiIntent.DismissLineDrawingHelp -> {
+                _uiState.update { it.copy(isLineDrawingHelpOpen = false) }
+            }
         }
     }
 
