@@ -31,6 +31,35 @@ object MeasureUtils {
     }
 
     /**
+     * Calculates the intersection point between two finite line segments (p1 -> p2) and (p3 -> p4).
+     * Returns the (x, y) coordinates of the intersection if they cross, or null if parallel or disjoint.
+     */
+    fun findSegmentIntersection(
+        p1: Pair<Double, Double>,
+        p2: Pair<Double, Double>,
+        p3: Pair<Double, Double>,
+        p4: Pair<Double, Double>
+    ): Pair<Double, Double>? {
+        val x1 = p1.first; val y1 = p1.second
+        val x2 = p2.first; val y2 = p2.second
+        val x3 = p3.first; val y3 = p3.second
+        val x4 = p4.first; val y4 = p4.second
+
+        val denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
+        if (abs(denom) < 1e-9) return null
+
+        val ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom
+        val ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom
+
+        if (ua > 0.001 && ua < 0.999 && ub > 0.001 && ub < 0.999) {
+            val ix = x1 + ua * (x2 - x1)
+            val iy = y1 + ua * (y2 - y1)
+            return Pair(ix, iy)
+        }
+        return null
+    }
+
+    /**
      * Formats distance in meters/kilometers (if ppm > 0) or pixels.
      */
     fun formatDistance(pixels: Double, ppm: Double): String {

@@ -1,7 +1,9 @@
 package com.vktrsansara.app.caveviewer.domain.engine
 
 import androidx.compose.ui.geometry.Offset
+import com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
+import com.vktrsansara.app.caveviewer.domain.model.IntersectionMode
 import com.vktrsansara.app.caveviewer.domain.model.LayerLine
 import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
 import com.vktrsansara.app.caveviewer.domain.model.SnappingSettings
@@ -109,7 +111,61 @@ object SnappingEngine {
             }
         }
 
-        // 2. Приоритет 2: Привязка к точкам видимых слоев
+        // 2. Приоритет 2: Привязка к перекресткам существующих линий (пересечениям отрезков)
+        if (allowLines && settings.intersectionMode != IntersectionMode.NO) {
+            var closestIntersection: Pair<Double, Double>? = null
+            var closestScreenOffset: Offset? = null
+            var line1Name = ""
+            var line2Name = ""
+            var minDistanceSq = Float.MAX_VALUE
+
+            for (i in 0 until visibleLines.size) {
+                val l1 = visibleLines[i]
+                val pts1 = l1.points
+                for (si in 0 until pts1.size - 1) {
+                    val a1 = pts1[si]
+                    val a2 = pts1[si + 1]
+
+                    for (j in i until visibleLines.size) {
+                        val l2 = visibleLines[j]
+                        val pts2 = l2.points
+                        val startSj = if (i == j) si + 2 else 0
+                        for (sj in startSj until pts2.size - 1) {
+                            val b1 = pts2[sj]
+                            val b2 = pts2[sj + 1]
+
+                            val ix = MeasureUtils.findSegmentIntersection(a1, a2, b1, b2)
+                            if (ix != null) {
+                                val latLng = CaveMapBounds.imagePixelsToLatLng(
+                                    pixelX = ix.first,
+                                    pixelY = ix.second,
+                                    imageWidth = imageWidth,
+                                    imageHeight = imageHeight,
+                                    maxZoom = zoomMax
+                                )
+                                val ptScreen = projector(latLng)
+                                val dx = cursorScreenOffset.x - ptScreen.x
+                                val dy = cursorScreenOffset.y - ptScreen.y
+                                val distSq = dx * dx + dy * dy
+                                if (distSq <= radiusSq && distSq < minDistanceSq) {
+                                    minDistanceSq = distSq
+                                    closestIntersection = ix
+                                    closestScreenOffset = ptScreen
+                                    line1Name = l1.name
+                                    line2Name = l2.name
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (closestIntersection != null && closestScreenOffset != null) {
+                return SnapTarget.Intersection(closestIntersection, closestScreenOffset, line1Name, line2Name)
+            }
+        }
+
+        // 3. Приоритет 3: Привязка к точкам видимых слоев
         if (settings.snapToPoints) {
             var closestPoint: LayerPoint? = null
             var closestScreenOffset: Offset? = null

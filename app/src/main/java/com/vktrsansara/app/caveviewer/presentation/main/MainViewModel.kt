@@ -2080,12 +2080,128 @@ class MainViewModel(
                         }
                         return
                     }
+
+                    val meta = _uiState.value.activeProjectMetadata
+                    val snappingSettings = _uiState.value.settings.snappingSettings
+
+                    if (meta != null && snappingSettings.isEnabled && snappingSettings.intersectionMode != com.vktrsansara.app.caveviewer.domain.model.IntersectionMode.NO) {
+                        // Проверка геометрического пересечения нового отрезка с существующими линиями
+                        val p1 = lastPoint.imagePx
+                        val p2 = intent.pointPx
+                        var foundIntersection: Pair<Double, Double>? = null
+                        var intersectedLine: LayerLine? = null
+                        var intersectedSegmentIdx = -1
+
+                        for (line in _uiState.value.allVisibleLines) {
+                            val pts = line.points
+                            for (si in 0 until pts.size - 1) {
+                                val a1 = pts[si]
+                                val a2 = pts[si + 1]
+                                val ix = com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils.findSegmentIntersection(p1, p2, a1, a2)
+                                if (ix != null) {
+                                    val distToP1 = kotlin.math.sqrt((ix.first - p1.first) * (ix.first - p1.first) + (ix.second - p1.second) * (ix.second - p1.second))
+                                    val distToP2 = kotlin.math.sqrt((ix.first - p2.first) * (ix.first - p2.first) + (ix.second - p2.second) * (ix.second - p2.second))
+                                    if (distToP1 > 1.0 && distToP2 > 1.0) {
+                                        foundIntersection = ix
+                                        intersectedLine = line
+                                        intersectedSegmentIdx = si
+                                        break
+                                    }
+                                }
+                            }
+                            if (foundIntersection != null) break
+                        }
+
+                        if (foundIntersection != null) {
+                            val ixLatLng = com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds.imagePixelsToLatLng(
+                                pixelX = foundIntersection.first,
+                                pixelY = foundIntersection.second,
+                                imageWidth = meta.imageWidth,
+                                imageHeight = meta.imageHeight,
+                                maxZoom = meta.zoomMax
+                            )
+
+                            if (snappingSettings.intersectionMode == com.vktrsansara.app.caveviewer.domain.model.IntersectionMode.YES) {
+                                // Автоматическое создание узла перекрестка
+                                val newPoints = currentPoints + ScaleBindingPoint(ixLatLng, foundIntersection) + ScaleBindingPoint(intent.latLng, intent.pointPx)
+                                _uiState.update { it.copy(drawingLinePoints = newPoints) }
+
+                                // Обновление пересеченной линии в репозитории
+                                if (intersectedLine != null && intersectedSegmentIdx >= 0) {
+                                    val updatedLinePoints = intersectedLine.points.toMutableList().apply {
+                                        add(intersectedSegmentIdx + 1, foundIntersection)
+                                    }
+                                    val updatedLine = intersectedLine.copy(points = updatedLinePoints)
+                                    val activeName = _uiState.value.activeProjectName
+                                    if (activeName != null) {
+                                        viewModelScope.launch {
+                                            projectRepository.updateLayerLine(activeName, updatedLine)
+                                            loadLineLayers(activeName)
+                                            _effect.send(MainUiEffect.ShowToast("Создан перекресток с линией «${intersectedLine.name}»"))
+                                        }
+                                    }
+                                }
+                                return
+                            } else if (snappingSettings.intersectionMode == com.vktrsansara.app.caveviewer.domain.model.IntersectionMode.ASK) {
+                                // Запрос подтверждения у пользователя
+                                _uiState.update {
+                                    it.copy(
+                                        pendingIntersection = PendingIntersection(
+                                            intersectionPx = foundIntersection,
+                                            intersectionLatLng = ixLatLng,
+                                            nextPointPx = intent.pointPx,
+                                            nextPointLatLng = intent.latLng,
+                                            intersectedLine = intersectedLine,
+                                            segmentIndex = intersectedSegmentIdx
+                                        )
+                                    )
+                                }
+                                return
+                            }
+                        }
+                    }
                 }
                 _uiState.update {
                     it.copy(
                         drawingLinePoints = it.drawingLinePoints + ScaleBindingPoint(intent.latLng, intent.pointPx)
                     )
                 }
+            }
+            is MainUiIntent.ConfirmIntersection -> {
+                val pending = _uiState.value.pendingIntersection
+                if (pending != null) {
+                    val currentPoints = _uiState.value.drawingLinePoints
+                    val newPoints = if (intent.createNode) {
+                        currentPoints + ScaleBindingPoint(pending.intersectionLatLng, pending.intersectionPx) + ScaleBindingPoint(pending.nextPointLatLng, pending.nextPointPx)
+                    } else {
+                        currentPoints + ScaleBindingPoint(pending.nextPointLatLng, pending.nextPointPx)
+                    }
+
+                    _uiState.update {
+                        it.copy(
+                            drawingLinePoints = newPoints,
+                            pendingIntersection = null
+                        )
+                    }
+
+                    if (intent.createNode && pending.intersectedLine != null && pending.segmentIndex >= 0) {
+                        val updatedLinePoints = pending.intersectedLine.points.toMutableList().apply {
+                            add(pending.segmentIndex + 1, pending.intersectionPx)
+                        }
+                        val updatedLine = pending.intersectedLine.copy(points = updatedLinePoints)
+                        val activeName = _uiState.value.activeProjectName
+                        if (activeName != null) {
+                            viewModelScope.launch {
+                                projectRepository.updateLayerLine(activeName, updatedLine)
+                                loadLineLayers(activeName)
+                                _effect.send(MainUiEffect.ShowToast("Создан перекресток с линией «${pending.intersectedLine.name}»"))
+                            }
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.DismissIntersectionDialog -> {
+                _uiState.update { it.copy(pendingIntersection = null) }
             }
             is MainUiIntent.UndoDrawingLineVertex -> {
                 _uiState.update {

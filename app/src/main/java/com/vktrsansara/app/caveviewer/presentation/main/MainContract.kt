@@ -134,8 +134,18 @@ data class MainUiState(
     val selectedLineForDetails: LayerLine? = null,
     val isLinePlacementControlOpen: Boolean = false,
     val isLineDrawingHelpOpen: Boolean = false,
-    val isSnappingSettingsDialogOpen: Boolean = false
+    val isSnappingSettingsDialogOpen: Boolean = false,
+    val pendingIntersection: PendingIntersection? = null
 ) : UiState
+
+data class PendingIntersection(
+    val intersectionPx: Pair<Double, Double>,
+    val intersectionLatLng: LatLng,
+    val nextPointPx: Pair<Double, Double>,
+    val nextPointLatLng: LatLng,
+    val intersectedLine: LayerLine?,
+    val segmentIndex: Int
+)
 
 sealed interface MainUiIntent : UiIntent {
     data object ToggleMenu : MainUiIntent
@@ -365,6 +375,8 @@ sealed interface MainUiIntent : UiIntent {
     data object OpenSnappingSettingsDialog : MainUiIntent
     data object DismissSnappingSettingsDialog : MainUiIntent
     data class SaveSnappingSettings(val settings: com.vktrsansara.app.caveviewer.domain.model.SnappingSettings) : MainUiIntent
+    data class ConfirmIntersection(val createNode: Boolean) : MainUiIntent
+    data object DismissIntersectionDialog : MainUiIntent
 }
 
 sealed interface MainUiEffect : UiEffect {

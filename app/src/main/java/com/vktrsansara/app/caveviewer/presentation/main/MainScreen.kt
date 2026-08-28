@@ -91,6 +91,7 @@ import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EditLineDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EditPointDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EntranceBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EntranceNameDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.IntersectionConfirmDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LayerManagerDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LayerPropertiesDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LayerSettingsDialog
@@ -588,6 +589,20 @@ fun MainScreen(
             },
             onDismiss = {
                 viewModel.handleIntent(MainUiIntent.DismissSnappingSettingsDialog)
+            }
+        )
+    }
+
+    // Intersection Confirmation Dialog («Связывание перекрестка»)
+    if (uiState.pendingIntersection != null) {
+        val pending = uiState.pendingIntersection!!
+        IntersectionConfirmDialog(
+            lineName = pending.intersectedLine?.name ?: "",
+            onConfirm = {
+                viewModel.handleIntent(MainUiIntent.ConfirmIntersection(createNode = true))
+            },
+            onDecline = {
+                viewModel.handleIntent(MainUiIntent.ConfirmIntersection(createNode = false))
             }
         )
     }
