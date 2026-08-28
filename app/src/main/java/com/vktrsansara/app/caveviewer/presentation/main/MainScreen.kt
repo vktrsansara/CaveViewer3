@@ -357,6 +357,7 @@ fun MainScreen(
         LineLayerSettingsDialog(
             layer = currentSelected,
             existingNames = uiState.lineLayers.filter { it.id != currentSelected.id }.map { it.name },
+            paletteMode = uiState.settings.colorPaletteMode,
             onSave = { updated ->
                 viewModel.handleIntent(MainUiIntent.SaveLineLayerSettings(updated))
             },
@@ -428,6 +429,7 @@ fun MainScreen(
                 line = uiState.editingLine!!,
                 layer = targetLayer,
                 ppm = uiState.activeProjectMetadata?.pixelsPerMeter ?: 0.0,
+                paletteMode = uiState.settings.colorPaletteMode,
                 onSave = { updatedLine ->
                     viewModel.handleIntent(MainUiIntent.SaveLayerLine(updatedLine))
                 },
@@ -444,6 +446,7 @@ fun MainScreen(
         LayerSettingsDialog(
             layer = currentSelected,
             existingNames = uiState.pointLayers.filter { it.id != currentSelected.id }.map { it.name },
+            paletteMode = uiState.settings.colorPaletteMode,
             onSave = { updated ->
                 viewModel.handleIntent(MainUiIntent.SaveLayerSettings(updated))
             },
@@ -512,6 +515,7 @@ fun MainScreen(
             EditPointDialog(
                 point = uiState.editingPoint!!,
                 layer = targetLayer,
+                paletteMode = uiState.settings.colorPaletteMode,
                 onSave = { savedPoint ->
                     viewModel.handleIntent(MainUiIntent.SaveLayerPoint(savedPoint))
                 },

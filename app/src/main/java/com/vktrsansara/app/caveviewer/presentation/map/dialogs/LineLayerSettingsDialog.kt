@@ -73,6 +73,7 @@ import kotlin.math.roundToInt
 fun LineLayerSettingsDialog(
     layer: LineLayer,
     existingNames: List<String> = emptyList(),
+    paletteMode: String = "standard",
     onSave: (updatedLayer: LineLayer) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -112,6 +113,7 @@ fun LineLayerSettingsDialog(
     if (isColorPickerOpen) {
         AppColorPickerDialog(
             initialColor = defaultColor,
+            paletteMode = paletteMode,
             title = "Цвет слоя",
             onColorSelected = { selected ->
                 defaultColor = selected
@@ -124,6 +126,7 @@ fun LineLayerSettingsDialog(
     if (isCustomHaloPickerOpen) {
         AppColorPickerDialog(
             initialColor = customHaloColor,
+            paletteMode = paletteMode,
             title = "Свой цвет засечек",
             onColorSelected = { selected ->
                 customHaloColor = selected

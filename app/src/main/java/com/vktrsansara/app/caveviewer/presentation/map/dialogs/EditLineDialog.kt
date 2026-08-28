@@ -89,6 +89,7 @@ fun EditLineDialog(
     line: LayerLine,
     layer: LineLayer,
     ppm: Double,
+    paletteMode: String = "standard",
     onSave: (LayerLine) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -150,6 +151,7 @@ fun EditLineDialog(
     if (isCustomHaloPickerOpen) {
         AppColorPickerDialog(
             initialColor = haloColor ?: 0xFFEAB308,
+            paletteMode = paletteMode,
             title = "Свой цвет ореола",
             onColorSelected = { selected ->
                 haloColor = selected

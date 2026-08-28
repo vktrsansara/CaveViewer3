@@ -62,6 +62,7 @@ import kotlin.math.roundToInt
 fun LayerSettingsDialog(
     layer: PointLayer,
     existingNames: List<String> = emptyList(),
+    paletteMode: String = "standard",
     onSave: (updatedLayer: PointLayer) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -97,6 +98,7 @@ fun LayerSettingsDialog(
     if (isColorPickerOpen) {
         AppColorPickerDialog(
             initialColor = color,
+            paletteMode = paletteMode,
             title = "Цвет слоя",
             onColorSelected = { selected ->
                 color = selected

@@ -76,6 +76,7 @@ import java.util.Locale
 fun EditPointDialog(
     point: LayerPoint,
     layer: PointLayer,
+    paletteMode: String = "standard",
     onSave: (LayerPoint) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -121,6 +122,7 @@ fun EditPointDialog(
     if (isColorPickerOpen) {
         AppColorPickerDialog(
             initialColor = color,
+            paletteMode = paletteMode,
             title = "Цвет точки",
             onColorSelected = { selected ->
                 color = selected
