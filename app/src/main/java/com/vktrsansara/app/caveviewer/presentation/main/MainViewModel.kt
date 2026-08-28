@@ -256,10 +256,9 @@ class MainViewModel(
             }
             is MainUiIntent.ProjectListClicked -> {
                 viewModelScope.launch {
-                    val projects = projectRepository.getProjectsList()
+                    loadProjectsList()
                     _uiState.update {
                         it.copy(
-                            projectsList = projects,
                             currentScreen = AppScreen.PROJECTS_LIST,
                             isMenuExpanded = false
                         )
@@ -271,6 +270,49 @@ class MainViewModel(
                     it.copy(
                         isProjectTypeDialogVisible = true,
                         isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.ImportProject -> {
+                _uiState.update {
+                    it.copy(
+                        isProjectSaving = true,
+                        projectSavingName = "Импорт проекта",
+                        projectSavingProgress = 0.05f,
+                        projectSavingStatusText = "Подготовка к импорту...",
+                        isMenuExpanded = false
+                    )
+                }
+                viewModelScope.launch {
+                    val result = projectRepository.importProject(intent.uri) { progress, statusText ->
+                        _uiState.update {
+                            it.copy(
+                                projectSavingProgress = progress,
+                                projectSavingStatusText = statusText
+                            )
+                        }
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isProjectSaving = false,
+                            projectSavingName = "",
+                            projectSavingProgress = 0f,
+                            projectSavingStatusText = ""
+                        )
+                    }
+                    result.fold(
+                        onSuccess = { _ ->
+                            loadProjectsList()
+                            _uiState.update {
+                                it.copy(
+                                    currentScreen = AppScreen.PROJECTS_LIST,
+                                    isMenuExpanded = false
+                                )
+                            }
+                        },
+                        onFailure = { error ->
+                            _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка импорта проекта"))
+                        }
                     )
                 }
             }
@@ -2390,6 +2432,11 @@ class MainViewModel(
                 allVisibleLines = allLines
             )
         }
+    }
+
+    private suspend fun loadProjectsList() {
+        val projects = projectRepository.getProjectsList()
+        _uiState.update { it.copy(projectsList = projects) }
     }
 
     private fun addOrActivateTool(tool: ToolType) {

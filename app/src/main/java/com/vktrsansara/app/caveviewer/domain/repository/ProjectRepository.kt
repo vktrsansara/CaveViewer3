@@ -22,6 +22,10 @@ interface ProjectRepository {
         imageUri: Uri,
         onProgress: (TileCutProgress) -> Unit = {}
     ): Result<File>
+    suspend fun importProject(
+        archiveUri: Uri,
+        onProgress: (progress: Float, statusText: String) -> Unit = { _, _ -> }
+    ): Result<String>
     suspend fun getProjectsList(): List<ProjectInfo>
     suspend fun getProjectDir(projectName: String): File?
     suspend fun deleteProject(projectName: String): Result<Unit>

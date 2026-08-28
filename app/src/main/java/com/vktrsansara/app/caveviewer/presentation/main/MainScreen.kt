@@ -2,6 +2,8 @@ package com.vktrsansara.app.caveviewer.presentation.main
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -111,6 +113,7 @@ import com.vktrsansara.app.caveviewer.domain.model.LinePlacementMode
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LineDrawingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LinePlacementControlDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.PointEditorHelpDialog
+import com.vktrsansara.app.caveviewer.presentation.projects.components.TileGenerationProgressDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.PointPlacementControlDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingInputDialog
@@ -138,6 +141,14 @@ fun MainScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    val importProjectLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.handleIntent(MainUiIntent.ImportProject(uri))
+        }
+    }
 
     // Effect handling
     LaunchedEffect(Unit) {
@@ -607,6 +618,16 @@ fun MainScreen(
         )
     }
 
+    // Tile / Project Import Progress Dialog
+    if (uiState.isProjectSaving && uiState.currentScreen != AppScreen.CREATE_RASTER_PROJECT) {
+        TileGenerationProgressDialog(
+            projectName = uiState.projectSavingName,
+            progressFraction = uiState.projectSavingProgress,
+            statusText = uiState.projectSavingStatusText,
+            onCancel = { viewModel.handleIntent(MainUiIntent.CancelProjectCreation) }
+        )
+    }
+
     // Handle system back gesture
     BackHandler(
         enabled = uiState.currentScreen != AppScreen.MAIN ||
@@ -644,7 +665,17 @@ fun MainScreen(
             AppScreen.MAIN -> {
                 MainScreenContent(
                     uiState = uiState,
-                    onIntent = viewModel::handleIntent
+                    onIntent = viewModel::handleIntent,
+                    onImportProject = {
+                        importProjectLauncher.launch(
+                            arrayOf(
+                                "application/zip",
+                                "application/x-zip-compressed",
+                                "application/octet-stream",
+                                "*/*"
+                            )
+                        )
+                    }
                 )
             }
             AppScreen.APP_SETTINGS -> {
@@ -678,6 +709,16 @@ fun MainScreen(
                     activeProjectName = uiState.activeProjectName,
                     onSelectProject = { viewModel.handleIntent(MainUiIntent.SelectProject(it)) },
                     onDeleteProject = { viewModel.handleIntent(MainUiIntent.DeleteProject(it)) },
+                    onImportProject = {
+                        importProjectLauncher.launch(
+                            arrayOf(
+                                "application/zip",
+                                "application/x-zip-compressed",
+                                "application/octet-stream",
+                                "*/*"
+                            )
+                        )
+                    },
                     onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
                 )
             }
@@ -733,6 +774,7 @@ fun MainScreen(
 fun MainScreenContent(
     uiState: MainUiState,
     onIntent: (MainUiIntent) -> Unit,
+    onImportProject: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // If in OpenStreetMap entrance binding mode, show full-screen OSM viewer
@@ -1760,7 +1802,10 @@ fun MainScreenContent(
                 onExitApp = { onIntent(MainUiIntent.ExitAppClicked) },
                 onProjectListClick = { onIntent(MainUiIntent.ProjectListClicked) },
                 onNewProjectClick = { onIntent(MainUiIntent.NewProjectClicked) },
-                onImportProjectClick = { onIntent(MainUiIntent.ImportProjectClicked) },
+                onImportProjectClick = {
+                    onIntent(MainUiIntent.DismissMenu)
+                    onImportProject()
+                },
                 onExportProjectClick = { onIntent(MainUiIntent.ExportProjectClicked) },
                 onCloseProject = { onIntent(MainUiIntent.CloseActiveProject) },
                 onEditMetadataClick = { onIntent(MainUiIntent.OpenMetadataEditor) },

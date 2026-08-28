@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.HorizontalDivider
@@ -64,6 +65,7 @@ fun ProjectsListScreen(
     activeProjectName: String?,
     onSelectProject: (String) -> Unit,
     onDeleteProject: (String) -> Unit,
+    onImportProject: () -> Unit = {},
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -152,6 +154,30 @@ fun ProjectsListScreen(
                     color = AppColors.textPrimary,
                     modifier = Modifier.weight(1f)
                 )
+
+                // Import Button (32x32 dp)
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(AppColors.bgCard)
+                        .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(color = AppColors.pressedColor),
+                            onClick = onImportProject
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.FileDownload,
+                        contentDescription = "Импорт",
+                        tint = Color(0xFF06B6D4),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 // Info Button
                 Box(

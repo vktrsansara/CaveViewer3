@@ -362,6 +362,225 @@ class ProjectRepositoryImpl(
         }
     }
 
+    override suspend fun importProject(
+        archiveUri: Uri,
+        onProgress: (progress: Float, statusText: String) -> Unit
+    ): Result<String> = withContext(Dispatchers.IO) {
+        val tempDir = File(context.cacheDir, "temp_import_${System.currentTimeMillis()}").apply { mkdirs() }
+        val tempZipFile = File(tempDir, "archive.zip")
+        try {
+            onProgress(0.02f, "Чтение файла архива...")
+
+            // 1. Copy stream to temp archive file with progress
+            val totalFileSize = getFileSizeFromUri(archiveUri)
+            context.contentResolver.openInputStream(archiveUri)?.use { input ->
+                FileOutputStream(tempZipFile).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var bytesCopied: Long = 0
+                    var read: Int
+                    var lastUpdate = System.currentTimeMillis()
+
+                    while (input.read(buffer).also { read = it } >= 0) {
+                        output.write(buffer, 0, read)
+                        bytesCopied += read
+                        val now = System.currentTimeMillis()
+                        if (now - lastUpdate > 100) {
+                            lastUpdate = now
+                            if (totalFileSize > 0) {
+                                val frac = (bytesCopied.toFloat() / totalFileSize).coerceIn(0f, 1f)
+                                onProgress(0.02f + frac * 0.13f, "Чтение архива (${(frac * 100).toInt()}%)...")
+                            } else {
+                                onProgress(0.08f, "Чтение архива (${bytesCopied / (1024 * 1024)} МБ)...")
+                            }
+                        }
+                    }
+                }
+            } ?: return@withContext Result.failure(Exception("Не удалось открыть выбранный файл архива"))
+
+            // Check for CaveViewer V1 legacy project structure (metadata.json without thismap.sqlite)
+            val zipEntries = java.util.zip.ZipFile(tempZipFile).use { it.entries().asSequence().map { e -> e.name }.toList() }
+            if (com.vktrsansara.app.caveviewer.data.importer.LegacyCaveViewerImporter.isLegacyProject(zipEntries)) {
+                return@withContext com.vktrsansara.app.caveviewer.data.importer.LegacyCaveViewerImporter.importLegacyZip(
+                    context = context,
+                    zipFile = tempZipFile,
+                    targetProjectsBaseDir = getProjectsBaseDir(),
+                    onProgress = onProgress
+                )
+            }
+
+            onProgress(0.15f, "Подготовка к распаковке...")
+
+            // 2. Unpack archive to temp extracted directory with progress
+            val extractDir = File(tempDir, "extracted").apply { mkdirs() }
+            unzipWithProgress(tempZipFile, extractDir) { entryIndex, totalEntries, _ ->
+                val frac = if (totalEntries > 0) entryIndex.toFloat() / totalEntries else 0f
+                val currentProgress = 0.15f + frac * 0.60f
+                onProgress(currentProgress, "Распаковка: $entryIndex из $totalEntries файлов...")
+            }
+
+            onProgress(0.75f, "Проверка структуры проекта...")
+
+            // 3. Locate thismap.sqlite (search recursively for project root)
+            val sqliteFiles = extractDir.walkTopDown().filter { it.isFile && it.name.equals("thismap.sqlite", ignoreCase = true) }.toList()
+            if (sqliteFiles.isEmpty()) {
+                return@withContext Result.failure(Exception("Некорректный архив: проект должен содержать thismap.sqlite и папку tiles"))
+            }
+
+            val sqliteFile = sqliteFiles.first()
+            val projectRoot = sqliteFile.parentFile ?: extractDir
+
+            // 4. Validate tiles folder
+            val tilesDir = File(projectRoot, "tiles")
+            if (!tilesDir.exists() || !tilesDir.isDirectory) {
+                return@withContext Result.failure(Exception("Некорректный архив: проект должен содержать thismap.sqlite и папку tiles"))
+            }
+
+            // 5. Read project name from metadata or archive filename
+            val db = ProjectDatabase(sqliteFile)
+            val metadata = try { db.getMetadata() } catch (e: Exception) { null }
+            val rawName = metadata?.projectName?.takeIf { it.isNotBlank() }
+                ?: getFileNameFromUri(archiveUri)?.substringBeforeLast(".")
+                ?: "Imported_Project"
+
+            val sanitizedName = rawName
+                .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                .trim()
+                .ifBlank { "Imported_Project" }
+
+            // 6. Create unique target directory in Documents/CaveViewer/Projects
+            val baseDir = getProjectsBaseDir()
+            var finalName = sanitizedName
+            var finalDir = File(baseDir, finalName)
+            var counter = 1
+            while (finalDir.exists()) {
+                finalName = "$sanitizedName ($counter)"
+                finalDir = File(baseDir, finalName)
+                counter++
+            }
+            finalDir.mkdirs()
+
+            // 7. Copy project files into final directory with progress
+            onProgress(0.80f, "Сохранение проекта в хранилище...")
+
+            projectRoot.listFiles()?.forEach { file ->
+                if (file.isDirectory) {
+                    file.copyRecursively(File(finalDir, file.name), overwrite = true)
+                } else {
+                    file.copyTo(File(finalDir, file.name), overwrite = true)
+                }
+            }
+
+            onProgress(0.95f, "Настройка метаданных и тайлов...")
+
+            // Ensure tiles/.v3_aligned marker exists
+            val finalTilesDir = File(finalDir, "tiles")
+            if (finalTilesDir.exists()) {
+                val alignedMarker = File(finalTilesDir, ".v3_aligned")
+                if (!alignedMarker.exists()) {
+                    try {
+                        alignedMarker.createNewFile()
+                    } catch (_: Exception) {}
+                }
+            }
+
+            // Sync metadata project name if finalName differs
+            val finalDbFile = File(finalDir, "thismap.sqlite")
+            if (finalDbFile.exists()) {
+                try {
+                    val finalDb = ProjectDatabase(finalDbFile)
+                    val currentMeta = finalDb.getMetadata()
+                    if (currentMeta != null && currentMeta.projectName != finalName) {
+                        finalDb.saveMetadata(currentMeta.copy(projectName = finalName))
+                    }
+                } catch (_: Exception) {}
+            }
+
+            onProgress(1.0f, "Импорт успешно завершен!")
+            Result.success(finalName)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Ошибка распаковки архива", e))
+        } finally {
+            try {
+                tempDir.deleteRecursively()
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun unzipWithProgress(
+        zipFile: File,
+        targetDir: File,
+        onEntryProgress: (entryIndex: Int, totalEntries: Int, entryName: String) -> Unit
+    ) {
+        java.util.zip.ZipFile(zipFile).use { zip ->
+            val total = zip.size()
+            var current = 0
+            var lastProgressTime = 0L
+
+            val entries = zip.entries()
+            val canonicalDestPath = targetDir.canonicalPath
+            while (entries.hasMoreElements()) {
+                val entry = entries.nextElement()
+                current++
+                val entryFile = File(targetDir, entry.name)
+                val canonicalEntryPath = entryFile.canonicalPath
+
+                // Zip Slip protection
+                if (!canonicalEntryPath.startsWith(canonicalDestPath + File.separator) && canonicalEntryPath != canonicalDestPath) {
+                    throw SecurityException("Небезопасный путь в архиве: ${entry.name}")
+                }
+
+                if (entry.isDirectory) {
+                    entryFile.mkdirs()
+                } else {
+                    entryFile.parentFile?.mkdirs()
+                    zip.getInputStream(entry).use { input ->
+                        FileOutputStream(entryFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+
+                val now = System.currentTimeMillis()
+                if (now - lastProgressTime > 80 || current == total) {
+                    lastProgressTime = now
+                    onEntryProgress(current, total, entry.name)
+                }
+            }
+        }
+    }
+
+    private fun getFileSizeFromUri(uri: Uri): Long {
+        if (uri.scheme == "content") {
+            try {
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                        if (sizeIndex != -1) {
+                            return cursor.getLong(sizeIndex)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        return -1L
+    }
+
+    private fun getFileNameFromUri(uri: Uri): String? {
+        if (uri.scheme == "content") {
+            try {
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (nameIndex != -1) {
+                            return cursor.getString(nameIndex)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        return uri.lastPathSegment?.substringAfterLast('/')
+    }
+
     // ==========================================
     // Point Layers & Layer Points CRUD
     // ==========================================

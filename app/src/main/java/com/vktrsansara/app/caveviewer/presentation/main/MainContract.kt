@@ -173,6 +173,7 @@ sealed interface MainUiIntent : UiIntent {
     data object ProjectListClicked : MainUiIntent
     data object NewProjectClicked : MainUiIntent
     data object ImportProjectClicked : MainUiIntent
+    data class ImportProject(val uri: android.net.Uri) : MainUiIntent
     data object ExportProjectClicked : MainUiIntent
     data object CloseActiveProject : MainUiIntent
 
