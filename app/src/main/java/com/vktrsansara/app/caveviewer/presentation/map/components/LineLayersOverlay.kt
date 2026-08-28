@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.unit.dp
 import com.vktrsansara.app.caveviewer.domain.measure.LineColorUtils
 import com.vktrsansara.app.caveviewer.domain.model.LayerLine
 import com.vktrsansara.app.caveviewer.domain.model.LineEnvironmentType
@@ -21,24 +22,37 @@ import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.LineStyle
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
-import androidx.compose.ui.unit.dp
 import org.maplibre.android.geometry.LatLng
 
 /**
- * Data class representing projected polyline ready for fast Canvas drawing.
+ * Pre-cached polyline holding unchanging geographic LatLng vertices.
+ * Computed ONLY once per dataset update, eliminating millions of trigonometrical calculations per second.
+ */
+private data class CachedLine(
+    val line: LayerLine,
+    val latLngPoints: List<LatLng>
+)
+
+/**
+ * Data class representing projected polyline with screen bounding box for sub-millisecond Viewport Culling.
  */
 private data class ProjectedLine(
     val line: LayerLine,
     val layer: LineLayer,
     val path: Path,
     val screenPoints: List<Offset>,
+    val minX: Float,
+    val maxX: Float,
+    val minY: Float,
+    val maxY: Float,
     val isSelected: Boolean
 )
 
 /**
  * High-performance vector overlay for displaying all visible cave line layers and polylines.
  * Supports:
- * - Real-time camera transformation with per-frame recalculation
+ * - Pre-cached LatLng vertices with fast screen projection
+ * - Viewport Bounding Box Culling (skips off-screen geometry & Path allocation)
  * - Layer 1: Selection Glow outline
  * - Layer 2: Core Difficulty Stroke (Heatmap 0.0..8.0 or layer default color, styles: Solid, Dashed, Dotted)
  * - Layer 3: Topographic vector ticks & hatches (UIS/Therion speleological cartography standard)
@@ -62,8 +76,30 @@ fun LineLayersOverlay(
         lineLayers.filter { it.isVisible }.associateBy { it.id }
     }
 
+    // 1. Pre-cache LatLng points for each line (1 computation per line vertex, NOT 60fps)
+    val cachedLines = remember(allLines, imageWidth, imageHeight, zoomMax) {
+        if (imageWidth <= 0 || imageHeight <= 0 || zoomMax <= 0) {
+            emptyList()
+        } else {
+            allLines.mapNotNull { line ->
+                if (line.points.size < 2) return@mapNotNull null
+                val latLngs = line.points.map { pt ->
+                    CaveMapBounds.imagePixelsToLatLng(
+                        pixelX = pt.first,
+                        pixelY = pt.second,
+                        imageWidth = imageWidth,
+                        imageHeight = imageHeight,
+                        maxZoom = zoomMax
+                    )
+                }
+                CachedLine(line = line, latLngPoints = latLngs)
+            }
+        }
+    }
+
+    // 2. Fast screen projection per frame with immediate Bounding Box culling
     val projectedLines = remember(
-        allLines,
+        cachedLines,
         visibleLayersMap,
         projector,
         currentTargetLat,
@@ -72,22 +108,33 @@ fun LineLayersOverlay(
         mapBearing,
         selectedLineId
     ) {
-        if (projector == null || imageWidth <= 0 || imageHeight <= 0) {
+        if (projector == null || cachedLines.isEmpty()) {
             emptyList()
         } else {
-            allLines.mapNotNull { line ->
-                val layer = visibleLayersMap[line.layerId] ?: return@mapNotNull null
-                if (line.points.size < 2) return@mapNotNull null
+            val result = ArrayList<ProjectedLine>(cachedLines.size)
+            for (k in cachedLines.indices) {
+                val cl = cachedLines[k]
+                val layer = visibleLayersMap[cl.line.layerId] ?: continue
+                val pts = cl.latLngPoints
 
-                val screenPoints = line.points.map { pt ->
-                    val latLng = CaveMapBounds.imagePixelsToLatLng(
-                        pixelX = pt.first,
-                        pixelY = pt.second,
-                        imageWidth = imageWidth,
-                        imageHeight = imageHeight,
-                        maxZoom = zoomMax
-                    )
-                    projector(latLng)
+                var minX = Float.MAX_VALUE
+                var maxX = -Float.MAX_VALUE
+                var minY = Float.MAX_VALUE
+                var maxY = -Float.MAX_VALUE
+
+                val screenPoints = ArrayList<Offset>(pts.size)
+                for (i in pts.indices) {
+                    val sp = projector(pts[i])
+                    screenPoints.add(sp)
+                    if (sp.x < minX) minX = sp.x
+                    if (sp.x > maxX) maxX = sp.x
+                    if (sp.y < minY) minY = sp.y
+                    if (sp.y > maxY) maxY = sp.y
+                }
+
+                // Generous screen bounding box check (-200..3500 px) to avoid Path creation for far-off lines
+                if (maxX < -200f || minX > 3500f || maxY < -200f || minY > 3500f) {
+                    continue
                 }
 
                 val path = Path().apply {
@@ -97,14 +144,21 @@ fun LineLayersOverlay(
                     }
                 }
 
-                ProjectedLine(
-                    line = line,
-                    layer = layer,
-                    path = path,
-                    screenPoints = screenPoints,
-                    isSelected = (line.id == selectedLineId)
+                result.add(
+                    ProjectedLine(
+                        line = cl.line,
+                        layer = layer,
+                        path = path,
+                        screenPoints = screenPoints,
+                        minX = minX,
+                        maxX = maxX,
+                        minY = minY,
+                        maxY = maxY,
+                        isSelected = (cl.line.id == selectedLineId)
+                    )
                 )
             }
+            result
         }
     }
 
@@ -117,8 +171,13 @@ fun LineLayersOverlay(
             right = size.width,
             bottom = size.height
         ) {
+            val screenW = size.width
+            val screenH = size.height
+            val margin = 80.dp.toPx()
+
             // 1. Draw Selection Glow on selected line
-            projectedLines.forEach { item ->
+            for (i in projectedLines.indices) {
+                val item = projectedLines[i]
                 if (item.isSelected) {
                     val selectionWidth = (item.layer.defaultWidth + 8f) * density
                     drawPath(
@@ -133,8 +192,16 @@ fun LineLayersOverlay(
                 }
             }
 
-            // 2. Draw Core Line Stroke
-            projectedLines.forEach { item ->
+            // 2. Draw Core Line Strokes with Viewport Culling
+            for (i in projectedLines.indices) {
+                val item = projectedLines[i]
+
+                // Viewport Culling: skip lines outside visible screen
+                if (item.maxX < -margin || item.minX > screenW + margin ||
+                    item.maxY < -margin || item.minY > screenH + margin) {
+                    continue
+                }
+
                 val coreColor = if (item.line.colorOverride != null) {
                     Color(item.line.colorOverride.toInt())
                 } else if (item.layer.isHeatmapEnabled) {
@@ -170,9 +237,15 @@ fun LineLayersOverlay(
                 )
             }
 
-            // 3. Draw Vector Topographic Ticks / Hatches (UIS / Therion Standard)
-            projectedLines.forEach { item ->
+            // 3. Draw Vector Topographic Ticks / Hatches (UIS / Therion Standard) with Viewport Culling
+            for (i in projectedLines.indices) {
+                val item = projectedLines[i]
                 if (item.line.environmentType != LineEnvironmentType.NONE) {
+                    if (item.maxX < -margin || item.minX > screenW + margin ||
+                        item.maxY < -margin || item.minY > screenH + margin) {
+                        continue
+                    }
+
                     val patternColor = LineColorUtils.getHaloColor(item.line.environmentType, item.line.haloColor) ?: Color.White
                     val strokeWidth = item.layer.defaultWidth * density
                     LinePatternRenderer.drawEnvironmentPattern(
@@ -187,3 +260,4 @@ fun LineLayersOverlay(
         }
     }
 }
+

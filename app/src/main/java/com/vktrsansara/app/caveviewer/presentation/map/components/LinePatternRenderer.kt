@@ -34,9 +34,24 @@ object LinePatternRenderer {
         val stepPx = drawScope.run { 28.dp.toPx() }      // Distance between ticks along segment
         val tickSizePx = drawScope.run { 5.5.dp.toPx() } // Tick half-size / radius
 
+        val screenW = drawScope.size.width
+        val screenH = drawScope.size.height
+        val cullingMargin = 30f
+
         for (i in 0 until screenPoints.size - 1) {
             val p1 = screenPoints[i]
             val p2 = screenPoints[i + 1]
+
+            // Segment bounding box culling
+            val minX = minOf(p1.x, p2.x)
+            val maxX = maxOf(p1.x, p2.x)
+            val minY = minOf(p1.y, p2.y)
+            val maxY = maxOf(p1.y, p2.y)
+            if (maxX < -cullingMargin || minX > screenW + cullingMargin ||
+                maxY < -cullingMargin || minY > screenH + cullingMargin) {
+                continue
+            }
+
             val dx = p2.x - p1.x
             val dy = p2.y - p1.y
             val segmentLen = sqrt(dx * dx + dy * dy)
@@ -52,6 +67,12 @@ object LinePatternRenderer {
                 val t = currentDist / segmentLen
                 val cx = p1.x + dx * t
                 val cy = p1.y + dy * t
+
+                if (cx < -cullingMargin || cx > screenW + cullingMargin ||
+                    cy < -cullingMargin || cy > screenH + cullingMargin) {
+                    currentDist += stepPx
+                    continue
+                }
 
                 when (environmentType) {
                     // 1. Стоячая вода / Озеро: вытянутый овал вдоль линии хода (лужа) ⬭

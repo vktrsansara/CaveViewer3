@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -24,10 +25,22 @@ import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import org.maplibre.android.geometry.LatLng
 
+/**
+ * Pre-cached structure holding unchanging geographic LatLng and hazard state for each point.
+ * Computed ONLY once when point list or raster dimensions change, avoiding trigonometrical
+ * calculations (pow, atan, exp) on every frame.
+ */
+private data class CachedPoint(
+    val point: LayerPoint,
+    val latLng: LatLng,
+    val isHazard: Boolean
+)
+
 private data class RenderedPoint(
     val point: LayerPoint,
     val layer: PointLayer,
-    val screenOffset: Offset
+    val screenOffset: Offset,
+    val isHazard: Boolean
 )
 
 @Composable
@@ -47,49 +60,83 @@ fun PointLayersOverlay(
     val textMeasurer = rememberTextMeasurer()
     val layerMap = remember(pointLayers) { pointLayers.associateBy { it.id } }
 
+    val textPrimaryColor = AppColors.textPrimary
+    val textStyle = remember(textPrimaryColor) {
+        TextStyle(
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = textPrimaryColor
+        )
+    }
+
+    // 1. Pre-cache LatLng and hazard flag (1 calculation per point, NOT 60fps)
+    val cachedPoints = remember(allPoints, imageWidth, imageHeight, zoomMax) {
+        if (imageWidth <= 0 || imageHeight <= 0 || zoomMax <= 0) {
+            emptyList()
+        } else {
+            allPoints.map { pt ->
+                val isHazard = pt.customValues.entries.any { (k, v) ->
+                    (k.contains("hazard", ignoreCase = true) ||
+                     k.contains("опасн", ignoreCase = true) ||
+                     k.contains("danger", ignoreCase = true)) &&
+                    v.equals("true", ignoreCase = true)
+                }
+                val latLng = CaveMapBounds.imagePixelsToLatLng(
+                    pixelX = pt.x,
+                    pixelY = pt.y,
+                    imageWidth = imageWidth,
+                    imageHeight = imageHeight,
+                    maxZoom = zoomMax
+                )
+                CachedPoint(point = pt, latLng = latLng, isHazard = isHazard)
+            }
+        }
+    }
+
+    // 2. Pre-measure distinct point label layouts (avoid re-measuring text in Canvas loop)
+    val labelLayoutMap = remember(allPoints, textStyle) {
+        val map = HashMap<String, TextLayoutResult>(allPoints.size)
+        allPoints.forEach { pt ->
+            if (pt.name.isNotBlank() && !map.containsKey(pt.name)) {
+                map[pt.name] = textMeasurer.measure(
+                    text = pt.name,
+                    style = textStyle
+                )
+            }
+        }
+        map
+    }
+
+    // 3. Fast screen projection per frame using pre-cached LatLng
     val renderedPoints = remember(
-        allPoints,
+        cachedPoints,
         layerMap,
         projector,
-        imageWidth,
-        imageHeight,
-        zoomMax,
         currentTargetLat,
         currentTargetLon,
         currentZoom,
         mapBearing
     ) {
-        if (projector == null || imageWidth <= 0 || imageHeight <= 0) {
+        if (projector == null || cachedPoints.isEmpty()) {
             emptyList()
         } else {
-            allPoints.mapNotNull { point ->
-                val layer = layerMap[point.layerId]
+            val result = ArrayList<RenderedPoint>(cachedPoints.size)
+            for (i in cachedPoints.indices) {
+                val cp = cachedPoints[i]
+                val layer = layerMap[cp.point.layerId]
                 if (layer != null && layer.isVisible) {
-                    try {
-                        val latLng = CaveMapBounds.imagePixelsToLatLng(
-                            pixelX = point.x,
-                            pixelY = point.y,
-                            imageWidth = imageWidth,
-                            imageHeight = imageHeight,
-                            maxZoom = zoomMax
-                        )
-                        val screenOffset = projector(latLng)
-                        if (screenOffset.x.isFinite() && screenOffset.y.isFinite()) {
-                            RenderedPoint(point, layer, screenOffset)
-                        } else null
-                    } catch (_: Exception) {
-                        null
+                    val screenOffset = projector(cp.latLng)
+                    if (screenOffset.x.isFinite() && screenOffset.y.isFinite()) {
+                        result.add(RenderedPoint(cp.point, layer, screenOffset, cp.isHazard))
                     }
-                } else {
-                    null
                 }
             }
+            result
         }
     }
 
     val bgCardColor = AppColors.bgCard
     val borderColor = AppColors.borderColor
-    val textPrimaryColor = AppColors.textPrimary
 
     Canvas(modifier = modifier.fillMaxSize().clipToBounds()) {
         clipRect(
@@ -98,19 +145,27 @@ fun PointLayersOverlay(
             right = size.width,
             bottom = size.height
         ) {
-            renderedPoints.forEach { item ->
-                val point = item.point
-                val layer = item.layer
+            val screenW = size.width
+            val screenH = size.height
+            val margin = 80.dp.toPx()
+
+            val badgePaddingX = 5.dp.toPx()
+            val badgePaddingY = 2.dp.toPx()
+            val cornerRadiusPx = CornerRadius(4.dp.toPx())
+            val strokeWidthPx = Stroke(width = 1.dp.toPx())
+
+            for (i in renderedPoints.indices) {
+                val item = renderedPoints[i]
                 val screenOffset = item.screenOffset
 
-                // Check if point has hazard/danger flag set to true
-                val isHazard = point.customValues.entries.any { (k, v) ->
-                    (k.contains("hazard", ignoreCase = true) ||
-                            k.contains("опасн", ignoreCase = true) ||
-                            k.contains("danger", ignoreCase = true)) &&
-                            v.equals("true", ignoreCase = true)
+                // Viewport Culling: skip points outside visible screen with margin
+                if (screenOffset.x < -margin || screenOffset.x > screenW + margin ||
+                    screenOffset.y < -margin || screenOffset.y > screenH + margin) {
+                    continue
                 }
 
+                val point = item.point
+                val layer = item.layer
                 val markerSizePx = layer.defaultSize.dp.toPx()
 
                 // 1. Draw shape marker
@@ -120,56 +175,52 @@ fun PointLayersOverlay(
                     sizePx = markerSizePx,
                     fillColor = Color(point.color.toInt()),
                     strokeColor = Color.Black,
-                    isHazard = isHazard
+                    isHazard = item.isHazard
                 )
 
-                // 2. Draw label badge if enabled for layer
+                // 2. Draw pre-measured label badge if enabled for layer
                 if (layer.showLabels && point.name.isNotBlank()) {
-                    val textLayoutResult = textMeasurer.measure(
-                        text = point.name,
-                        style = TextStyle(
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = textPrimaryColor
+                    val textLayoutResult = labelLayoutMap[point.name]
+                    if (textLayoutResult != null) {
+                        val textW = textLayoutResult.size.width.toFloat()
+                        val textH = textLayoutResult.size.height.toFloat()
+
+                        val badgeTopLeft = Offset(
+                            x = screenOffset.x + markerSizePx + 6.dp.toPx(),
+                            y = screenOffset.y - (textH / 2f) - badgePaddingY
                         )
-                    )
 
-                    val badgePaddingX = 5.dp.toPx()
-                    val badgePaddingY = 2.dp.toPx()
-                    val badgeTopLeft = Offset(
-                        x = screenOffset.x + markerSizePx + 6.dp.toPx(),
-                        y = screenOffset.y - (textLayoutResult.size.height / 2f) - badgePaddingY
-                    )
+                        val badgeSize = Size(
+                            width = textW + badgePaddingX * 2,
+                            height = textH + badgePaddingY * 2
+                        )
 
-                    val badgeSize = Size(
-                        width = textLayoutResult.size.width + badgePaddingX * 2,
-                        height = textLayoutResult.size.height + badgePaddingY * 2
-                    )
+                        // Background badge
+                        drawRoundRect(
+                            color = bgCardColor.copy(alpha = 0.85f),
+                            topLeft = badgeTopLeft,
+                            size = badgeSize,
+                            cornerRadius = cornerRadiusPx
+                        )
 
-                    // Background badge
-                    drawRoundRect(
-                        color = bgCardColor.copy(alpha = 0.85f),
-                        topLeft = badgeTopLeft,
-                        size = badgeSize,
-                        cornerRadius = CornerRadius(4.dp.toPx())
-                    )
+                        // Border
+                        drawRoundRect(
+                            color = borderColor.copy(alpha = 0.6f),
+                            topLeft = badgeTopLeft,
+                            size = badgeSize,
+                            cornerRadius = cornerRadiusPx,
+                            style = strokeWidthPx
+                        )
 
-                    // Border
-                    drawRoundRect(
-                        color = borderColor.copy(alpha = 0.6f),
-                        topLeft = badgeTopLeft,
-                        size = badgeSize,
-                        cornerRadius = CornerRadius(4.dp.toPx()),
-                        style = Stroke(width = 1.dp.toPx())
-                    )
-
-                    // Label text
-                    drawText(
-                        textLayoutResult = textLayoutResult,
-                        topLeft = Offset(badgeTopLeft.x + badgePaddingX, badgeTopLeft.y + badgePaddingY)
-                    )
+                        // Label text
+                        drawText(
+                            textLayoutResult = textLayoutResult,
+                            topLeft = Offset(badgeTopLeft.x + badgePaddingX, badgeTopLeft.y + badgePaddingY)
+                        )
+                    }
                 }
             }
         }
     }
 }
+
