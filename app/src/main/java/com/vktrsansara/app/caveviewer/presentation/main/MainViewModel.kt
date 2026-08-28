@@ -2012,6 +2012,19 @@ class MainViewModel(
                 }
             }
             is MainUiIntent.AddDrawingLineVertex -> {
+                val currentPoints = _uiState.value.drawingLinePoints
+                val lastPoint = currentPoints.lastOrNull()
+                if (lastPoint != null) {
+                    val dx = intent.pointPx.first - lastPoint.imagePx.first
+                    val dy = intent.pointPx.second - lastPoint.imagePx.second
+                    val distPx = kotlin.math.sqrt(dx * dx + dy * dy)
+                    if (distPx < 1.0) {
+                        viewModelScope.launch {
+                            _effect.send(MainUiEffect.ShowToast("Переместите карту, чтобы поставить следующую вершину"))
+                        }
+                        return
+                    }
+                }
                 _uiState.update {
                     it.copy(
                         drawingLinePoints = it.drawingLinePoints + ScaleBindingPoint(intent.latLng, intent.pointPx)
@@ -2027,7 +2040,21 @@ class MainViewModel(
             }
             is MainUiIntent.CompleteLineDrawing -> {
                 val layer = _uiState.value.editingLineLayer
-                val pts = _uiState.value.drawingLinePoints.map { it.imagePx }
+                val rawPts = _uiState.value.drawingLinePoints.map { it.imagePx }
+                // Deduplicate consecutive identical vertices
+                val pts = mutableListOf<Pair<Double, Double>>()
+                for (pt in rawPts) {
+                    val last = pts.lastOrNull()
+                    if (last == null) {
+                        pts.add(pt)
+                    } else {
+                        val dx = pt.first - last.first
+                        val dy = pt.second - last.second
+                        if (kotlin.math.sqrt(dx * dx + dy * dy) >= 1.0) {
+                            pts.add(pt)
+                        }
+                    }
+                }
                 if (layer != null && pts.size >= 2) {
                     var lenPx = 0.0
                     for (i in 0 until pts.size - 1) {
@@ -2054,6 +2081,10 @@ class MainViewModel(
                             editingLine = newLine,
                             isEditLineDialogOpen = true
                         )
+                    }
+                } else {
+                    viewModelScope.launch {
+                        _effect.send(MainUiEffect.ShowToast("Для завершения линии требуется минимум 2 различные вершины"))
                     }
                 }
             }

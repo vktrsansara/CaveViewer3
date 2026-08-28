@@ -59,13 +59,14 @@ fun LineDrawingOverlay(
         val last = points.last().imagePx
         val dx = currentCenterPx.first - last.first
         val dy = currentCenterPx.second - last.second
-        sqrt(dx * dx + dy * dy)
+        val dist = sqrt(dx * dx + dy * dy)
+        if (dist >= 1.0) dist else 0.0
     } else {
         0.0
     }
 
     val totalPx = segmentsPx + liveRayPx
-    val totalVertices = points.size + (if (currentCenterPx != null && points.isNotEmpty()) 1 else 0)
+    val totalVertices = points.size + (if (liveRayPx > 0.0 && points.isNotEmpty()) 1 else 0)
 
     val infoText = if (points.isEmpty()) {
         "Рисование линии: ${layer.name} • Нажмите [+] для установки первой вершины"
@@ -106,17 +107,21 @@ fun LineDrawingOverlay(
                     }
                 }
 
-                // 2. Draw live dashed ray to center cursor
-                if (screenPoints.isNotEmpty()) {
+                // 2. Draw live dashed ray to center cursor (if moved from last vertex)
+                if (screenPoints.isNotEmpty() && liveRayPx > 0.0) {
                     val lastScreen = screenPoints.last()
-                    drawLine(
-                        color = layerColor.copy(alpha = 0.85f),
-                        start = lastScreen,
-                        end = centerScreen,
-                        strokeWidth = strokeWidth,
-                        pathEffect = dashPathEffect,
-                        cap = StrokeCap.Round
-                    )
+                    val dxScreen = centerScreen.x - lastScreen.x
+                    val dyScreen = centerScreen.y - lastScreen.y
+                    if (sqrt(dxScreen * dxScreen + dyScreen * dyScreen) >= 3f) {
+                        drawLine(
+                            color = layerColor.copy(alpha = 0.85f),
+                            start = lastScreen,
+                            end = centerScreen,
+                            strokeWidth = strokeWidth,
+                            pathEffect = dashPathEffect,
+                            cap = StrokeCap.Round
+                        )
+                    }
                 }
 
                 // 3. Draw vertex circular markers
