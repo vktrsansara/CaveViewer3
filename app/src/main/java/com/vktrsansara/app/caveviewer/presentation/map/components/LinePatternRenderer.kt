@@ -1,10 +1,12 @@
 package com.vktrsansara.app.caveviewer.presentation.map.components
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
 import com.vktrsansara.app.caveviewer.domain.model.LineEnvironmentType
 import kotlin.math.atan2
@@ -52,7 +54,23 @@ object LinePatternRenderer {
                 val cy = p1.y + dy * t
 
                 when (environmentType) {
-                    // 1. Водоток / Ручей: стрелочка по направлению течения хода >
+                    // 1. Стоячая вода / Озеро: вытянутый овал вдоль линии хода (лужа) ⬭
+                    LineEnvironmentType.STANDING_WATER -> {
+                        val ovalLen = tickSizePx * 1.35f
+                        val ovalWidth = tickSizePx * 0.70f
+                        drawScope.rotate(
+                            degrees = Math.toDegrees(angle.toDouble()).toFloat(),
+                            pivot = Offset(cx, cy)
+                        ) {
+                            drawOval(
+                                color = patternColor,
+                                topLeft = Offset(cx - ovalLen, cy - ovalWidth),
+                                size = Size(ovalLen * 2f, ovalWidth * 2f)
+                            )
+                        }
+                    }
+
+                    // 2. Водоток / Ручей: стрелочка по направлению течения хода >
                     LineEnvironmentType.WATER -> {
                         val arrowLen = tickSizePx * 1.15f
                         val arrowAngle = Math.toRadians(35.0).toFloat()
@@ -74,7 +92,7 @@ object LinePatternRenderer {
                         )
                     }
 
-                    // 2. Завал / Глыбы: перпендикулярная засечка-гребенка ┼
+                    // 3. Завал / Глыбы: перпендикулярная засечка-гребенка ┼
                     LineEnvironmentType.BOULDER -> {
                         drawScope.drawLine(
                             color = patternColor,
@@ -84,11 +102,11 @@ object LinePatternRenderer {
                         )
                     }
 
-                    // 3. Глина / Грязь: узловая точка-крапинка •
+                    // 4. Глина / Вязкая грязь: узловая точка-крапинка •
                     LineEnvironmentType.CLAY -> {
                         drawScope.drawCircle(
                             color = patternColor,
-                            radius = tickSizePx * 0.65f,
+                            radius = tickSizePx * 0.45f,
                             center = Offset(cx, cy)
                         )
                     }

@@ -3,6 +3,7 @@ package com.vktrsansara.app.caveviewer.domain.model
 // 1. Предустановленные типы среды для векторных топографических засечек (UIS/Therion)
 enum class LineEnvironmentType(val title: String, val symbol: String, val defaultHaloColor: Long?) {
     NONE("Обычный ход", "───", null),
+    STANDING_WATER("Стоячая вода / Озеро", "──⬭──", 0xFF38BDF8), // Голубой (как у водотока)
     WATER("Водоток / Ручей", "──>──", 0xFF38BDF8),             // Голубой
     BOULDER("Завал / Глыбы", "──┼──", 0xFF6E7681),             // Графитовый
     CLAY("Глина / Вязкая грязь", "──•──", 0xFF9B381F),         // Терракотовый
