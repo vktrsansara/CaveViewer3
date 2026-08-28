@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.LocationSearching
 import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.Polyline
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SquareFoot
@@ -137,6 +138,7 @@ fun MenuPopover(
     onEntranceBindingClick: () -> Unit = {},
     isPointLayersModeActive: Boolean = false,
     onTogglePointLayersMode: () -> Unit = {},
+    onOpenLineLayerManagerClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentLevel by remember { mutableStateOf(MenuLevel.MAIN) }
@@ -185,6 +187,7 @@ fun MenuPopover(
                             onOpenFavoriteToolsPreset = onOpenFavoriteToolsPreset,
                             onProjectsClick = { currentLevel = MenuLevel.PROJECTS },
                             onEditClick = { currentLevel = MenuLevel.EDIT },
+                            onOpenLineLayerManagerClick = onOpenLineLayerManagerClick,
                             onToolsClick = { currentLevel = MenuLevel.TOOLS },
                             onSettingsClick = { currentLevel = MenuLevel.SETTINGS },
                             onExitClick = onExitApp
@@ -255,6 +258,7 @@ private fun MainMenuContent(
     onOpenFavoriteToolsPreset: () -> Unit,
     onProjectsClick: () -> Unit,
     onEditClick: () -> Unit,
+    onOpenLineLayerManagerClick: () -> Unit,
     onToolsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onExitClick: () -> Unit
@@ -280,6 +284,16 @@ private fun MainMenuContent(
                 iconTint = IconEditColor,
                 title = "Редактировать",
                 onClick = onEditClick
+            )
+        }
+
+        // Item 2.5: Слои линий (Emerald Green Polyline) - active only if project is loaded
+        if (hasActiveProject) {
+            MenuItem(
+                icon = Icons.Rounded.Polyline,
+                iconTint = Color(0xFF10B981), // Emerald Green
+                title = "Слои линий",
+                onClick = onOpenLineLayerManagerClick
             )
         }
 

@@ -6,7 +6,9 @@ import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDateTimeUtils
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldType
+import com.vktrsansara.app.caveviewer.domain.model.LayerLine
 import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
+import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
@@ -71,6 +73,13 @@ class MainViewModel(
                             pointCounts[layer.id] = points.size
                         }
                         val allPoints = projectRepository.getAllVisiblePoints(activeName)
+                        val lineLayersList = projectRepository.getLineLayers(activeName)
+                        val lineCounts = mutableMapOf<Long, Int>()
+                        lineLayersList.forEach { layer ->
+                            val lines = projectRepository.getLinesForLayer(activeName, layer.id)
+                            lineCounts[layer.id] = lines.size
+                        }
+                        val allLines = projectRepository.getAllVisibleLines(activeName)
                         _uiState.update {
                             it.copy(
                                 hasActiveProject = true,
@@ -83,7 +92,10 @@ class MainViewModel(
                                 activeProjectCameraPosition = savedPos,
                                 pointLayers = layers,
                                 layerPointCounts = pointCounts,
-                                allVisiblePoints = allPoints
+                                allVisiblePoints = allPoints,
+                                lineLayers = lineLayersList,
+                                layerLineCounts = lineCounts,
+                                allVisibleLines = allLines
                             )
                         }
                     } else {
@@ -101,7 +113,12 @@ class MainViewModel(
                                 layerPointCounts = emptyMap(),
                                 allVisiblePoints = emptyList(),
                                 isLayerManagerOpen = false,
-                                isCreateLayerOpen = false
+                                isCreateLayerOpen = false,
+                                lineLayers = emptyList(),
+                                layerLineCounts = emptyMap(),
+                                allVisibleLines = emptyList(),
+                                isLineLayerManagerOpen = false,
+                                isCreateLineLayerOpen = false
                             )
                         }
                     }
@@ -120,7 +137,12 @@ class MainViewModel(
                             layerPointCounts = emptyMap(),
                             allVisiblePoints = emptyList(),
                             isLayerManagerOpen = false,
-                            isCreateLayerOpen = false
+                            isCreateLayerOpen = false,
+                            lineLayers = emptyList(),
+                            layerLineCounts = emptyMap(),
+                            allVisibleLines = emptyList(),
+                            isLineLayerManagerOpen = false,
+                            isCreateLineLayerOpen = false
                         )
                     }
                 }
@@ -290,6 +312,27 @@ class MainViewModel(
                             pointLayers = emptyList(),
                             layerPointCounts = emptyMap(),
                             allVisiblePoints = emptyList(),
+                            selectedPointForDetails = null,
+                            editingPointLayer = null,
+                            editingPoint = null,
+                            isEditPointDialogOpen = false,
+                            isPointPlacementControlOpen = false,
+                            isPointEditorHelpOpen = false,
+                            isPointLayersModeActive = false,
+                            lineLayers = emptyList(),
+                            layerLineCounts = emptyMap(),
+                            allVisibleLines = emptyList(),
+                            isLineLayerManagerOpen = false,
+                            isCreateLineLayerOpen = false,
+                            selectedLineLayerForSettings = null,
+                            selectedLineLayerForProperties = null,
+                            isAddLineFieldDialogOpen = false,
+                            editingLineFieldDefinition = null,
+                            editingLineLayer = null,
+                            drawingLinePoints = emptyList(),
+                            editingLine = null,
+                            isEditLineDialogOpen = false,
+                            selectedLineForDetails = null,
                             isScaleBindingMode = false,
                             scaleBindingPoints = emptyList(),
                             isScaleBindingHelpVisible = false,
@@ -324,6 +367,13 @@ class MainViewModel(
                         pointCounts[layer.id] = points.size
                     }
                     val allPoints = projectRepository.getAllVisiblePoints(intent.projectName)
+                    val lineLayersList = projectRepository.getLineLayers(intent.projectName)
+                    val lineCounts = mutableMapOf<Long, Int>()
+                    lineLayersList.forEach { layer ->
+                        val lines = projectRepository.getLinesForLayer(intent.projectName, layer.id)
+                        lineCounts[layer.id] = lines.size
+                    }
+                    val allLines = projectRepository.getAllVisibleLines(intent.projectName)
                     _uiState.update {
                         it.copy(
                             hasActiveProject = true,
@@ -337,6 +387,9 @@ class MainViewModel(
                             pointLayers = layers,
                             layerPointCounts = pointCounts,
                             allVisiblePoints = allPoints,
+                            lineLayers = lineLayersList,
+                            layerLineCounts = lineCounts,
+                            allVisibleLines = allLines,
                             isScaleBindingMode = false,
                             scaleBindingPoints = emptyList(),
                             isScaleBindingHelpVisible = false,
@@ -365,14 +418,45 @@ class MainViewModel(
                     }
                     val updatedList = projectRepository.getProjectsList()
                     _uiState.update {
-                        it.copy(
-                            projectsList = updatedList,
-                            hasActiveProject = if (isActive) false else it.hasActiveProject,
-                            activeProjectName = if (isActive) null else it.activeProjectName,
-                            activeProjectDir = if (isActive) null else it.activeProjectDir,
-                            activeProjectMetadata = if (isActive) null else it.activeProjectMetadata,
-                            activeProjectCameraPosition = if (isActive) null else it.activeProjectCameraPosition
-                        )
+                        if (isActive) {
+                            it.copy(
+                                projectsList = updatedList,
+                                hasActiveProject = false,
+                                activeProjectName = null,
+                                activeProjectDir = null,
+                                activeProjectMetadata = null,
+                                activeProjectEntrances = emptyList(),
+                                activeProjectLocation = MapLocation(),
+                                activeProjectCadastralData = emptyMap(),
+                                activeProjectCameraPosition = null,
+                                pointLayers = emptyList(),
+                                layerPointCounts = emptyMap(),
+                                allVisiblePoints = emptyList(),
+                                selectedPointForDetails = null,
+                                editingPointLayer = null,
+                                editingPoint = null,
+                                isEditPointDialogOpen = false,
+                                isPointPlacementControlOpen = false,
+                                isPointEditorHelpOpen = false,
+                                isPointLayersModeActive = false,
+                                lineLayers = emptyList(),
+                                layerLineCounts = emptyMap(),
+                                allVisibleLines = emptyList(),
+                                isLineLayerManagerOpen = false,
+                                isCreateLineLayerOpen = false,
+                                selectedLineLayerForSettings = null,
+                                selectedLineLayerForProperties = null,
+                                isAddLineFieldDialogOpen = false,
+                                editingLineFieldDefinition = null,
+                                editingLineLayer = null,
+                                drawingLinePoints = emptyList(),
+                                editingLine = null,
+                                isEditLineDialogOpen = false,
+                                selectedLineForDetails = null
+                            )
+                        } else {
+                            it.copy(projectsList = updatedList)
+                        }
                     }
                     _effect.send(MainUiEffect.ShowToast("Проект «${intent.projectName}» удален"))
                 }
@@ -1727,6 +1811,319 @@ class MainViewModel(
             is MainUiIntent.DismissPointEditorHelp -> {
                 _uiState.update { it.copy(isPointEditorHelpOpen = false) }
             }
+            is MainUiIntent.OpenLineLayerManager -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        loadLineLayers(activeName)
+                        _uiState.update {
+                            it.copy(
+                                isLineLayerManagerOpen = true,
+                                isMenuExpanded = false
+                            )
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.DismissLineLayerManager -> {
+                _uiState.update { it.copy(isLineLayerManagerOpen = false) }
+            }
+            is MainUiIntent.OpenCreateLineLayerDialog -> {
+                _uiState.update { it.copy(isCreateLineLayerOpen = true) }
+            }
+            is MainUiIntent.DismissCreateLineLayerDialog -> {
+                _uiState.update { it.copy(isCreateLineLayerOpen = false) }
+            }
+            is MainUiIntent.CreateLineLayer -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    val trimmed = intent.name.trim()
+                    val isDuplicate = _uiState.value.lineLayers.any { it.name.equals(trimmed, ignoreCase = true) }
+                    if (isDuplicate) {
+                        viewModelScope.launch {
+                            _effect.send(MainUiEffect.ShowToast("Слой линий с названием «$trimmed» уже существует"))
+                        }
+                    } else {
+                        viewModelScope.launch {
+                            val newLayer = LineLayer(name = trimmed)
+                            projectRepository.insertLineLayer(activeName, newLayer)
+                            loadLineLayers(activeName)
+                            _uiState.update { it.copy(isCreateLineLayerOpen = false) }
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.ToggleLineLayerVisibility -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        val currentLayer = _uiState.value.lineLayers.find { it.id == intent.layerId }
+                        val currentVis = currentLayer?.isVisible ?: true
+                        projectRepository.toggleLineLayerVisibility(activeName, intent.layerId, !currentVis)
+                        loadLineLayers(activeName)
+                    }
+                }
+            }
+            is MainUiIntent.DeleteLineLayer -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        projectRepository.deleteLineLayer(activeName, intent.layerId)
+                        loadLineLayers(activeName)
+                        _uiState.update {
+                            it.copy(
+                                editingLineLayer = if (it.editingLineLayer?.id == intent.layerId) null else it.editingLineLayer,
+                                selectedLineLayerForSettings = if (it.selectedLineLayerForSettings?.id == intent.layerId) null else it.selectedLineLayerForSettings,
+                                selectedLineLayerForProperties = if (it.selectedLineLayerForProperties?.id == intent.layerId) null else it.selectedLineLayerForProperties
+                            )
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.OpenLineLayerSettings -> {
+                _uiState.update { it.copy(selectedLineLayerForSettings = intent.layer) }
+            }
+            is MainUiIntent.DismissLineLayerSettings -> {
+                _uiState.update { it.copy(selectedLineLayerForSettings = null) }
+            }
+            is MainUiIntent.SaveLineLayerSettings -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    val trimmed = intent.updatedLayer.name.trim()
+                    val isDuplicate = _uiState.value.lineLayers.any {
+                        it.id != intent.updatedLayer.id && it.name.equals(trimmed, ignoreCase = true)
+                    }
+                    if (isDuplicate) {
+                        viewModelScope.launch {
+                            _effect.send(MainUiEffect.ShowToast("Слой с названием «$trimmed» уже существует"))
+                        }
+                    } else {
+                        viewModelScope.launch {
+                            projectRepository.updateLineLayer(activeName, intent.updatedLayer.copy(name = trimmed))
+                            loadLineLayers(activeName)
+                            _uiState.update { it.copy(selectedLineLayerForSettings = null) }
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.OpenLineLayerProperties -> {
+                _uiState.update { it.copy(selectedLineLayerForProperties = intent.layer) }
+            }
+            is MainUiIntent.DismissLineLayerProperties -> {
+                _uiState.update { it.copy(selectedLineLayerForProperties = null, isAddLineFieldDialogOpen = false, editingLineFieldDefinition = null) }
+            }
+            is MainUiIntent.OpenAddLineFieldDialog -> {
+                _uiState.update { it.copy(isAddLineFieldDialogOpen = true, editingLineFieldDefinition = null) }
+            }
+            is MainUiIntent.OpenEditLineFieldDialog -> {
+                _uiState.update { it.copy(isAddLineFieldDialogOpen = true, editingLineFieldDefinition = intent.field) }
+            }
+            is MainUiIntent.DismissAddLineFieldDialog -> {
+                _uiState.update { it.copy(isAddLineFieldDialogOpen = false, editingLineFieldDefinition = null) }
+            }
+            is MainUiIntent.AddLineLayerField -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        val currentLayer = _uiState.value.lineLayers.find { it.id == intent.layerId }
+                            ?: _uiState.value.selectedLineLayerForProperties
+                        if (currentLayer != null) {
+                            val updatedSchema = currentLayer.fieldsSchema + intent.field
+                            val updatedLayer = currentLayer.copy(fieldsSchema = updatedSchema)
+                            projectRepository.updateLineLayer(activeName, updatedLayer)
+                            loadLineLayers(activeName)
+                            _uiState.update {
+                                it.copy(
+                                    selectedLineLayerForProperties = updatedLayer,
+                                    isAddLineFieldDialogOpen = false,
+                                    editingLineFieldDefinition = null
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.UpdateLineLayerField -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        val currentLayer = _uiState.value.lineLayers.find { it.id == intent.layerId }
+                            ?: _uiState.value.selectedLineLayerForProperties
+                        if (currentLayer != null) {
+                            val updatedSchema = currentLayer.fieldsSchema.map { existing ->
+                                if (existing.key == intent.field.key) intent.field else existing
+                            }
+                            val updatedLayer = currentLayer.copy(fieldsSchema = updatedSchema)
+                            projectRepository.updateLineLayer(activeName, updatedLayer)
+                            loadLineLayers(activeName)
+                            _uiState.update {
+                                it.copy(
+                                    selectedLineLayerForProperties = updatedLayer,
+                                    isAddLineFieldDialogOpen = false,
+                                    editingLineFieldDefinition = null
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.DeleteLineLayerField -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        val currentLayer = _uiState.value.lineLayers.find { it.id == intent.layerId }
+                            ?: _uiState.value.selectedLineLayerForProperties
+                        if (currentLayer != null) {
+                            val updatedSchema = currentLayer.fieldsSchema.filter { it.key != intent.fieldKey }
+                            val updatedLayer = currentLayer.copy(fieldsSchema = updatedSchema)
+                            projectRepository.updateLineLayer(activeName, updatedLayer)
+                            loadLineLayers(activeName)
+                            _uiState.update {
+                                it.copy(
+                                    selectedLineLayerForProperties = updatedLayer
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.StartLineDrawingMode -> {
+                _uiState.update {
+                    it.copy(
+                        editingLineLayer = intent.layer,
+                        drawingLinePoints = emptyList(),
+                        editingLine = null,
+                        isEditLineDialogOpen = false,
+                        isLineLayerManagerOpen = false,
+                        isMenuExpanded = false,
+                        editingPointLayer = null,
+                        editingPoint = null
+                    )
+                }
+            }
+            is MainUiIntent.ExitLineDrawingMode -> {
+                _uiState.update {
+                    it.copy(
+                        editingLineLayer = null,
+                        drawingLinePoints = emptyList(),
+                        editingLine = null,
+                        isEditLineDialogOpen = false
+                    )
+                }
+            }
+            is MainUiIntent.AddDrawingLineVertex -> {
+                _uiState.update {
+                    it.copy(
+                        drawingLinePoints = it.drawingLinePoints + ScaleBindingPoint(intent.latLng, intent.pointPx)
+                    )
+                }
+            }
+            is MainUiIntent.UndoDrawingLineVertex -> {
+                _uiState.update {
+                    it.copy(
+                        drawingLinePoints = if (it.drawingLinePoints.isNotEmpty()) it.drawingLinePoints.dropLast(1) else emptyList()
+                    )
+                }
+            }
+            is MainUiIntent.CompleteLineDrawing -> {
+                val layer = _uiState.value.editingLineLayer
+                val pts = _uiState.value.drawingLinePoints.map { it.imagePx }
+                if (layer != null && pts.size >= 2) {
+                    var lenPx = 0.0
+                    for (i in 0 until pts.size - 1) {
+                        val p1 = pts[i]
+                        val p2 = pts[i + 1]
+                        val dx = p2.first - p1.first
+                        val dy = p2.second - p1.second
+                        lenPx += kotlin.math.sqrt(dx * dx + dy * dy)
+                    }
+                    val ppm = _uiState.value.activeProjectMetadata?.pixelsPerMeter ?: 0.0
+                    val lenMeters = if (ppm > 0.0) lenPx / ppm else 0.0
+                    val defaultName = "Линия ${(_uiState.value.layerLineCounts[layer.id] ?: 0) + 1}"
+                    val newLine = LayerLine(
+                        layerId = layer.id,
+                        name = defaultName,
+                        points = pts,
+                        lengthPx = lenPx,
+                        lengthMeters = lenMeters,
+                        environmentType = layer.defaultEnvironment,
+                        haloColor = if (layer.defaultEnvironment == com.vktrsansara.app.caveviewer.domain.model.LineEnvironmentType.CUSTOM) 0xFFEAB308 else layer.defaultEnvironment.defaultHaloColor
+                    )
+                    _uiState.update {
+                        it.copy(
+                            editingLine = newLine,
+                            isEditLineDialogOpen = true
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.DismissEditLineDialog -> {
+                _uiState.update { it.copy(isEditLineDialogOpen = false, editingLine = null) }
+            }
+            is MainUiIntent.OpenEditLineDialog -> {
+                _uiState.update { it.copy(isEditLineDialogOpen = true, editingLine = intent.line) }
+            }
+            is MainUiIntent.SaveLayerLine -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    val pts = intent.line.points
+                    var lenPx = 0.0
+                    for (i in 0 until pts.size - 1) {
+                        val p1 = pts[i]
+                        val p2 = pts[i + 1]
+                        val dx = p2.first - p1.first
+                        val dy = p2.second - p1.second
+                        lenPx += kotlin.math.sqrt(dx * dx + dy * dy)
+                    }
+                    val ppm = _uiState.value.activeProjectMetadata?.pixelsPerMeter ?: 0.0
+                    val lenMeters = if (ppm > 0.0) lenPx / ppm else 0.0
+                    val lineToSave = intent.line.copy(
+                        name = intent.line.name.trim(),
+                        lengthPx = lenPx,
+                        lengthMeters = lenMeters
+                    )
+
+                    viewModelScope.launch {
+                        if (lineToSave.id == 0L) {
+                            projectRepository.insertLayerLine(activeName, lineToSave)
+                        } else {
+                            projectRepository.updateLayerLine(activeName, lineToSave)
+                        }
+                        loadLineLayers(activeName)
+                        _uiState.update {
+                            it.copy(
+                                drawingLinePoints = emptyList(),
+                                editingLine = null,
+                                isEditLineDialogOpen = false,
+                                selectedLineForDetails = null
+                            )
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.DeleteLayerLine -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    viewModelScope.launch {
+                        projectRepository.deleteLayerLine(activeName, intent.lineId)
+                        loadLineLayers(activeName)
+                        _uiState.update {
+                            it.copy(
+                                selectedLineForDetails = if (it.selectedLineForDetails?.id == intent.lineId) null else it.selectedLineForDetails
+                            )
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.SelectLine -> {
+                _uiState.update { it.copy(selectedLineForDetails = intent.line, selectedPointForDetails = null) }
+            }
+            is MainUiIntent.DismissLineDetails -> {
+                _uiState.update { it.copy(selectedLineForDetails = null) }
+            }
+            is MainUiIntent.CenterOnLine -> {
+                // Focus camera handled in UI
+            }
         }
     }
 
@@ -1743,6 +2140,23 @@ class MainViewModel(
                 pointLayers = layers,
                 layerPointCounts = pointCounts,
                 allVisiblePoints = allPoints
+            )
+        }
+    }
+
+    private suspend fun loadLineLayers(projectName: String) {
+        val layers = projectRepository.getLineLayers(projectName)
+        val lineCounts = mutableMapOf<Long, Int>()
+        layers.forEach { layer ->
+            val lines = projectRepository.getLinesForLayer(projectName, layer.id)
+            lineCounts[layer.id] = lines.size
+        }
+        val allLines = projectRepository.getAllVisibleLines(projectName)
+        _uiState.update {
+            it.copy(
+                lineLayers = layers,
+                layerLineCounts = lineCounts,
+                allVisibleLines = allLines
             )
         }
     }

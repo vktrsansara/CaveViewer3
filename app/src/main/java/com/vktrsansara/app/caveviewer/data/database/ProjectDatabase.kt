@@ -6,7 +6,11 @@ import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldType
+import com.vktrsansara.app.caveviewer.domain.model.LayerLine
 import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
+import com.vktrsansara.app.caveviewer.domain.model.LineEnvironmentType
+import com.vktrsansara.app.caveviewer.domain.model.LineLayer
+import com.vktrsansara.app.caveviewer.domain.model.LineStyle
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
@@ -136,11 +140,53 @@ class ProjectDatabase(private val dbFile: File) {
                 """.trimIndent()
             )
 
+            // Line layers table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS line_layers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    is_visible INTEGER NOT NULL DEFAULT 1,
+                    default_width REAL NOT NULL DEFAULT 3.0,
+                    default_halo_width REAL NOT NULL DEFAULT 4.0,
+                    is_heatmap_enabled INTEGER NOT NULL DEFAULT 1,
+                    default_color INTEGER NOT NULL DEFAULT -16711936,
+                    default_environment TEXT NOT NULL DEFAULT 'NONE',
+                    fields_schema_json TEXT NOT NULL DEFAULT '[]',
+                    created_at INTEGER NOT NULL
+                );
+                """.trimIndent()
+            )
+
+            // Layer lines table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS layer_lines (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    layer_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    points_json TEXT NOT NULL DEFAULT '[]',
+                    length_meters REAL NOT NULL DEFAULT 0.0,
+                    length_px REAL NOT NULL DEFAULT 0.0,
+                    difficulty REAL NOT NULL DEFAULT 1.0,
+                    line_style TEXT NOT NULL DEFAULT 'SOLID',
+                    environment_type TEXT NOT NULL DEFAULT 'NONE',
+                    halo_color INTEGER,
+                    color_override INTEGER,
+                    custom_values_json TEXT NOT NULL DEFAULT '{}',
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    FOREIGN KEY(layer_id) REFERENCES line_layers(id) ON DELETE CASCADE
+                );
+                """.trimIndent()
+            )
+
             // Safe column additions for existing databases
             try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN pixels_per_meter REAL NOT NULL DEFAULT 0.0") } catch (_: Exception) {}
             try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN scale_meters REAL NOT NULL DEFAULT 0.0") } catch (_: Exception) {}
             try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN angle_north REAL NOT NULL DEFAULT 0.0") } catch (_: Exception) {}
             try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN crs TEXT NOT NULL DEFAULT 'Simple'") } catch (_: Exception) {}
+            try { db.execSQL("ALTER TABLE line_layers ADD COLUMN default_halo_width REAL NOT NULL DEFAULT 4.0") } catch (_: Exception) {}
         }
     }
 
@@ -623,6 +669,255 @@ class ProjectDatabase(private val dbFile: File) {
     fun deleteLayerPoint(pointId: Long) {
         openDatabase().use { db ->
             db.delete("layer_points", "id = ?", arrayOf(pointId.toString()))
+        }
+    }
+
+    // ==========================================
+    // Line Layers & Layer Lines CRUD
+    // ==========================================
+
+    private fun serializeLinePoints(points: List<Pair<Double, Double>>): String {
+        val array = JSONArray()
+        for (p in points) {
+            val ptArray = JSONArray().apply {
+                put(p.first)
+                put(p.second)
+            }
+            array.put(ptArray)
+        }
+        return array.toString()
+    }
+
+    private fun deserializeLinePoints(jsonStr: String?): List<Pair<Double, Double>> {
+        if (jsonStr.isNullOrBlank()) return emptyList()
+        return try {
+            val array = JSONArray(jsonStr)
+            val list = mutableListOf<Pair<Double, Double>>()
+            for (i in 0 until array.length()) {
+                val ptArray = array.getJSONArray(i)
+                if (ptArray.length() >= 2) {
+                    list.add(Pair(ptArray.getDouble(0), ptArray.getDouble(1)))
+                }
+            }
+            list
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    // --- Line Layers ---
+
+    fun getLineLayers(): List<LineLayer> {
+        if (!dbFile.exists()) return emptyList()
+        return try {
+            openDatabase().use { db ->
+                val cursor = db.rawQuery(
+                    "SELECT id, name, is_visible, default_width, is_heatmap_enabled, default_color, default_environment, fields_schema_json, created_at, default_halo_width FROM line_layers ORDER BY id ASC",
+                    null
+                )
+                val results = mutableListOf<LineLayer>()
+                cursor.use { c ->
+                    while (c.moveToNext()) {
+                        val haloWidth = if (c.columnCount > 9 && !c.isNull(9)) c.getFloat(9) else 4.0f
+                        results.add(
+                            LineLayer(
+                                id = c.getLong(0),
+                                name = c.getString(1) ?: "",
+                                isVisible = c.getInt(2) != 0,
+                                defaultWidth = c.getFloat(3),
+                                defaultHaloWidth = haloWidth,
+                                isHeatmapEnabled = c.getInt(4) != 0,
+                                defaultColor = c.getLong(5),
+                                defaultEnvironment = try { LineEnvironmentType.valueOf(c.getString(6)) } catch (_: Exception) { LineEnvironmentType.NONE },
+                                fieldsSchema = deserializeFieldsSchema(c.getString(7)),
+                                createdAt = c.getLong(8)
+                            )
+                        )
+                    }
+                }
+                results
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun insertLineLayer(layer: LineLayer): Long {
+        return openDatabase().use { db ->
+            val values = ContentValues().apply {
+                put("name", layer.name)
+                put("is_visible", if (layer.isVisible) 1 else 0)
+                put("default_width", layer.defaultWidth)
+                put("default_halo_width", layer.defaultHaloWidth)
+                put("is_heatmap_enabled", if (layer.isHeatmapEnabled) 1 else 0)
+                put("default_color", layer.defaultColor)
+                put("default_environment", layer.defaultEnvironment.name)
+                put("fields_schema_json", serializeFieldsSchema(layer.fieldsSchema))
+                put("created_at", layer.createdAt)
+            }
+            db.insert("line_layers", null, values)
+        }
+    }
+
+    fun updateLineLayer(layer: LineLayer) {
+        openDatabase().use { db ->
+            val values = ContentValues().apply {
+                put("name", layer.name)
+                put("is_visible", if (layer.isVisible) 1 else 0)
+                put("default_width", layer.defaultWidth)
+                put("default_halo_width", layer.defaultHaloWidth)
+                put("is_heatmap_enabled", if (layer.isHeatmapEnabled) 1 else 0)
+                put("default_color", layer.defaultColor)
+                put("default_environment", layer.defaultEnvironment.name)
+                put("fields_schema_json", serializeFieldsSchema(layer.fieldsSchema))
+            }
+            db.update("line_layers", values, "id = ?", arrayOf(layer.id.toString()))
+        }
+    }
+
+    fun deleteLineLayer(layerId: Long) {
+        openDatabase().use { db ->
+            db.delete("layer_lines", "layer_id = ?", arrayOf(layerId.toString()))
+            db.delete("line_layers", "id = ?", arrayOf(layerId.toString()))
+        }
+    }
+
+    fun toggleLineLayerVisibility(layerId: Long, isVisible: Boolean) {
+        openDatabase().use { db ->
+            val values = ContentValues().apply {
+                put("is_visible", if (isVisible) 1 else 0)
+            }
+            db.update("line_layers", values, "id = ?", arrayOf(layerId.toString()))
+        }
+    }
+
+    // --- Layer Lines ---
+
+    fun getLinesForLayer(layerId: Long): List<LayerLine> {
+        if (!dbFile.exists()) return emptyList()
+        return try {
+            openDatabase().use { db ->
+                val cursor = db.rawQuery(
+                    "SELECT id, layer_id, name, points_json, length_meters, length_px, difficulty, line_style, environment_type, halo_color, color_override, custom_values_json, created_at, updated_at FROM layer_lines WHERE layer_id = ? ORDER BY id ASC",
+                    arrayOf(layerId.toString())
+                )
+                val results = mutableListOf<LayerLine>()
+                cursor.use { c ->
+                    while (c.moveToNext()) {
+                        results.add(
+                            LayerLine(
+                                id = c.getLong(0),
+                                layerId = c.getLong(1),
+                                name = c.getString(2) ?: "",
+                                points = deserializeLinePoints(c.getString(3)),
+                                lengthMeters = c.getDouble(4),
+                                lengthPx = c.getDouble(5),
+                                difficulty = c.getFloat(6),
+                                style = try { LineStyle.valueOf(c.getString(7)) } catch (_: Exception) { LineStyle.SOLID },
+                                environmentType = try { LineEnvironmentType.valueOf(c.getString(8)) } catch (_: Exception) { LineEnvironmentType.NONE },
+                                haloColor = if (c.isNull(9)) null else c.getLong(9),
+                                colorOverride = if (c.isNull(10)) null else c.getLong(10),
+                                customValues = deserializeCustomValues(c.getString(11)),
+                                createdAt = c.getLong(12),
+                                updatedAt = c.getLong(13)
+                            )
+                        )
+                    }
+                }
+                results
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun getAllVisibleLines(): List<LayerLine> {
+        if (!dbFile.exists()) return emptyList()
+        return try {
+            openDatabase().use { db ->
+                val cursor = db.rawQuery(
+                    """
+                    SELECT l.id, l.layer_id, l.name, l.points_json, l.length_meters, l.length_px, l.difficulty, l.line_style, l.environment_type, l.halo_color, l.color_override, l.custom_values_json, l.created_at, l.updated_at 
+                    FROM layer_lines l 
+                    INNER JOIN line_layers lay ON l.layer_id = lay.id 
+                    WHERE lay.is_visible = 1 
+                    ORDER BY l.id ASC
+                    """.trimIndent(),
+                    null
+                )
+                val results = mutableListOf<LayerLine>()
+                cursor.use { c ->
+                    while (c.moveToNext()) {
+                        results.add(
+                            LayerLine(
+                                id = c.getLong(0),
+                                layerId = c.getLong(1),
+                                name = c.getString(2) ?: "",
+                                points = deserializeLinePoints(c.getString(3)),
+                                lengthMeters = c.getDouble(4),
+                                lengthPx = c.getDouble(5),
+                                difficulty = c.getFloat(6),
+                                style = try { LineStyle.valueOf(c.getString(7)) } catch (_: Exception) { LineStyle.SOLID },
+                                environmentType = try { LineEnvironmentType.valueOf(c.getString(8)) } catch (_: Exception) { LineEnvironmentType.NONE },
+                                haloColor = if (c.isNull(9)) null else c.getLong(9),
+                                colorOverride = if (c.isNull(10)) null else c.getLong(10),
+                                customValues = deserializeCustomValues(c.getString(11)),
+                                createdAt = c.getLong(12),
+                                updatedAt = c.getLong(13)
+                            )
+                        )
+                    }
+                }
+                results
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun insertLayerLine(line: LayerLine): Long {
+        return openDatabase().use { db ->
+            val values = ContentValues().apply {
+                put("layer_id", line.layerId)
+                put("name", line.name)
+                put("points_json", serializeLinePoints(line.points))
+                put("length_meters", line.lengthMeters)
+                put("length_px", line.lengthPx)
+                put("difficulty", line.difficulty)
+                put("line_style", line.style.name)
+                put("environment_type", line.environmentType.name)
+                if (line.haloColor != null) put("halo_color", line.haloColor) else putNull("halo_color")
+                if (line.colorOverride != null) put("color_override", line.colorOverride) else putNull("color_override")
+                put("custom_values_json", serializeCustomValues(line.customValues))
+                put("created_at", line.createdAt)
+                put("updated_at", line.updatedAt)
+            }
+            db.insert("layer_lines", null, values)
+        }
+    }
+
+    fun updateLayerLine(line: LayerLine) {
+        openDatabase().use { db ->
+            val values = ContentValues().apply {
+                put("name", line.name)
+                put("points_json", serializeLinePoints(line.points))
+                put("length_meters", line.lengthMeters)
+                put("length_px", line.lengthPx)
+                put("difficulty", line.difficulty)
+                put("line_style", line.style.name)
+                put("environment_type", line.environmentType.name)
+                if (line.haloColor != null) put("halo_color", line.haloColor) else putNull("halo_color")
+                if (line.colorOverride != null) put("color_override", line.colorOverride) else putNull("color_override")
+                put("custom_values_json", serializeCustomValues(line.customValues))
+                put("updated_at", System.currentTimeMillis())
+            }
+            db.update("layer_lines", values, "id = ?", arrayOf(line.id.toString()))
+        }
+    }
+
+    fun deleteLayerLine(lineId: Long) {
+        openDatabase().use { db ->
+            db.delete("layer_lines", "id = ?", arrayOf(lineId.toString()))
         }
     }
 }

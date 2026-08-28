@@ -9,7 +9,9 @@ import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.CompassTapMode
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
+import com.vktrsansara.app.caveviewer.domain.model.LayerLine
 import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
+import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
@@ -113,7 +115,22 @@ data class MainUiState(
     val selectedPointForDetails: LayerPoint? = null,
     val isPointPlacementControlOpen: Boolean = false,
     val isPointEditorHelpOpen: Boolean = false,
-    val isPointLayersModeActive: Boolean = false
+    val isPointLayersModeActive: Boolean = false,
+    // Line Layers State
+    val lineLayers: List<LineLayer> = emptyList(),
+    val layerLineCounts: Map<Long, Int> = emptyMap(),
+    val allVisibleLines: List<LayerLine> = emptyList(),
+    val isLineLayerManagerOpen: Boolean = false,
+    val isCreateLineLayerOpen: Boolean = false,
+    val selectedLineLayerForSettings: LineLayer? = null,
+    val selectedLineLayerForProperties: LineLayer? = null,
+    val isAddLineFieldDialogOpen: Boolean = false,
+    val editingLineFieldDefinition: LayerFieldDefinition? = null,
+    val editingLineLayer: LineLayer? = null,
+    val drawingLinePoints: List<ScaleBindingPoint> = emptyList(),
+    val editingLine: LayerLine? = null,
+    val isEditLineDialogOpen: Boolean = false,
+    val selectedLineForDetails: LayerLine? = null
 ) : UiState
 
 sealed interface MainUiIntent : UiIntent {
@@ -300,6 +317,40 @@ sealed interface MainUiIntent : UiIntent {
     data class SavePointPlacementMode(val mode: com.vktrsansara.app.caveviewer.domain.model.PointPlacementMode) : MainUiIntent
     data object OpenPointEditorHelp : MainUiIntent
     data object DismissPointEditorHelp : MainUiIntent
+
+    // Line Layer actions
+    data object OpenLineLayerManager : MainUiIntent
+    data object DismissLineLayerManager : MainUiIntent
+    data object OpenCreateLineLayerDialog : MainUiIntent
+    data object DismissCreateLineLayerDialog : MainUiIntent
+    data class CreateLineLayer(val name: String) : MainUiIntent
+    data class ToggleLineLayerVisibility(val layerId: Long) : MainUiIntent
+    data class DeleteLineLayer(val layerId: Long) : MainUiIntent
+    data class OpenLineLayerSettings(val layer: LineLayer) : MainUiIntent
+    data object DismissLineLayerSettings : MainUiIntent
+    data class SaveLineLayerSettings(val updatedLayer: LineLayer) : MainUiIntent
+    data class OpenLineLayerProperties(val layer: LineLayer) : MainUiIntent
+    data object DismissLineLayerProperties : MainUiIntent
+    data object OpenAddLineFieldDialog : MainUiIntent
+    data class OpenEditLineFieldDialog(val field: LayerFieldDefinition) : MainUiIntent
+    data object DismissAddLineFieldDialog : MainUiIntent
+    data class AddLineLayerField(val layerId: Long, val field: LayerFieldDefinition) : MainUiIntent
+    data class UpdateLineLayerField(val layerId: Long, val field: LayerFieldDefinition) : MainUiIntent
+    data class DeleteLineLayerField(val layerId: Long, val fieldKey: String) : MainUiIntent
+
+    // Line Drawing & Edit Line actions
+    data class StartLineDrawingMode(val layer: LineLayer) : MainUiIntent
+    data object ExitLineDrawingMode : MainUiIntent
+    data class AddDrawingLineVertex(val latLng: LatLng, val pointPx: Pair<Double, Double>) : MainUiIntent
+    data object UndoDrawingLineVertex : MainUiIntent
+    data object CompleteLineDrawing : MainUiIntent
+    data object DismissEditLineDialog : MainUiIntent
+    data class OpenEditLineDialog(val line: LayerLine) : MainUiIntent
+    data class SaveLayerLine(val line: LayerLine) : MainUiIntent
+    data class DeleteLayerLine(val lineId: Long) : MainUiIntent
+    data class SelectLine(val line: LayerLine) : MainUiIntent
+    data object DismissLineDetails : MainUiIntent
+    data class CenterOnLine(val line: LayerLine) : MainUiIntent
 }
 
 sealed interface MainUiEffect : UiEffect {

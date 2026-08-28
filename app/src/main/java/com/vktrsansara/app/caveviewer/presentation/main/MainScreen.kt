@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -35,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -63,7 +65,11 @@ import com.vktrsansara.app.caveviewer.presentation.map.components.BindingSideCon
 import com.vktrsansara.app.caveviewer.presentation.map.components.CompassWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.DeltaOffsetOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.FaultLineOverlay
-import androidx.compose.foundation.layout.navigationBarsPadding
+import com.vktrsansara.app.caveviewer.domain.model.LayerLine
+import com.vktrsansara.app.caveviewer.presentation.map.components.LineDetailsCard
+import com.vktrsansara.app.caveviewer.presentation.map.components.LineDrawingOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.components.LineDrawingSideControl
+import com.vktrsansara.app.caveviewer.presentation.map.components.LineLayersOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.MultiToolSideBar
 import com.vktrsansara.app.caveviewer.presentation.map.components.NorthBindingOverlay
@@ -78,13 +84,18 @@ import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBarWidget
 import com.vktrsansara.app.caveviewer.presentation.map.components.ScaleBindingOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.AddFieldDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.CreateLayerDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.CreateLineLayerDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.DeltaOffsetHelpDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EditLineDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EditPointDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EntranceBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.EntranceNameDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LayerManagerDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LayerPropertiesDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LayerSettingsDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LineLayerManagerDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LineLayerPropertiesDialog
+import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LineLayerSettingsDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MapFilterDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MapFilterHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MultiToolDockHelpDialog
@@ -302,6 +313,131 @@ fun MainScreen(
         )
     }
 
+    // Line Layer Manager Dialog
+    if (uiState.isLineLayerManagerOpen) {
+        LineLayerManagerDialog(
+            layers = uiState.lineLayers,
+            lineCounts = uiState.layerLineCounts,
+            onCreateLayerClick = { viewModel.handleIntent(MainUiIntent.OpenCreateLineLayerDialog) },
+            onStartEditingLines = { layer ->
+                viewModel.handleIntent(MainUiIntent.StartLineDrawingMode(layer))
+            },
+            onToggleVisibility = { layerId, _ ->
+                viewModel.handleIntent(MainUiIntent.ToggleLineLayerVisibility(layerId))
+            },
+            onEditStyle = { layer ->
+                viewModel.handleIntent(MainUiIntent.OpenLineLayerSettings(layer))
+            },
+            onEditSchema = { layer ->
+                viewModel.handleIntent(MainUiIntent.OpenLineLayerProperties(layer))
+            },
+            onDeleteLayer = { layerId ->
+                viewModel.handleIntent(MainUiIntent.DeleteLineLayer(layerId))
+            },
+            onDismiss = { viewModel.handleIntent(MainUiIntent.DismissLineLayerManager) }
+        )
+    }
+
+    // Create Line Layer Dialog
+    if (uiState.isCreateLineLayerOpen) {
+        CreateLineLayerDialog(
+            existingNames = uiState.lineLayers.map { it.name },
+            onSave = { name ->
+                viewModel.handleIntent(MainUiIntent.CreateLineLayer(name))
+            },
+            onCancel = {
+                viewModel.handleIntent(MainUiIntent.DismissCreateLineLayerDialog)
+            }
+        )
+    }
+
+    // Line Layer Settings Dialog (Line Width, Heatmap, Color, Environment)
+    if (uiState.selectedLineLayerForSettings != null) {
+        val currentSelected = uiState.selectedLineLayerForSettings!!
+        LineLayerSettingsDialog(
+            layer = currentSelected,
+            existingNames = uiState.lineLayers.filter { it.id != currentSelected.id }.map { it.name },
+            onSave = { updated ->
+                viewModel.handleIntent(MainUiIntent.SaveLineLayerSettings(updated))
+            },
+            onDismiss = {
+                viewModel.handleIntent(MainUiIntent.DismissLineLayerSettings)
+            }
+        )
+    }
+
+    // Line Layer Properties Dialog (Custom Fields Schema)
+    if (uiState.selectedLineLayerForProperties != null) {
+        val currentSelected = uiState.selectedLineLayerForProperties!!
+        LineLayerPropertiesDialog(
+            layer = currentSelected,
+            onAddCustomFieldClick = {
+                viewModel.handleIntent(MainUiIntent.OpenAddLineFieldDialog)
+            },
+            onEditFieldClick = { field ->
+                viewModel.handleIntent(MainUiIntent.OpenEditLineFieldDialog(field))
+            },
+            onDeleteField = { key ->
+                viewModel.handleIntent(
+                    MainUiIntent.DeleteLineLayerField(
+                        layerId = currentSelected.id,
+                        fieldKey = key
+                    )
+                )
+            },
+            onDismiss = {
+                viewModel.handleIntent(MainUiIntent.DismissLineLayerProperties)
+            }
+        )
+    }
+
+    // Add / Edit Line Field Dialog
+    if (uiState.isAddLineFieldDialogOpen && uiState.selectedLineLayerForProperties != null) {
+        val targetLayer = uiState.selectedLineLayerForProperties!!
+        AddFieldDialog(
+            initialField = uiState.editingLineFieldDefinition,
+            onSave = { field ->
+                if (uiState.editingLineFieldDefinition != null) {
+                    viewModel.handleIntent(
+                        MainUiIntent.UpdateLineLayerField(
+                            layerId = targetLayer.id,
+                            field = field
+                        )
+                    )
+                } else {
+                    viewModel.handleIntent(
+                        MainUiIntent.AddLineLayerField(
+                            layerId = targetLayer.id,
+                            field = field
+                        )
+                    )
+                }
+            },
+            onCancel = {
+                viewModel.handleIntent(MainUiIntent.DismissAddLineFieldDialog)
+            }
+        )
+    }
+
+    // Edit / Save Line Dialog
+    if (uiState.isEditLineDialogOpen && uiState.editingLine != null) {
+        val targetLayer = uiState.lineLayers.find { it.id == uiState.editingLine!!.layerId }
+            ?: uiState.editingLineLayer
+        if (targetLayer != null) {
+            EditLineDialog(
+                line = uiState.editingLine!!,
+                layer = targetLayer,
+                ppm = uiState.activeProjectMetadata?.pixelsPerMeter ?: 0.0,
+                onSave = { updatedLine ->
+                    viewModel.handleIntent(MainUiIntent.SaveLayerLine(updatedLine))
+                },
+                onDismiss = {
+                    viewModel.handleIntent(MainUiIntent.DismissEditLineDialog)
+                }
+            )
+        }
+    }
+
     // Layer Settings Dialog (Marker Shape, Color, Size, Labels)
     if (uiState.selectedLayerForSettings != null) {
         val currentSelected = uiState.selectedLayerForSettings!!
@@ -412,7 +548,9 @@ fun MainScreen(
     BackHandler(
         enabled = uiState.currentScreen != AppScreen.MAIN ||
                 uiState.selectedPointForDetails != null ||
+                uiState.selectedLineForDetails != null ||
                 uiState.editingPointLayer != null ||
+                uiState.editingLineLayer != null ||
                 uiState.isScaleBindingMode ||
                 uiState.isNorthBindingMode ||
                 uiState.isEntranceCavePickMode ||
@@ -421,7 +559,9 @@ fun MainScreen(
     ) {
         when {
             uiState.selectedPointForDetails != null -> viewModel.handleIntent(MainUiIntent.DismissPointDetails)
+            uiState.selectedLineForDetails != null -> viewModel.handleIntent(MainUiIntent.DismissLineDetails)
             uiState.editingPointLayer != null -> viewModel.handleIntent(MainUiIntent.ExitPointEditorMode)
+            uiState.editingLineLayer != null -> viewModel.handleIntent(MainUiIntent.ExitLineDrawingMode)
             uiState.isOsmEntranceBindingMode -> viewModel.handleIntent(MainUiIntent.CloseOsmEntranceBinding)
             uiState.isEntranceCavePickMode -> viewModel.handleIntent(MainUiIntent.CancelEntranceCavePick)
             uiState.isScaleBindingMode -> viewModel.handleIntent(MainUiIntent.CancelScaleBinding)
@@ -594,6 +734,9 @@ fun MainScreenContent(
     val deltaOffsetScreenPoint = remember(uiState.deltaOffsetOriginPoint, projector, currentZoom, currentTargetLat, currentTargetLon, mapBearing) {
         uiState.deltaOffsetOriginPoint?.latLng?.let { projector?.invoke(it) }
     }
+    val lineDrawingScreenPoints = remember(uiState.drawingLinePoints, projector, currentZoom, currentTargetLat, currentTargetLon, mapBearing) {
+        uiState.drawingLinePoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
+    }
 
     Box(
         modifier = modifier
@@ -670,9 +813,69 @@ fun MainScreenContent(
                         }
                     }
 
-                    if (!pointHit) {
+                    // Line Hit-Test (Tap on any line segment)
+                    var lineHit = false
+                    if (!pointHit && !isMeasuringTools && curMeta != null && projector != null && uiState.editingLineLayer == null && uiState.editingPointLayer == null && uiState.allVisibleLines.isNotEmpty()) {
+                        try {
+                            val clickedScreen = projector!!.invoke(clickedLatLng)
+                            val lineHitThresholdPx = 20 * density.density
+                            val lineHitThresholdSq = lineHitThresholdPx * lineHitThresholdPx
+                            val lineLayerMap = uiState.lineLayers.associateBy { it.id }
+
+                            var closestLine: LayerLine? = null
+                            var minDistanceSq = Float.MAX_VALUE
+
+                            for (line in uiState.allVisibleLines) {
+                                val layer = lineLayerMap[line.layerId]
+                                if (layer != null && layer.isVisible && line.points.size >= 2) {
+                                    val screenPts = line.points.map { pt ->
+                                        val latLng = CaveMapBounds.imagePixelsToLatLng(
+                                            pixelX = pt.first,
+                                            pixelY = pt.second,
+                                            imageWidth = curMeta.imageWidth,
+                                            imageHeight = curMeta.imageHeight,
+                                            maxZoom = curMeta.zoomMax
+                                        )
+                                        projector!!.invoke(latLng)
+                                    }
+
+                                    for (i in 0 until screenPts.size - 1) {
+                                        val p1 = screenPts[i]
+                                        val p2 = screenPts[i + 1]
+                                        val distSq = distanceToSegmentSq(clickedScreen.x, clickedScreen.y, p1.x, p1.y, p2.x, p2.y)
+                                        if (distSq <= lineHitThresholdSq && distSq < minDistanceSq) {
+                                            minDistanceSq = distSq
+                                            closestLine = line
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (closestLine != null) {
+                                onIntent(MainUiIntent.SelectLine(closestLine))
+                                lineHit = true
+                                pointHit = true
+                            }
+                        } catch (_: Exception) {
+                            // Safe fallback
+                        }
+                    }
+
+                    if (!pointHit && !lineHit) {
                         if (uiState.selectedPointForDetails != null) {
                             onIntent(MainUiIntent.DismissPointDetails)
+                        } else if (uiState.selectedLineForDetails != null) {
+                            onIntent(MainUiIntent.DismissLineDetails)
+                        } else if (uiState.editingLineLayer != null && curMeta != null) {
+                            val liveCenterLatLng = getMapCenter?.invoke() ?: LatLng(currentTargetLat, currentTargetLon)
+                            val liveCenterPx = CaveMapBounds.latLngToImagePixels(
+                                latLng = liveCenterLatLng,
+                                imageHeight = curMeta.imageHeight,
+                                imageWidth = curMeta.imageWidth,
+                                maxZoom = curMeta.zoomMax
+                            )
+                            onIntent(MainUiIntent.AddDrawingLineVertex(liveCenterLatLng, liveCenterPx))
+                            pointHit = true
                         } else if (uiState.editingPointLayer != null && curMeta != null) {
                             when (uiState.settings.pointPlacementMode) {
                                 PointPlacementMode.CURSOR_BUTTON_AND_TAP,
@@ -842,6 +1045,24 @@ fun MainScreenContent(
                 )
             }
 
+            // Line Layers Vector Overlay (Outer Halo + Core Stroke + Selection Glow)
+            if (meta != null && uiState.lineLayers.isNotEmpty() && uiState.allVisibleLines.isNotEmpty()) {
+                LineLayersOverlay(
+                    lineLayers = uiState.lineLayers,
+                    allLines = uiState.allVisibleLines,
+                    selectedLineId = uiState.selectedLineForDetails?.id,
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    zoomMax = meta.zoomMax,
+                    projector = projector,
+                    currentTargetLat = currentTargetLat,
+                    currentTargetLon = currentTargetLon,
+                    currentZoom = currentZoom,
+                    mapBearing = mapBearing,
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
             // Point Layers Vector Overlay (Markers & Labels)
             if (meta != null && uiState.pointLayers.isNotEmpty() && uiState.allVisiblePoints.isNotEmpty()) {
                 PointLayersOverlay(
@@ -854,7 +1075,20 @@ fun MainScreenContent(
                     currentTargetLat = currentTargetLat,
                     currentTargetLon = currentTargetLon,
                     currentZoom = currentZoom,
-                    mapBearing = mapBearing
+                    mapBearing = mapBearing,
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
+            // Line Drawing Overlay (Real-time vertices and live dashed ray)
+            if (uiState.editingLineLayer != null) {
+                LineDrawingOverlay(
+                    layer = uiState.editingLineLayer!!,
+                    points = uiState.drawingLinePoints,
+                    screenPoints = lineDrawingScreenPoints,
+                    currentCenterPx = centerPx,
+                    ppm = meta?.pixelsPerMeter ?: 0.0,
+                    modifier = Modifier.fillMaxSize().clipToBounds()
                 )
             }
 
@@ -900,15 +1134,15 @@ fun MainScreenContent(
                 }
             }
 
-            // Central Cursor Overlay (Strictly centered on screen; always visible in calibration or when active tool is open or in point editor)
+            // Central Cursor Overlay (Strictly centered on screen; always visible in calibration or when active tool is open or in editors)
             MapCursorOverlay(
-                cursorShow = isCalibrationMode || isAnyToolActive || uiState.editingPointLayer != null || uiState.settings.cursorShow,
+                cursorShow = isCalibrationMode || isAnyToolActive || uiState.editingPointLayer != null || uiState.editingLineLayer != null || uiState.settings.cursorShow,
                 cursorType = uiState.settings.cursorType,
                 cursorColor = uiState.settings.cursorColor
             )
 
             // 1. Compass Widget (Top-Start: top = 15.dp, start = 15.dp)
-            if (uiState.settings.showCompass && meta != null && !isCalibrationMode && !isAnyToolActive && uiState.editingPointLayer == null) {
+            if (uiState.settings.showCompass && meta != null && !isCalibrationMode && !isAnyToolActive && uiState.editingPointLayer == null && uiState.editingLineLayer == null) {
                 CompassWidget(
                     angleNorth = meta.angleNorth.toFloat(),
                     mapBearing = mapBearing,
@@ -929,7 +1163,7 @@ fun MainScreenContent(
             }
 
             // 2. Scale Bar Widget (Top-End: top = 15.dp, end = 15.dp)
-            if (uiState.settings.showScaleBar && meta != null && meta.pixelsPerMeter > 0.0 && meta.scaleMeters > 0.0 && !isCalibrationMode && !isAnyToolActive && uiState.editingPointLayer == null) {
+            if (uiState.settings.showScaleBar && meta != null && meta.pixelsPerMeter > 0.0 && meta.scaleMeters > 0.0 && !isCalibrationMode && !isAnyToolActive && uiState.editingPointLayer == null && uiState.editingLineLayer == null) {
                 ScaleBarWidget(
                     pixelsPerMeter = meta.pixelsPerMeter,
                     zoomMax = meta.zoomMax,
@@ -1051,6 +1285,39 @@ fun MainScreenContent(
                         }
                     )
                 }
+            } else if (uiState.editingLineLayer != null) {
+                val layer = uiState.editingLineLayer!!
+                FloatingDockAnchorLayout(
+                    closeButtonTopInBar = 138.dp,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    LineDrawingSideControl(
+                        layer = layer,
+                        pointsCount = uiState.drawingLinePoints.size,
+                        onAddVertex = {
+                            val curMeta = mapMetadata ?: uiState.activeProjectMetadata
+                            if (curMeta != null) {
+                                val liveCenterLatLng = getMapCenter?.invoke() ?: LatLng(currentTargetLat, currentTargetLon)
+                                val liveCenterPx = CaveMapBounds.latLngToImagePixels(
+                                    latLng = liveCenterLatLng,
+                                    imageWidth = curMeta.imageWidth,
+                                    imageHeight = curMeta.imageHeight,
+                                    maxZoom = curMeta.zoomMax
+                                )
+                                onIntent(MainUiIntent.AddDrawingLineVertex(liveCenterLatLng, liveCenterPx))
+                            }
+                        },
+                        onUndo = {
+                            onIntent(MainUiIntent.UndoDrawingLineVertex)
+                        },
+                        onComplete = {
+                            onIntent(MainUiIntent.CompleteLineDrawing)
+                        },
+                        onClose = {
+                            onIntent(MainUiIntent.ExitLineDrawingMode)
+                        }
+                    )
+                }
             }
 
             // Selected Point Details Card
@@ -1085,6 +1352,49 @@ fun MainScreenContent(
                         },
                         onDismiss = {
                             onIntent(MainUiIntent.DismissPointDetails)
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(bottom = 75.dp)
+                    )
+                }
+            }
+
+            // Selected Line Details Card
+            if (uiState.selectedLineForDetails != null && !isCalibrationMode && uiState.editingLineLayer == null) {
+                val selLine = uiState.selectedLineForDetails!!
+                val parentLayer = uiState.lineLayers.find { it.id == selLine.layerId }
+                if (parentLayer != null) {
+                    val curMeta = mapMetadata ?: uiState.activeProjectMetadata
+                    val ppm = curMeta?.pixelsPerMeter ?: 0.0
+                    LineDetailsCard(
+                        line = selLine,
+                        layer = parentLayer,
+                        ppm = ppm,
+                        onEditClick = {
+                            onIntent(MainUiIntent.OpenEditLineDialog(selLine))
+                        },
+                        onCenterMapClick = {
+                            if (curMeta != null && selLine.points.isNotEmpty()) {
+                                val midIndex = selLine.points.size / 2
+                                val centerPt = selLine.points[midIndex]
+                                val targetLatLng = CaveMapBounds.imagePixelsToLatLng(
+                                    pixelX = centerPt.first,
+                                    pixelY = centerPt.second,
+                                    imageWidth = curMeta.imageWidth,
+                                    imageHeight = curMeta.imageHeight,
+                                    maxZoom = curMeta.zoomMax
+                                )
+                                moveCameraAction?.invoke(targetLatLng, null)
+                            }
+                            onIntent(MainUiIntent.CenterOnLine(selLine))
+                        },
+                        onDeleteClick = {
+                            onIntent(MainUiIntent.DeleteLayerLine(selLine.id))
+                        },
+                        onDismiss = {
+                            onIntent(MainUiIntent.DismissLineDetails)
                         },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -1150,6 +1460,7 @@ fun MainScreenContent(
                 onEntranceBindingClick = { onIntent(MainUiIntent.StartEntranceBinding) },
                 isPointLayersModeActive = uiState.isPointLayersModeActive,
                 onTogglePointLayersMode = { onIntent(MainUiIntent.TogglePointLayersMode) },
+                onOpenLineLayerManagerClick = { onIntent(MainUiIntent.OpenLineLayerManager) },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
@@ -1184,4 +1495,25 @@ private fun MainScreenLightPreview() {
             onIntent = {}
         )
     }
+}
+
+/**
+ * Calculates squared distance from a 2D point (px, py) to a line segment (x1, y1) - (x2, y2).
+ */
+private fun distanceToSegmentSq(px: Float, py: Float, x1: Float, y1: Float, x2: Float, y2: Float): Float {
+    val dx = x2 - x1
+    val dy = y2 - y1
+    val l2 = dx * dx + dy * dy
+    if (l2 == 0f) {
+        val dpx = px - x1
+        val dpy = py - y1
+        return dpx * dpx + dpy * dpy
+    }
+    val t = ((px - x1) * dx + (py - y1) * dy) / l2
+    val clampedT = t.coerceIn(0f, 1f)
+    val projX = x1 + clampedT * dx
+    val projY = y1 + clampedT * dy
+    val diffX = px - projX
+    val diffY = py - projY
+    return diffX * diffX + diffY * diffY
 }

@@ -14,7 +14,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
 import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.LayerLine
 import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
+import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
@@ -463,6 +465,115 @@ class ProjectRepositoryImpl(
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
             ProjectDatabase(dbFile).deleteLayerPoint(pointId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // --- Line Layers ---
+
+    override suspend fun getLineLayers(projectName: String): List<LineLayer> = withContext(Dispatchers.IO) {
+        val dir = getProjectDir(projectName) ?: return@withContext emptyList()
+        val dbFile = File(dir, "thismap.sqlite")
+        if (!dbFile.exists()) return@withContext emptyList()
+        ProjectDatabase(dbFile).getLineLayers()
+    }
+
+    override suspend fun insertLineLayer(projectName: String, layer: LineLayer): Result<Long> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            val id = ProjectDatabase(dbFile).insertLineLayer(layer)
+            Result.success(id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateLineLayer(projectName: String, layer: LineLayer): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).updateLineLayer(layer)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteLineLayer(projectName: String, layerId: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).deleteLineLayer(layerId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun toggleLineLayerVisibility(projectName: String, layerId: Long, isVisible: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).toggleLineLayerVisibility(layerId, isVisible)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // --- Layer Lines ---
+
+    override suspend fun getLinesForLayer(projectName: String, layerId: Long): List<LayerLine> = withContext(Dispatchers.IO) {
+        val dir = getProjectDir(projectName) ?: return@withContext emptyList()
+        val dbFile = File(dir, "thismap.sqlite")
+        if (!dbFile.exists()) return@withContext emptyList()
+        ProjectDatabase(dbFile).getLinesForLayer(layerId)
+    }
+
+    override suspend fun getAllVisibleLines(projectName: String): List<LayerLine> = withContext(Dispatchers.IO) {
+        val dir = getProjectDir(projectName) ?: return@withContext emptyList()
+        val dbFile = File(dir, "thismap.sqlite")
+        if (!dbFile.exists()) return@withContext emptyList()
+        ProjectDatabase(dbFile).getAllVisibleLines()
+    }
+
+    override suspend fun insertLayerLine(projectName: String, line: LayerLine): Result<Long> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            val id = ProjectDatabase(dbFile).insertLayerLine(line)
+            Result.success(id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateLayerLine(projectName: String, line: LayerLine): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).updateLayerLine(line)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteLayerLine(projectName: String, lineId: Long): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val dir = getProjectDir(projectName)
+                ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
+            val dbFile = File(dir, "thismap.sqlite")
+            ProjectDatabase(dbFile).deleteLayerLine(lineId)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
