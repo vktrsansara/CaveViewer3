@@ -138,7 +138,8 @@ fun MenuPopover(
     onEntranceBindingClick: () -> Unit = {},
     isPointLayersModeActive: Boolean = false,
     onTogglePointLayersMode: () -> Unit = {},
-    onOpenLineLayerManagerClick: () -> Unit = {},
+    isLineLayersModeActive: Boolean = false,
+    onToggleLineLayersMode: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentLevel by remember { mutableStateOf(MenuLevel.MAIN) }
@@ -187,7 +188,6 @@ fun MenuPopover(
                             onOpenFavoriteToolsPreset = onOpenFavoriteToolsPreset,
                             onProjectsClick = { currentLevel = MenuLevel.PROJECTS },
                             onEditClick = { currentLevel = MenuLevel.EDIT },
-                            onOpenLineLayerManagerClick = onOpenLineLayerManagerClick,
                             onToolsClick = { currentLevel = MenuLevel.TOOLS },
                             onSettingsClick = { currentLevel = MenuLevel.SETTINGS },
                             onExitClick = onExitApp
@@ -207,9 +207,11 @@ fun MenuPopover(
                     MenuLevel.EDIT -> {
                         EditSubmenuContent(
                             isPointLayersModeActive = isPointLayersModeActive,
+                            isLineLayersModeActive = isLineLayersModeActive,
                             onMetadataClick = onEditMetadataClick,
                             onBindingClick = { currentLevel = MenuLevel.BINDING },
                             onTogglePointLayersMode = onTogglePointLayersMode,
+                            onToggleLineLayersMode = onToggleLineLayersMode,
                             onBackClick = { currentLevel = MenuLevel.MAIN }
                         )
                     }
@@ -258,7 +260,6 @@ private fun MainMenuContent(
     onOpenFavoriteToolsPreset: () -> Unit,
     onProjectsClick: () -> Unit,
     onEditClick: () -> Unit,
-    onOpenLineLayerManagerClick: () -> Unit,
     onToolsClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onExitClick: () -> Unit
@@ -284,16 +285,6 @@ private fun MainMenuContent(
                 iconTint = IconEditColor,
                 title = "Редактировать",
                 onClick = onEditClick
-            )
-        }
-
-        // Item 2.5: Слои линий (Emerald Green Polyline) - active only if project is loaded
-        if (hasActiveProject) {
-            MenuItem(
-                icon = Icons.Rounded.Polyline,
-                iconTint = Color(0xFF10B981), // Emerald Green
-                title = "Слои линий",
-                onClick = onOpenLineLayerManagerClick
             )
         }
 
@@ -479,9 +470,11 @@ private fun ToolsSubmenuContent(
 @Composable
 private fun EditSubmenuContent(
     isPointLayersModeActive: Boolean,
+    isLineLayersModeActive: Boolean,
     onMetadataClick: () -> Unit,
     onBindingClick: () -> Unit,
     onTogglePointLayersMode: () -> Unit,
+    onToggleLineLayersMode: () -> Unit,
     onBackClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -515,7 +508,16 @@ private fun EditSubmenuContent(
             onClick = onTogglePointLayersMode
         )
 
-        // Item 4: Назад (Sky Blue Arrow)
+        // Item 4: Слои линий (Emerald Green Polyline) с галочкой активности
+        MenuItem(
+            icon = Icons.Rounded.Polyline,
+            iconTint = Color(0xFF10B981),
+            title = "Слои линий",
+            isChecked = isLineLayersModeActive,
+            onClick = onToggleLineLayersMode
+        )
+
+        // Item 5: Назад (Sky Blue Arrow)
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             iconTint = IconBackArrowColor,

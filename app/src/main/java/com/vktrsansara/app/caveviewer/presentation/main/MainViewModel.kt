@@ -319,6 +319,7 @@ class MainViewModel(
                             isPointPlacementControlOpen = false,
                             isPointEditorHelpOpen = false,
                             isPointLayersModeActive = false,
+                            isLineLayersModeActive = false,
                             lineLayers = emptyList(),
                             layerLineCounts = emptyMap(),
                             allVisibleLines = emptyList(),
@@ -439,6 +440,7 @@ class MainViewModel(
                                 isPointPlacementControlOpen = false,
                                 isPointEditorHelpOpen = false,
                                 isPointLayersModeActive = false,
+                                isLineLayersModeActive = false,
                                 lineLayers = emptyList(),
                                 layerLineCounts = emptyMap(),
                                 allVisibleLines = emptyList(),
@@ -1468,13 +1470,29 @@ class MainViewModel(
             }
             is MainUiIntent.TogglePointLayersMode -> {
                 val newActive = !_uiState.value.isPointLayersModeActive
-                _uiState.update {
-                    it.copy(
-                        isPointLayersModeActive = newActive,
-                        isMenuExpanded = false,
-                        editingPointLayer = if (!newActive) null else it.editingPointLayer,
-                        isLayerManagerOpen = if (!newActive) false else it.isLayerManagerOpen
-                    )
+                val activeName = _uiState.value.activeProjectName
+                if (newActive && activeName != null) {
+                    viewModelScope.launch {
+                        loadPointLayers(activeName)
+                        _uiState.update {
+                            it.copy(
+                                isPointLayersModeActive = true,
+                                isLayerManagerOpen = true,
+                                isMenuExpanded = false
+                            )
+                        }
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isPointLayersModeActive = false,
+                            isLayerManagerOpen = false,
+                            editingPointLayer = null,
+                            editingPoint = null,
+                            isEditPointDialogOpen = false,
+                            isMenuExpanded = false
+                        )
+                    }
                 }
             }
             is MainUiIntent.DisablePointLayersMode -> {
@@ -1810,6 +1828,44 @@ class MainViewModel(
             }
             is MainUiIntent.DismissPointEditorHelp -> {
                 _uiState.update { it.copy(isPointEditorHelpOpen = false) }
+            }
+            is MainUiIntent.ToggleLineLayersMode -> {
+                val newActive = !_uiState.value.isLineLayersModeActive
+                val activeName = _uiState.value.activeProjectName
+                if (newActive && activeName != null) {
+                    viewModelScope.launch {
+                        loadLineLayers(activeName)
+                        _uiState.update {
+                            it.copy(
+                                isLineLayersModeActive = true,
+                                isLineLayerManagerOpen = true,
+                                isMenuExpanded = false
+                            )
+                        }
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isLineLayersModeActive = false,
+                            isLineLayerManagerOpen = false,
+                            editingLineLayer = null,
+                            drawingLinePoints = emptyList(),
+                            isMenuExpanded = false
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.DisableLineLayersMode -> {
+                _uiState.update {
+                    it.copy(
+                        isLineLayersModeActive = false,
+                        isLineLayerManagerOpen = false,
+                        editingLineLayer = null,
+                        drawingLinePoints = emptyList(),
+                        editingLine = null,
+                        isEditLineDialogOpen = false
+                    )
+                }
             }
             is MainUiIntent.OpenLineLayerManager -> {
                 val activeName = _uiState.value.activeProjectName

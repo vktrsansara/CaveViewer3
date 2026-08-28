@@ -1515,7 +1515,8 @@ fun MainScreenContent(
                 onEntranceBindingClick = { onIntent(MainUiIntent.StartEntranceBinding) },
                 isPointLayersModeActive = uiState.isPointLayersModeActive,
                 onTogglePointLayersMode = { onIntent(MainUiIntent.TogglePointLayersMode) },
-                onOpenLineLayerManagerClick = { onIntent(MainUiIntent.OpenLineLayerManager) },
+                isLineLayersModeActive = uiState.isLineLayersModeActive,
+                onToggleLineLayersMode = { onIntent(MainUiIntent.ToggleLineLayersMode) },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
@@ -1524,7 +1525,14 @@ fun MainScreenContent(
                 onMenuClick = { onIntent(MainUiIntent.ToggleMenu) },
                 isPointLayersModeActive = uiState.isPointLayersModeActive,
                 onPointLayersClick = { onIntent(MainUiIntent.OpenLayerManager) },
-                onClosePointLayersClick = { onIntent(MainUiIntent.DisablePointLayersMode) }
+                onClosePointLayersClick = { onIntent(MainUiIntent.DisablePointLayersMode) },
+                isLineLayersModeActive = uiState.isLineLayersModeActive,
+                onLineLayersClick = { onIntent(MainUiIntent.OpenLineLayerManager) },
+                onCloseLineLayersClick = { onIntent(MainUiIntent.DisableLineLayersMode) },
+                onCloseAllLayersClick = {
+                    onIntent(MainUiIntent.DisablePointLayersMode)
+                    onIntent(MainUiIntent.DisableLineLayersMode)
+                }
             )
         }
     }

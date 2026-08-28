@@ -116,6 +116,7 @@ data class MainUiState(
     val isPointPlacementControlOpen: Boolean = false,
     val isPointEditorHelpOpen: Boolean = false,
     val isPointLayersModeActive: Boolean = false,
+    val isLineLayersModeActive: Boolean = false,
     // Line Layers State
     val lineLayers: List<LineLayer> = emptyList(),
     val layerLineCounts: Map<Long, Int> = emptyMap(),
@@ -321,6 +322,8 @@ sealed interface MainUiIntent : UiIntent {
     data object DismissPointEditorHelp : MainUiIntent
 
     // Line Layer actions
+    data object ToggleLineLayersMode : MainUiIntent
+    data object DisableLineLayersMode : MainUiIntent
     data object OpenLineLayerManager : MainUiIntent
     data object DismissLineLayerManager : MainUiIntent
     data object OpenCreateLineLayerDialog : MainUiIntent

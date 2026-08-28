@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.rounded.AddLocationAlt
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Polyline
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,7 +23,7 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 /**
  * Floating bottom control bar with 8.dp rounded shape and menu button,
- * plus dynamically added Point Layers mode buttons.
+ * plus dynamically added Point Layers and Line Layers mode buttons.
  */
 @Composable
 fun FloatingBottomBar(
@@ -30,6 +31,13 @@ fun FloatingBottomBar(
     isPointLayersModeActive: Boolean = false,
     onPointLayersClick: () -> Unit = {},
     onClosePointLayersClick: () -> Unit = {},
+    isLineLayersModeActive: Boolean = false,
+    onLineLayersClick: () -> Unit = {},
+    onCloseLineLayersClick: () -> Unit = {},
+    onCloseAllLayersClick: () -> Unit = {
+        onClosePointLayersClick()
+        onCloseLineLayersClick()
+    },
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -52,7 +60,7 @@ fun FloatingBottomBar(
             onClick = onMenuClick
         )
 
-        // Кнопки режима «Слои точек» справа от меню
+        // Кнопка режима «Слои точек»
         if (isPointLayersModeActive) {
             BarIconButton(
                 icon = Icons.Rounded.AddLocationAlt,
@@ -60,12 +68,40 @@ fun FloatingBottomBar(
                 tint = AccentSkyBlue,
                 onClick = onPointLayersClick
             )
+        }
 
+        // Кнопка режима «Слои линий»
+        if (isLineLayersModeActive) {
+            BarIconButton(
+                icon = Icons.Rounded.Polyline,
+                contentDescription = "Слои линий",
+                tint = Color(0xFF10B981),
+                onClick = onLineLayersClick
+            )
+        }
+
+        // Кнопка/кнопки закрытия режимов справа
+        if (isPointLayersModeActive && isLineLayersModeActive) {
+            // Единая кнопка закрытия обоих режимов
+            BarIconButton(
+                icon = Icons.AutoMirrored.Filled.ExitToApp,
+                contentDescription = "Закрыть режимы слоев",
+                tint = Color(0xFFEF4444),
+                onClick = onCloseAllLayersClick
+            )
+        } else if (isPointLayersModeActive) {
             BarIconButton(
                 icon = Icons.AutoMirrored.Filled.ExitToApp,
                 contentDescription = "Закрыть режим слоев точек",
                 tint = Color(0xFFEF4444),
                 onClick = onClosePointLayersClick
+            )
+        } else if (isLineLayersModeActive) {
+            BarIconButton(
+                icon = Icons.AutoMirrored.Filled.ExitToApp,
+                contentDescription = "Закрыть режим слоев линий",
+                tint = Color(0xFFEF4444),
+                onClick = onCloseLineLayersClick
             )
         }
     }
@@ -76,6 +112,7 @@ fun FloatingBottomBar(
 private fun FloatingBottomBarPreview() {
     FloatingBottomBar(
         onMenuClick = {},
-        isPointLayersModeActive = true
+        isPointLayersModeActive = true,
+        isLineLayersModeActive = true
     )
 }
