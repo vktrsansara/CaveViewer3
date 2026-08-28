@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -47,6 +48,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vktrsansara.app.caveviewer.domain.measure.LineColorUtils
@@ -88,10 +90,23 @@ fun LineLayerSettingsDialog(
 
     var isColorPickerOpen by remember { mutableStateOf(false) }
     var isCustomHaloPickerOpen by remember { mutableStateOf(false) }
+    var isEnvironmentPickerOpen by remember { mutableStateOf(false) }
     var isHelpOpen by remember { mutableStateOf(false) }
 
     if (isHelpOpen) {
         LineLayerSettingsHelpDialog(onDismiss = { isHelpOpen = false })
+    }
+
+    if (isEnvironmentPickerOpen) {
+        LineEnvironmentPickerDialog(
+            selectedEnvironment = environmentType,
+            showCustom = false,
+            onEnvironmentSelected = { selected ->
+                environmentType = selected
+                isEnvironmentPickerOpen = false
+            },
+            onDismiss = { isEnvironmentPickerOpen = false }
+        )
     }
 
     if (isColorPickerOpen) {
@@ -414,50 +429,56 @@ fun LineLayerSettingsDialog(
                 color = AppColors.textPrimary
             )
 
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            val currentPatternColor = LineColorUtils.getHaloColor(environmentType, null) ?: Color.White
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.bgSurface)
+                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(color = AppColors.pressedColor),
+                        onClick = { isEnvironmentPickerOpen = true }
+                    )
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                LineEnvironmentType.entries.filter { it != LineEnvironmentType.CUSTOM }.forEach { env ->
-                    val isSelected = (environmentType == env)
-                    val envColor = env.defaultHaloColor?.let { Color(it.toInt()) } ?: AccentSkyBlue
-
-                    Row(
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    LineEnvironmentSampleBox(
+                        environmentType = environmentType,
+                        patternColor = currentPatternColor,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isSelected) AccentSkyBlue.copy(alpha = 0.15f) else AppColors.bgSurface)
-                            .border(
-                                1.dp,
-                                if (isSelected) AccentSkyBlue else AppColors.borderColor,
-                                RoundedCornerShape(6.dp)
-                            )
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(color = AppColors.pressedColor),
-                                onClick = { environmentType = env }
-                            )
-                            .padding(horizontal = 9.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        if (env != LineEnvironmentType.NONE) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .clip(CircleShape)
-                                    .background(envColor)
-                            )
-                        }
+                            .width(54.dp)
+                            .height(26.dp)
+                    )
 
-                        Text(
-                            text = if (env == LineEnvironmentType.NONE) env.title else "${env.title.substringBefore(" /").substringBefore(" (")} ${env.symbol}",
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) AccentSkyBlue else AppColors.textPrimary
-                        )
-                    }
+                    Text(
+                        text = if (environmentType == LineEnvironmentType.NONE) {
+                            environmentType.title
+                        } else {
+                            "${environmentType.title.substringBefore(" /").substringBefore(" (")} ${environmentType.symbol}"
+                        },
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AppColors.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
+
+                Icon(
+                    imageVector = Icons.Rounded.ArrowDropDown,
+                    contentDescription = "Выбрать текстуру среды",
+                    tint = AccentSkyBlue,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }

@@ -105,6 +105,7 @@ fun EditLineDialog(
     }
     var style by remember(line) { mutableStateOf(line.style) }
     var isCustomHaloPickerOpen by remember { mutableStateOf(false) }
+    var isEnvironmentPickerOpen by remember { mutableStateOf(false) }
     var isHelpOpen by remember { mutableStateOf(false) }
 
     // Dynamic schema custom values
@@ -128,6 +129,22 @@ fun EditLineDialog(
 
     if (isHelpOpen) {
         EditLineHelpDialog(onDismiss = { isHelpOpen = false })
+    }
+
+    if (isEnvironmentPickerOpen) {
+        LineEnvironmentPickerDialog(
+            selectedEnvironment = environmentType,
+            customHaloColor = haloColor,
+            showCustom = true,
+            onEnvironmentSelected = { selected ->
+                environmentType = selected
+                if (selected == LineEnvironmentType.CUSTOM && haloColor == null) {
+                    haloColor = 0xFFEAB308
+                }
+                isEnvironmentPickerOpen = false
+            },
+            onDismiss = { isEnvironmentPickerOpen = false }
+        )
     }
 
     if (isCustomHaloPickerOpen) {
@@ -368,62 +385,56 @@ fun EditLineDialog(
                 color = AppColors.textPrimary
             )
 
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                LineEnvironmentType.entries.forEach { env ->
-                    val isSelected = (environmentType == env)
-                    val envColor = if (env == LineEnvironmentType.CUSTOM) {
-                        haloColor?.let { Color(it.toInt()) } ?: Color(0xFFEAB308)
-                    } else {
-                        env.defaultHaloColor?.let { Color(it.toInt()) }
-                    }
+            val currentPatternColor = LineColorUtils.getHaloColor(environmentType, haloColor) ?: Color.White
 
-                    Box(
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.bgSurface)
+                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(color = AppColors.pressedColor),
+                        onClick = { isEnvironmentPickerOpen = true }
+                    )
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    LineEnvironmentSampleBox(
+                        environmentType = environmentType,
+                        patternColor = currentPatternColor,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isSelected) AccentSkyBlue.copy(alpha = 0.15f) else AppColors.bgSurface)
-                            .border(
-                                1.dp,
-                                if (isSelected) AccentSkyBlue else AppColors.borderColor,
-                                RoundedCornerShape(6.dp)
-                            )
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(color = AppColors.pressedColor),
-                                onClick = {
-                                    environmentType = env
-                                    if (env == LineEnvironmentType.CUSTOM && haloColor == null) {
-                                        haloColor = 0xFFEAB308
-                                    }
-                                }
-                            )
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            if (envColor != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(envColor)
-                                )
-                            }
-                            Text(
-                                text = if (env == LineEnvironmentType.NONE) env.title else "${env.title.substringBefore(" /").substringBefore(" (")} ${env.symbol}",
-                                fontSize = 11.5.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) AccentSkyBlue else AppColors.textPrimary
-                            )
-                        }
-                    }
+                            .width(54.dp)
+                            .height(26.dp)
+                    )
+
+                    Text(
+                        text = if (environmentType == LineEnvironmentType.NONE) {
+                            environmentType.title
+                        } else {
+                            "${environmentType.title.substringBefore(" /").substringBefore(" (")} ${environmentType.symbol}"
+                        },
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AppColors.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
+
+                Icon(
+                    imageVector = Icons.Rounded.ArrowDropDown,
+                    contentDescription = "Выбрать текстуру среды",
+                    tint = AccentSkyBlue,
+                    modifier = Modifier.size(24.dp)
+                )
             }
 
             if (environmentType == LineEnvironmentType.CUSTOM) {
