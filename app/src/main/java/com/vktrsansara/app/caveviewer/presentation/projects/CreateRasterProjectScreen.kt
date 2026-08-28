@@ -89,9 +89,16 @@ fun CreateRasterProjectScreen(
     val canCreate = projectName.isNotBlank() && selectedImageUri != null && !isSaving
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
+            // Сохраняем постоянное разрешение на чтение URI (SAF)
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {}
             selectedImageUri = uri
             selectedImageName = getFileNameFromUri(context, uri)
             selectedImageResolution = getImageResolutionFromUri(context, uri)
@@ -349,7 +356,17 @@ fun CreateRasterProjectScreen(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = ripple(color = AppColors.pressedColor),
-                            onClick = { imagePickerLauncher.launch("image/*") }
+                            onClick = {
+                                imagePickerLauncher.launch(
+                                    arrayOf(
+                                        "image/*",
+                                        "image/png",
+                                        "image/jpeg",
+                                        "image/jpg",
+                                        "image/webp"
+                                    )
+                                )
+                            }
                         )
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
