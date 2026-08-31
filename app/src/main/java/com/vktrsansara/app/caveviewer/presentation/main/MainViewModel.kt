@@ -180,6 +180,30 @@ class MainViewModel(
                     )
                 }
             }
+            is MainUiIntent.OpenAgreement -> {
+                _uiState.update {
+                    it.copy(
+                        currentScreen = AppScreen.AGREEMENT,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.OpenAbout -> {
+                _uiState.update {
+                    it.copy(
+                        currentScreen = AppScreen.ABOUT,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.OpenHandbook -> {
+                _uiState.update {
+                    it.copy(
+                        currentScreen = AppScreen.HANDBOOK,
+                        isMenuExpanded = false
+                    )
+                }
+            }
             is MainUiIntent.NavigateBack -> {
                 _uiState.update { it.copy(currentScreen = AppScreen.MAIN) }
             }

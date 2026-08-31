@@ -28,7 +28,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.rounded.HelpCenter
 import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AddLocation
 import androidx.compose.material.icons.rounded.AddLocationAlt
 import androidx.compose.material.icons.rounded.AppSettingsAlt
@@ -38,12 +40,14 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ColorLens
 import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.DesignServices
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GridOn
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.LocationSearching
 import androidx.compose.material.icons.rounded.Map
@@ -93,6 +97,7 @@ private val IconExportColor = Color(0xFFFB923C) // Orange
 private val IconCloseColor = Color(0xFFEF4444)  // Red
 private val IconBackArrowColor = AccentSkyBlue
 private val IconBindingColor = Color(0xFFF59E0B) // Amber
+private val IconHelpColor = Color(0xFF38BDF8)    // Sky Blue
 
 enum class MenuLevel {
     MAIN,
@@ -100,7 +105,8 @@ enum class MenuLevel {
     EDIT,
     BINDING,
     TOOLS,
-    SETTINGS
+    SETTINGS,
+    HELP
 }
 
 /**
@@ -126,6 +132,9 @@ fun MenuPopover(
     onOpenMapFiltersClick: () -> Unit = {},
     onOpenAppSettings: () -> Unit,
     onOpenToolsSettings: () -> Unit = {},
+    onOpenAgreement: () -> Unit = {},
+    onOpenAbout: () -> Unit = {},
+    onOpenHandbook: () -> Unit = {},
     onExitApp: () -> Unit,
     onProjectListClick: () -> Unit = {},
     onNewProjectClick: () -> Unit = {},
@@ -190,6 +199,7 @@ fun MenuPopover(
                             onEditClick = { currentLevel = MenuLevel.EDIT },
                             onToolsClick = { currentLevel = MenuLevel.TOOLS },
                             onSettingsClick = { currentLevel = MenuLevel.SETTINGS },
+                            onHelpClick = { currentLevel = MenuLevel.HELP },
                             onExitClick = onExitApp
                         )
                     }
@@ -247,6 +257,14 @@ fun MenuPopover(
                             onBackClick = { currentLevel = MenuLevel.MAIN }
                         )
                     }
+                    MenuLevel.HELP -> {
+                        HelpSubmenuContent(
+                            onAboutClick = onOpenAbout,
+                            onHandbookClick = onOpenHandbook,
+                            onAgreementClick = onOpenAgreement,
+                            onBackClick = { currentLevel = MenuLevel.MAIN }
+                        )
+                    }
                 }
             }
         }
@@ -262,6 +280,7 @@ private fun MainMenuContent(
     onEditClick: () -> Unit,
     onToolsClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onHelpClick: () -> Unit,
     onExitClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -314,7 +333,15 @@ private fun MainMenuContent(
             onClick = onSettingsClick
         )
 
-        // Item 5: Выход (Red Exit)
+        // Item 5: Помощь (Sky Blue Help Center)
+        MenuItem(
+            icon = Icons.AutoMirrored.Rounded.HelpCenter,
+            iconTint = IconHelpColor,
+            title = "Помощь",
+            onClick = onHelpClick
+        )
+
+        // Item 6: Выход (Red Exit)
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ExitToApp,
             iconTint = IconExitColor,
@@ -671,6 +698,53 @@ private fun SettingsSubmenuContent(
         )
 
         // Item: Back
+        MenuItem(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            iconTint = IconBackArrowColor,
+            title = "Назад",
+            onClick = onBackClick
+        )
+    }
+}
+
+@Composable
+private fun HelpSubmenuContent(
+    onAboutClick: () -> Unit,
+    onHandbookClick: () -> Unit,
+    onAgreementClick: () -> Unit,
+    onBackClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Header
+        MenuHeader(title = "Помощь")
+
+        HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+
+        // Item 1: О программе (Indigo Info)
+        MenuItem(
+            icon = Icons.Rounded.Info,
+            iconTint = IconEditColor,
+            title = "О программе",
+            onClick = onAboutClick
+        )
+
+        // Item 2: Справочник (Emerald MenuBook)
+        MenuItem(
+            icon = Icons.AutoMirrored.Rounded.MenuBook,
+            iconTint = Color(0xFF10B981),
+            title = "Справочник",
+            onClick = onHandbookClick
+        )
+
+        // Item 3: Соглашение (Amber Description)
+        MenuItem(
+            icon = Icons.Rounded.Description,
+            iconTint = Color(0xFFF59E0B),
+            title = "Соглашение",
+            onClick = onAgreementClick
+        )
+
+        // Item 4: Назад
         MenuItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             iconTint = IconBackArrowColor,

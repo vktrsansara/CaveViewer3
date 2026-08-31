@@ -119,6 +119,9 @@ import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingHelpD
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.ScaleBindingInputDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.SnappingSettingsDialog
 import com.vktrsansara.app.caveviewer.presentation.metadata.MetadataEditorScreen
+import com.vktrsansara.app.caveviewer.presentation.help.AboutScreen
+import com.vktrsansara.app.caveviewer.presentation.help.AgreementScreen
+import com.vktrsansara.app.caveviewer.presentation.help.HandbookScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.CreateRasterProjectScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.FeatureUnderDevelopmentScreen
 import com.vktrsansara.app.caveviewer.presentation.projects.ProjectTypeDialog
@@ -766,6 +769,21 @@ fun MainScreen(
                     onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
                 )
             }
+            AppScreen.AGREEMENT -> {
+                AgreementScreen(
+                    onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
+                )
+            }
+            AppScreen.ABOUT -> {
+                AboutScreen(
+                    onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
+                )
+            }
+            AppScreen.HANDBOOK -> {
+                HandbookScreen(
+                    onNavigateBack = { viewModel.handleIntent(MainUiIntent.NavigateBack) }
+                )
+            }
         }
     }
 }
@@ -885,7 +903,8 @@ fun MainScreenContent(
                     var pointHit = false
                     val curMeta = mapMetadata ?: uiState.activeProjectMetadata
                     val isMeasuringTools = isCalibrationMode || isAnyToolActive
-                    if (!isMeasuringTools && curMeta != null && projector != null && uiState.allVisiblePoints.isNotEmpty()) {
+                    val isPointLayersActive = uiState.isPointLayersModeActive || uiState.editingPointLayer != null
+                    if (!isMeasuringTools && isPointLayersActive && curMeta != null && projector != null && uiState.allVisiblePoints.isNotEmpty()) {
                         try {
                             val clickedScreen = projector!!.invoke(clickedLatLng)
                             val hitRadiusPx = 28 * density.density
@@ -920,7 +939,8 @@ fun MainScreenContent(
 
                     // Line Hit-Test (Tap on any line segment)
                     var lineHit = false
-                    if (!pointHit && !isMeasuringTools && curMeta != null && projector != null && uiState.editingLineLayer == null && uiState.editingPointLayer == null && uiState.allVisibleLines.isNotEmpty()) {
+                    val isLineLayersActive = uiState.isLineLayersModeActive || uiState.editingLineLayer != null
+                    if (!pointHit && !isMeasuringTools && isLineLayersActive && curMeta != null && projector != null && uiState.editingLineLayer == null && uiState.editingPointLayer == null && uiState.allVisibleLines.isNotEmpty()) {
                         try {
                             val clickedScreen = projector!!.invoke(clickedLatLng)
                             val lineHitThresholdPx = 20 * density.density
@@ -1311,7 +1331,8 @@ fun MainScreenContent(
             }
 
             // Line Layers Vector Overlay (Outer Halo + Core Stroke + Selection Glow)
-            if (meta != null && uiState.lineLayers.isNotEmpty() && uiState.allVisibleLines.isNotEmpty()) {
+            val isLineLayersVisible = (uiState.isLineLayersModeActive || uiState.editingLineLayer != null)
+            if (isLineLayersVisible && meta != null && uiState.lineLayers.isNotEmpty() && uiState.allVisibleLines.isNotEmpty()) {
                 LineLayersOverlay(
                     lineLayers = uiState.lineLayers,
                     allLines = uiState.allVisibleLines,
@@ -1329,7 +1350,8 @@ fun MainScreenContent(
             }
 
             // Point Layers Vector Overlay (Markers & Labels)
-            if (meta != null && uiState.pointLayers.isNotEmpty() && uiState.allVisiblePoints.isNotEmpty()) {
+            val isPointLayersVisible = (uiState.isPointLayersModeActive || uiState.editingPointLayer != null)
+            if (isPointLayersVisible && meta != null && uiState.pointLayers.isNotEmpty() && uiState.allVisiblePoints.isNotEmpty()) {
                 PointLayersOverlay(
                     pointLayers = uiState.pointLayers,
                     allPoints = uiState.allVisiblePoints,
@@ -1799,6 +1821,9 @@ fun MainScreenContent(
                 onOpenFavoriteToolsPreset = { onIntent(MainUiIntent.OpenFavoriteToolsPreset) },
                 onOpenAppSettings = { onIntent(MainUiIntent.OpenAppSettings) },
                 onOpenToolsSettings = { onIntent(MainUiIntent.OpenToolsSettings) },
+                onOpenAgreement = { onIntent(MainUiIntent.OpenAgreement) },
+                onOpenAbout = { onIntent(MainUiIntent.OpenAbout) },
+                onOpenHandbook = { onIntent(MainUiIntent.OpenHandbook) },
                 onExitApp = { onIntent(MainUiIntent.ExitAppClicked) },
                 onProjectListClick = { onIntent(MainUiIntent.ProjectListClicked) },
                 onNewProjectClick = { onIntent(MainUiIntent.NewProjectClicked) },

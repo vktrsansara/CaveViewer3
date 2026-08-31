@@ -30,7 +30,10 @@ enum class AppScreen {
     PROJECTS_LIST,
     CREATE_RASTER_PROJECT,
     METADATA_EDITOR,
-    FEATURE_UNDER_DEVELOPMENT
+    FEATURE_UNDER_DEVELOPMENT,
+    AGREEMENT,
+    ABOUT,
+    HANDBOOK
 }
 
 data class MainUiState(
@@ -153,6 +156,9 @@ sealed interface MainUiIntent : UiIntent {
     data object ExitAppClicked : MainUiIntent
     data object OpenAppSettings : MainUiIntent
     data object OpenToolsSettings : MainUiIntent
+    data object OpenAgreement : MainUiIntent
+    data object OpenAbout : MainUiIntent
+    data object OpenHandbook : MainUiIntent
     data object NavigateBack : MainUiIntent
     data class UpdateTheme(val theme: ThemeMode) : MainUiIntent
     data class UpdateFullscreen(val enabled: Boolean) : MainUiIntent
