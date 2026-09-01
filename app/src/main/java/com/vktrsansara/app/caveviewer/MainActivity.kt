@@ -86,13 +86,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var hasRequestedStoragePermission = false
+
     override fun onResume() {
         super.onResume()
-        // If user just granted permission in system settings, trigger reload
-        checkAndRequestStoragePermissions()
     }
 
     private fun checkAndRequestStoragePermissions() {
+        if (hasRequestedStoragePermission) return
+        hasRequestedStoragePermission = true
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
                 try {

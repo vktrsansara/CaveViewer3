@@ -22,11 +22,14 @@ import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
 import com.vktrsansara.app.caveviewer.domain.repository.ProjectRepository
+import android.database.sqlite.SQLiteDatabase
+import android.util.Log
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutProgress
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -41,6 +44,8 @@ private val Context.projectDataStore: DataStore<Preferences> by preferencesDataS
 class ProjectRepositoryImpl(
     private val context: Context
 ) : ProjectRepository {
+
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private object PreferencesKeys {
         val ACTIVE_PROJECT_NAME = stringPreferencesKey("active_project_name")
@@ -269,6 +274,11 @@ class ProjectRepositoryImpl(
             val baseDir = getProjectsBaseDir()
             val dir = File(baseDir, projectName)
             if (dir.exists()) {
+                // Release SQLite connection pools and cache handles before moving/deleting
+                try {
+                    SQLiteDatabase.releaseMemory()
+                } catch (_: Exception) {}
+
                 val trashDir = File(baseDir, ".trash")
                 if (!trashDir.exists()) {
                     trashDir.mkdirs()
@@ -277,14 +287,13 @@ class ProjectRepositoryImpl(
                 val renamed = dir.renameTo(targetTrash)
                 val dirToDelete = if (renamed) targetTrash else dir
 
-                // Background async purge: UI receives instant sub-millisecond response
-                CoroutineScope(Dispatchers.IO).launch {
+                // Background async purge using managed SupervisorJob scope:
+                // Fast atomic rename gives instant UI feedback, while file deletion is handled reliably
+                repositoryScope.launch {
                     try {
-                        val process = Runtime.getRuntime().exec(arrayOf("rm", "-rf", dirToDelete.absolutePath))
-                        process.waitFor()
-                    } catch (_: Exception) {}
-                    if (dirToDelete.exists()) {
                         dirToDelete.deleteRecursively()
+                    } catch (e: Exception) {
+                        Log.e("ProjectRepository", "Error purging deleted project directory: ${dirToDelete.absolutePath}", e)
                     }
                 }
             }
