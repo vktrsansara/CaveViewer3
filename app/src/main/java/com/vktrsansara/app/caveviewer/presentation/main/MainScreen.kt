@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vktrsansara.app.caveviewer.domain.model.CompassTapMode
+import com.vktrsansara.app.caveviewer.domain.model.IntersectionMode
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.ToolType
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
@@ -825,6 +826,27 @@ fun MainScreenContent(
     var projector by remember { mutableStateOf<((LatLng) -> Offset)?>(null) }
     val density = LocalDensity.current
 
+    val activeMeta = mapMetadata ?: uiState.activeProjectMetadata
+
+    // Pre-cached snapping structures (recomputed ONLY when layers or metadata change, never on camera movement)
+    val cachedSnapLines = remember(uiState.allVisibleLines, activeMeta?.imageWidth, activeMeta?.imageHeight, activeMeta?.zoomMax) {
+        if (activeMeta != null) {
+            SnappingEngine.buildCachedLines(uiState.allVisibleLines, activeMeta.imageWidth, activeMeta.imageHeight, activeMeta.zoomMax)
+        } else emptyList()
+    }
+
+    val cachedSnapPoints = remember(uiState.allVisiblePoints, activeMeta?.imageWidth, activeMeta?.imageHeight, activeMeta?.zoomMax) {
+        if (activeMeta != null) {
+            SnappingEngine.buildCachedPoints(uiState.allVisiblePoints, activeMeta.imageWidth, activeMeta.imageHeight, activeMeta.zoomMax)
+        } else emptyList()
+    }
+
+    val cachedSnapIntersections = remember(uiState.allVisibleLines, activeMeta?.imageWidth, activeMeta?.imageHeight, activeMeta?.zoomMax, uiState.settings.snappingSettings.intersectionMode) {
+        if (activeMeta != null && uiState.settings.snappingSettings.intersectionMode != IntersectionMode.NO) {
+            SnappingEngine.buildCachedIntersections(uiState.allVisibleLines, activeMeta.imageWidth, activeMeta.imageHeight, activeMeta.zoomMax)
+        } else emptyList()
+    }
+
     val isCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode || uiState.isEntranceCavePickMode
     val isAnyToolActive = uiState.activeTool != null
     val hasDockedTools = uiState.dockedTools.isNotEmpty()
@@ -1008,13 +1030,15 @@ fun MainScreenContent(
                                             val snapRadiusScreenPx = with(density) {
                                                 uiState.settings.snappingSettings.snapRadiusDp.dp.toPx()
                                             }
-                                            SnappingEngine.findSnapTarget(
+                                            SnappingEngine.findSnapTargetFast(
                                                 cursorScreenOffset = cursorScreenOffset,
-                                                visibleLines = uiState.allVisibleLines,
-                                                visiblePoints = uiState.allVisiblePoints,
-                                                imageWidth = curMeta.imageWidth,
-                                                imageHeight = curMeta.imageHeight,
+                                                cursorPixelX = liveCenterPx.first,
+                                                cursorPixelY = liveCenterPx.second,
+                                                currentZoom = currentZoom,
                                                 zoomMax = curMeta.zoomMax,
+                                                cachedLines = cachedSnapLines,
+                                                cachedPoints = cachedSnapPoints,
+                                                cachedIntersections = cachedSnapIntersections,
                                                 projector = projector!!,
                                                 settings = uiState.settings.snappingSettings,
                                                 snapRadiusScreenPx = snapRadiusScreenPx
@@ -1052,13 +1076,15 @@ fun MainScreenContent(
                                             val snapRadiusScreenPx = with(density) {
                                                 SnappingEngine.TOUCH_SNAP_RADIUS_DP.dp.toPx()
                                             }
-                                            SnappingEngine.findSnapTarget(
+                                            SnappingEngine.findSnapTargetFast(
                                                 cursorScreenOffset = clickedScreenOffset,
-                                                visibleLines = uiState.allVisibleLines,
-                                                visiblePoints = uiState.allVisiblePoints,
-                                                imageWidth = curMeta.imageWidth,
-                                                imageHeight = curMeta.imageHeight,
+                                                cursorPixelX = clickedPx.first,
+                                                cursorPixelY = clickedPx.second,
+                                                currentZoom = currentZoom,
                                                 zoomMax = curMeta.zoomMax,
+                                                cachedLines = cachedSnapLines,
+                                                cachedPoints = cachedSnapPoints,
+                                                cachedIntersections = cachedSnapIntersections,
                                                 projector = projector!!,
                                                 settings = uiState.settings.snappingSettings,
                                                 snapRadiusScreenPx = snapRadiusScreenPx
@@ -1104,13 +1130,15 @@ fun MainScreenContent(
                                             val snapRadiusScreenPx = with(density) {
                                                 uiState.settings.snappingSettings.snapRadiusDp.dp.toPx()
                                             }
-                                            SnappingEngine.findSnapTarget(
+                                            SnappingEngine.findSnapTargetFast(
                                                 cursorScreenOffset = cursorScreenOffset,
-                                                visibleLines = uiState.allVisibleLines,
-                                                visiblePoints = uiState.allVisiblePoints,
-                                                imageWidth = curMeta.imageWidth,
-                                                imageHeight = curMeta.imageHeight,
+                                                cursorPixelX = liveCenterPx.first,
+                                                cursorPixelY = liveCenterPx.second,
+                                                currentZoom = currentZoom,
                                                 zoomMax = curMeta.zoomMax,
+                                                cachedLines = cachedSnapLines,
+                                                cachedPoints = cachedSnapPoints,
+                                                cachedIntersections = cachedSnapIntersections,
                                                 projector = projector!!,
                                                 settings = uiState.settings.snappingSettings,
                                                 snapRadiusScreenPx = snapRadiusScreenPx,
@@ -1137,13 +1165,15 @@ fun MainScreenContent(
                                             val snapRadiusScreenPx = with(density) {
                                                 SnappingEngine.TOUCH_SNAP_RADIUS_DP.dp.toPx()
                                             }
-                                            SnappingEngine.findSnapTarget(
+                                            SnappingEngine.findSnapTargetFast(
                                                 cursorScreenOffset = clickedScreenOffset,
-                                                visibleLines = uiState.allVisibleLines,
-                                                visiblePoints = uiState.allVisiblePoints,
-                                                imageWidth = curMeta.imageWidth,
-                                                imageHeight = curMeta.imageHeight,
+                                                cursorPixelX = clickedPx.first,
+                                                cursorPixelY = clickedPx.second,
+                                                currentZoom = currentZoom,
                                                 zoomMax = curMeta.zoomMax,
+                                                cachedLines = cachedSnapLines,
+                                                cachedPoints = cachedSnapPoints,
+                                                cachedIntersections = cachedSnapIntersections,
                                                 projector = projector!!,
                                                 settings = uiState.settings.snappingSettings,
                                                 snapRadiusScreenPx = snapRadiusScreenPx,
@@ -1208,19 +1238,21 @@ fun MainScreenContent(
             val isFreeTapActive = isFreeTapLineMode || isFreeTapPointMode
             val isSnappingActiveMode = uiState.editingLineLayer != null || uiState.editingPointLayer != null
 
-            val snapTarget = if (meta != null && projector != null && uiState.settings.snappingSettings.isEnabled && isSnappingActiveMode && !isFreeTapActive) {
+            val snapTarget = if (meta != null && centerPx != null && projector != null && uiState.settings.snappingSettings.isEnabled && isSnappingActiveMode && !isFreeTapActive) {
                 val cursorScreenOffset = projector?.invoke(LatLng(currentTargetLat, currentTargetLon))
                 if (cursorScreenOffset != null) {
                     val snapRadiusScreenPx = with(density) {
                         uiState.settings.snappingSettings.snapRadiusDp.dp.toPx()
                     }
-                    SnappingEngine.findSnapTarget(
+                    SnappingEngine.findSnapTargetFast(
                         cursorScreenOffset = cursorScreenOffset,
-                        visibleLines = uiState.allVisibleLines,
-                        visiblePoints = uiState.allVisiblePoints,
-                        imageWidth = meta.imageWidth,
-                        imageHeight = meta.imageHeight,
+                        cursorPixelX = centerPx.first,
+                        cursorPixelY = centerPx.second,
+                        currentZoom = currentZoom,
                         zoomMax = meta.zoomMax,
+                        cachedLines = cachedSnapLines,
+                        cachedPoints = cachedSnapPoints,
+                        cachedIntersections = cachedSnapIntersections,
                         projector = projector!!,
                         settings = uiState.settings.snappingSettings,
                         snapRadiusScreenPx = snapRadiusScreenPx,
@@ -1586,13 +1618,15 @@ fun MainScreenContent(
                                         val snapRadiusScreenPx = with(density) {
                                             uiState.settings.snappingSettings.snapRadiusDp.dp.toPx()
                                         }
-                                        SnappingEngine.findSnapTarget(
+                                        SnappingEngine.findSnapTargetFast(
                                             cursorScreenOffset = cursorScreenOffset,
-                                            visibleLines = uiState.allVisibleLines,
-                                            visiblePoints = uiState.allVisiblePoints,
-                                            imageWidth = curMeta.imageWidth,
-                                            imageHeight = curMeta.imageHeight,
+                                            cursorPixelX = liveCenterPx.first,
+                                            cursorPixelY = liveCenterPx.second,
+                                            currentZoom = currentZoom,
                                             zoomMax = curMeta.zoomMax,
+                                            cachedLines = cachedSnapLines,
+                                            cachedPoints = cachedSnapPoints,
+                                            cachedIntersections = cachedSnapIntersections,
                                             projector = projector!!,
                                             settings = uiState.settings.snappingSettings,
                                             snapRadiusScreenPx = snapRadiusScreenPx,
@@ -1643,13 +1677,15 @@ fun MainScreenContent(
                                         val snapRadiusScreenPx = with(density) {
                                             uiState.settings.snappingSettings.snapRadiusDp.dp.toPx()
                                         }
-                                        SnappingEngine.findSnapTarget(
+                                        SnappingEngine.findSnapTargetFast(
                                             cursorScreenOffset = cursorScreenOffset,
-                                            visibleLines = uiState.allVisibleLines,
-                                            visiblePoints = uiState.allVisiblePoints,
-                                            imageWidth = curMeta.imageWidth,
-                                            imageHeight = curMeta.imageHeight,
+                                            cursorPixelX = rawCenterPx.first,
+                                            cursorPixelY = rawCenterPx.second,
+                                            currentZoom = currentZoom,
                                             zoomMax = curMeta.zoomMax,
+                                            cachedLines = cachedSnapLines,
+                                            cachedPoints = cachedSnapPoints,
+                                            cachedIntersections = cachedSnapIntersections,
                                             projector = projector!!,
                                             settings = uiState.settings.snappingSettings,
                                             snapRadiusScreenPx = snapRadiusScreenPx
