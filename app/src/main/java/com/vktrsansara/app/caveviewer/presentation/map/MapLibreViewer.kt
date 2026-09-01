@@ -34,11 +34,16 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
+import com.vktrsansara.app.caveviewer.domain.model.LayerLine
+import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
+import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutter
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
+import com.vktrsansara.app.caveviewer.engine.maplibre.MapLibreVectorManager
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapGridOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.filters.MapFilterUtils
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
@@ -66,6 +71,12 @@ fun MapLibreViewer(
     initialCameraPosition: MapCameraPosition? = null,
     settings: AppSettings? = null,
     bindingPoints: List<ScaleBindingPoint> = emptyList(),
+    allVisibleLines: List<LayerLine> = emptyList(),
+    allVisiblePoints: List<LayerPoint> = emptyList(),
+    lineLayers: List<LineLayer> = emptyList(),
+    pointLayers: List<PointLayer> = emptyList(),
+    isLineLayersVisible: Boolean = false,
+    isPointLayersVisible: Boolean = false,
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit = { _, _, _, _ -> },
     onBindingScreenPointsChanged: (List<Offset>) -> Unit = {},
     onProjectorReady: (((LatLng) -> Offset) -> Unit)? = null,
@@ -183,6 +194,12 @@ fun MapLibreViewer(
                     initialCameraPosition = initialCameraPosition,
                     settings = settings,
                     bindingPoints = bindingPoints,
+                    allVisibleLines = allVisibleLines,
+                    allVisiblePoints = allVisiblePoints,
+                    lineLayers = lineLayers,
+                    pointLayers = pointLayers,
+                    isLineLayersVisible = isLineLayersVisible,
+                    isPointLayersVisible = isPointLayersVisible,
                     lifecycleOwner = lifecycleOwner,
                     onCameraPositionChanged = onCameraPositionChanged,
                     onBindingScreenPointsChanged = onBindingScreenPointsChanged,
@@ -206,6 +223,12 @@ private fun MapLibreMapViewContainer(
     initialCameraPosition: MapCameraPosition?,
     settings: AppSettings?,
     bindingPoints: List<ScaleBindingPoint>,
+    allVisibleLines: List<LayerLine>,
+    allVisiblePoints: List<LayerPoint>,
+    lineLayers: List<LineLayer>,
+    pointLayers: List<PointLayer>,
+    isLineLayersVisible: Boolean,
+    isPointLayersVisible: Boolean,
     lifecycleOwner: LifecycleOwner,
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit,
     onBindingScreenPointsChanged: (List<Offset>) -> Unit,
@@ -250,11 +273,24 @@ private fun MapLibreMapViewContainer(
     }
     val tilesUrl = "$baseEncodedUri/{z}/{x}/{y}.png"
 
-    // 3. Style JSON with clean raster layer
+    // 3. Pre-convert lines and points to GeoJson FeatureCollections (ONLY when data changes, NEVER on camera move)
+    val linesFeatureCollection = remember(allVisibleLines, lineLayers, meta) {
+        MapLibreVectorManager.linesToFeatureCollection(allVisibleLines, lineLayers, meta)
+    }
+
+    val pointsFeatureCollection = remember(allVisiblePoints, pointLayers, meta) {
+        MapLibreVectorManager.pointsToFeatureCollection(allVisiblePoints, pointLayers, meta)
+    }
+
+    val currentIsLineLayersVisible by rememberUpdatedState(isLineLayersVisible)
+    val currentIsPointLayersVisible by rememberUpdatedState(isPointLayersVisible)
+
+    // 4. Style JSON with clean raster layer and glyphs for text rendering
     val styleJson = remember(tilesUrl, meta.zoomMin, meta.zoomMax) {
         """
         {
           "version": 8,
+          "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
           "sources": {
             "cave-raster-source": {
               "type": "raster",
@@ -389,9 +425,18 @@ private fun MapLibreMapViewContainer(
                 }
 
                 // Apply style
-                maplibreMap.setStyle(Style.Builder().fromJson(styleJson)) { _ ->
+                maplibreMap.setStyle(Style.Builder().fromJson(styleJson)) { style ->
                     maplibreMap.setMinZoomPreference(meta.zoomMin.toDouble())
                     maplibreMap.setMaxZoomPreference(meta.zoomMax.toDouble() + 4.0)
+
+                    // Setup GPU vector layers (lines, halos, dashed/dotted, points, labels)
+                    MapLibreVectorManager.setupVectorLayers(
+                        style = style,
+                        isLineLayersVisible = currentIsLineLayersVisible,
+                        isPointLayersVisible = currentIsPointLayersVisible,
+                        initialLines = linesFeatureCollection,
+                        initialPoints = pointsFeatureCollection
+                    )
 
                     // Restore saved camera position (clamped) or start at default map center
                     if (initialCameraPosition != null && initialCameraPosition.zoom > 0.0) {
@@ -430,6 +475,27 @@ private fun MapLibreMapViewContainer(
                     calculateScreenPoints(maplibreMap)
                 }
             }
+        }
+    }
+
+    // Reactively update Lines GeoJson source on GPU when data changes
+    LaunchedEffect(linesFeatureCollection, maplibreMapInstance) {
+        maplibreMapInstance?.getStyle { style ->
+            MapLibreVectorManager.updateLinesSource(style, linesFeatureCollection)
+        }
+    }
+
+    // Reactively update Points GeoJson source on GPU when data changes
+    LaunchedEffect(pointsFeatureCollection, maplibreMapInstance) {
+        maplibreMapInstance?.getStyle { style ->
+            MapLibreVectorManager.updatePointsSource(style, pointsFeatureCollection)
+        }
+    }
+
+    // Reactively update visibility of native layers
+    LaunchedEffect(isLineLayersVisible, isPointLayersVisible, maplibreMapInstance) {
+        maplibreMapInstance?.getStyle { style ->
+            MapLibreVectorManager.updateVisibility(style, isLineLayersVisible, isPointLayersVisible)
         }
     }
 

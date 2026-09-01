@@ -880,12 +880,20 @@ fun MainScreenContent(
     ) {
         // Main content: active MapLibreViewer or NoProjectPlaceholder
         val activeDir = uiState.activeProjectDir
+        val isLineLayersVisible = (uiState.isLineLayersModeActive || uiState.editingLineLayer != null)
+        val isPointLayersVisible = (uiState.isPointLayersModeActive || uiState.editingPointLayer != null)
         if (activeDir != null && uiState.hasActiveProject) {
             MapLibreViewer(
                 projectDir = activeDir,
                 initialCameraPosition = initialPos,
                 settings = uiState.settings,
                 bindingPoints = activeBindingPoints,
+                allVisibleLines = uiState.allVisibleLines,
+                allVisiblePoints = uiState.allVisiblePoints,
+                lineLayers = uiState.lineLayers,
+                pointLayers = uiState.pointLayers,
+                isLineLayersVisible = isLineLayersVisible,
+                isPointLayersVisible = isPointLayersVisible,
                 onCameraPositionChanged = { lat, lon, zoom, bearing ->
                     currentTargetLat = lat
                     currentTargetLon = lon
@@ -1335,9 +1343,8 @@ fun MainScreenContent(
                 )
             }
 
-            // Line Layers Vector Overlay (Outer Halo + Core Stroke + Selection Glow)
-            val isLineLayersVisible = (uiState.isLineLayersModeActive || uiState.editingLineLayer != null)
-            if (isLineLayersVisible && meta != null && uiState.lineLayers.isNotEmpty() && uiState.allVisibleLines.isNotEmpty()) {
+            // Line Layers Selection Glow Overlay (Active ONLY when a line is selected for details)
+            if (isLineLayersVisible && meta != null && uiState.selectedLineForDetails != null) {
                 LineLayersOverlay(
                     lineLayers = uiState.lineLayers,
                     allLines = uiState.allVisibleLines,
@@ -1354,12 +1361,12 @@ fun MainScreenContent(
                 )
             }
 
-            // Point Layers Vector Overlay (Markers & Labels)
-            val isPointLayersVisible = (uiState.isPointLayersModeActive || uiState.editingPointLayer != null)
-            if (isPointLayersVisible && meta != null && uiState.pointLayers.isNotEmpty() && uiState.allVisiblePoints.isNotEmpty()) {
+            // Point Layers Selection Glow Overlay (Active ONLY when a point is selected for details)
+            if (isPointLayersVisible && meta != null && uiState.selectedPointForDetails != null) {
                 PointLayersOverlay(
                     pointLayers = uiState.pointLayers,
                     allPoints = uiState.allVisiblePoints,
+                    selectedPointId = uiState.selectedPointForDetails?.id,
                     imageWidth = meta.imageWidth,
                     imageHeight = meta.imageHeight,
                     zoomMax = meta.zoomMax,
