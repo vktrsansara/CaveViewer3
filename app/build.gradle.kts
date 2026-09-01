@@ -5,14 +5,12 @@ plugins {
 
 android {
     namespace = "com.vktrsansara.app.caveviewer"
-    compileSdk {
-        version = release(37)
-    }
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.vktrsansara.app.caveviewer"
         minSdk = 27
-        targetSdk = 37
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -21,10 +19,8 @@ android {
 
     buildTypes {
         release {
+            isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")
-            optimization {
-                enable = false
-            }
         }
     }
     compileOptions {
