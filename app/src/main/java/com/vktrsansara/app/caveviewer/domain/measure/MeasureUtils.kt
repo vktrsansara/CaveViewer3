@@ -211,8 +211,39 @@ object MeasureUtils {
             val xBottom = p1.first + tBottom * dx
             if (xBottom in 0.0..mapWidth) intersections.add(Pair(xBottom, mapHeight))
         }
-        return if (intersections.size >= 2) {
-            Pair(intersections[0], intersections[1])
+        // Deduplicate corner and close intersection points to prevent zero-length degeneration
+        val uniqueIntersections = mutableListOf<Pair<Double, Double>>()
+        for (pt in intersections) {
+            val isDuplicate = uniqueIntersections.any { existing ->
+                val diffX = existing.first - pt.first
+                val diffY = existing.second - pt.second
+                (diffX * diffX + diffY * diffY) < 1e-6
+            }
+            if (!isDuplicate) {
+                uniqueIntersections.add(pt)
+            }
+        }
+
+        return if (uniqueIntersections.size >= 2) {
+            // Pick two points with maximum distance between them
+            var maxDistSq = -1.0
+            var bestP1 = uniqueIntersections[0]
+            var bestP2 = uniqueIntersections[1]
+            for (i in 0 until uniqueIntersections.size) {
+                for (j in i + 1 until uniqueIntersections.size) {
+                    val pA = uniqueIntersections[i]
+                    val pB = uniqueIntersections[j]
+                    val dX = pA.first - pB.first
+                    val dY = pA.second - pB.second
+                    val dSq = dX * dX + dY * dY
+                    if (dSq > maxDistSq) {
+                        maxDistSq = dSq
+                        bestP1 = pA
+                        bestP2 = pB
+                    }
+                }
+            }
+            Pair(bestP1, bestP2)
         } else {
             // Fallback: extend line by large factor
             val factor = 10000.0

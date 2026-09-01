@@ -2,6 +2,7 @@ package com.vktrsansara.app.caveviewer.presentation.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDateTimeUtils
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
@@ -2197,7 +2198,14 @@ class MainViewModel(
                                     val updatedLinePoints = intersectedLine.points.toMutableList().apply {
                                         add(intersectedSegmentIdx + 1, foundIntersection)
                                     }
-                                    val updatedLine = intersectedLine.copy(points = updatedLinePoints)
+                                    val ppm = _uiState.value.activeProjectMetadata?.pixelsPerMeter ?: 0.0
+                                    val lenPx = MeasureUtils.calculatePolylineLengthPx(updatedLinePoints)
+                                    val lenMeters = if (ppm > 0.0) lenPx / ppm else 0.0
+                                    val updatedLine = intersectedLine.copy(
+                                        points = updatedLinePoints,
+                                        lengthPx = lenPx,
+                                        lengthMeters = lenMeters
+                                    )
                                     val activeName = _uiState.value.activeProjectName
                                     if (activeName != null) {
                                         viewModelScope.launch {
@@ -2254,7 +2262,14 @@ class MainViewModel(
                         val updatedLinePoints = pending.intersectedLine.points.toMutableList().apply {
                             add(pending.segmentIndex + 1, pending.intersectionPx)
                         }
-                        val updatedLine = pending.intersectedLine.copy(points = updatedLinePoints)
+                        val ppm = _uiState.value.activeProjectMetadata?.pixelsPerMeter ?: 0.0
+                        val lenPx = MeasureUtils.calculatePolylineLengthPx(updatedLinePoints)
+                        val lenMeters = if (ppm > 0.0) lenPx / ppm else 0.0
+                        val updatedLine = pending.intersectedLine.copy(
+                            points = updatedLinePoints,
+                            lengthPx = lenPx,
+                            lengthMeters = lenMeters
+                        )
                         val activeName = _uiState.value.activeProjectName
                         if (activeName != null) {
                             viewModelScope.launch {

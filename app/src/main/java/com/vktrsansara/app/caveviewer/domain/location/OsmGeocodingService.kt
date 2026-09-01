@@ -2,6 +2,8 @@ package com.vktrsansara.app.caveviewer.domain.location
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.net.HttpURLConnection
@@ -18,25 +20,28 @@ data class GeocodingResult(
  * Lightweight search service for OpenStreetMap Nominatim geocoding with strict rate limiting.
  */
 object OsmGeocodingService {
+    private val rateLimitMutex = Mutex()
     private var lastRequestTime = 0L
 
     suspend fun search(query: String): List<GeocodingResult> = withContext(Dispatchers.IO) {
         if (query.isBlank()) return@withContext emptyList()
 
-        // Rate limiting: strictly at most 1 request per 1.1 seconds (Nominatim policy)
-        val now = System.currentTimeMillis()
-        val timeSinceLast = now - lastRequestTime
-        if (timeSinceLast < 1100) {
-            delay(1100 - timeSinceLast)
+        // Rate limiting: strictly at most 1 request per 1.1 seconds (Nominatim policy), protected by Mutex
+        rateLimitMutex.withLock {
+            val now = System.currentTimeMillis()
+            val timeSinceLast = now - lastRequestTime
+            if (timeSinceLast < 1100) {
+                delay(1100 - timeSinceLast)
+            }
+            lastRequestTime = System.currentTimeMillis()
         }
-        lastRequestTime = System.currentTimeMillis()
 
+        var connection: HttpURLConnection? = null
         try {
             val encodedQuery = URLEncoder.encode(query.trim(), "UTF-8")
             val urlString = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=5&accept-language=ru"
             val url = URL(urlString)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.apply {
+            connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 setRequestProperty("User-Agent", "CaveViewer-App/3.0 (Android; Speleo GIS)")
                 connectTimeout = 5000
@@ -70,6 +75,10 @@ object OsmGeocodingService {
             }
         } catch (_: Exception) {
             emptyList()
+        } finally {
+            try {
+                connection?.disconnect()
+            } catch (_: Exception) {}
         }
     }
 }
