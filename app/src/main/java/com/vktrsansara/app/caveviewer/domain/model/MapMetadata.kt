@@ -16,5 +16,7 @@ data class MapMetadata(
     val scaleMeters: Double = 0.0,
     val angleNorth: Double = 0.0,
     val crs: String = "Simple",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val pointsSearchConfig: LayerSearchConfig = LayerSearchConfig(),
+    val linesSearchConfig: LayerSearchConfig = LayerSearchConfig()
 )

@@ -22,24 +22,41 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddLocation
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,8 +74,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
+import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
+import com.vktrsansara.app.caveviewer.domain.model.LayerFieldType
+import com.vktrsansara.app.caveviewer.domain.model.LayerSearchConfig
+import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.PointLayer
+import com.vktrsansara.app.caveviewer.domain.model.SearchFieldItem
 import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
 import com.vktrsansara.app.caveviewer.presentation.components.DialogCancelButton
 import com.vktrsansara.app.caveviewer.presentation.components.DialogSaveButton
@@ -86,6 +109,8 @@ fun MetadataEditorScreen(
     location: MapLocation = MapLocation(),
     entrances: List<EntranceCoordinate> = emptyList(),
     cadastralData: Map<String, List<CadastralItem>> = emptyMap(),
+    pointLayers: List<PointLayer> = emptyList(),
+    lineLayers: List<LineLayer> = emptyList(),
     onSaveMetadata: (MapMetadata, MapLocation, List<EntranceCoordinate>, Map<String, List<CadastralItem>>) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -119,6 +144,10 @@ fun MetadataEditorScreen(
     // Cadastral data form fields
     var cadastralState by remember(cadastralData) { mutableStateOf(initialCadastral) }
 
+    // Layer search configs
+    var pointsSearchConfigState by remember(metadata) { mutableStateOf(metadata.pointsSearchConfig) }
+    var linesSearchConfigState by remember(metadata) { mutableStateOf(metadata.linesSearchConfig) }
+
     // Lock states (default locked)
     var isNameLocked by remember { mutableStateOf(true) }
     var isPpmLocked by remember { mutableStateOf(true) }
@@ -133,7 +162,9 @@ fun MetadataEditorScreen(
     val hasUnsavedChanges = remember(
         projectName, pixelsPerMeter, scaleMeters, angleNorth,
         initialProjectName, initialPpm, initialScale, initialAngle,
-        locationState, initialLocation, entrancesState, initialEntrances, cadastralState, initialCadastral
+        locationState, initialLocation, entrancesState, initialEntrances, cadastralState, initialCadastral,
+        pointsSearchConfigState, metadata.pointsSearchConfig,
+        linesSearchConfigState, metadata.linesSearchConfig
     ) {
         projectName.trim() != initialProjectName.trim() ||
                 pixelsPerMeter.trim() != initialPpm.trim() ||
@@ -141,7 +172,9 @@ fun MetadataEditorScreen(
                 angleNorth.trim() != initialAngle.trim() ||
                 locationState != initialLocation ||
                 entrancesState != initialEntrances ||
-                cadastralState != initialCadastral
+                cadastralState != initialCadastral ||
+                pointsSearchConfigState != metadata.pointsSearchConfig ||
+                linesSearchConfigState != metadata.linesSearchConfig
     }
 
     val handleBackPress = {
@@ -163,7 +196,9 @@ fun MetadataEditorScreen(
             pixelsPerMeter = ppmVal,
             scaleMeters = scaleVal,
             angleNorth = angleVal,
-            crs = "Simple"
+            crs = "Simple",
+            pointsSearchConfig = pointsSearchConfigState,
+            linesSearchConfig = linesSearchConfigState
         )
         onSaveMetadata(updated, locationState, entrancesState, cadastralState)
     }
@@ -197,11 +232,7 @@ fun MetadataEditorScreen(
                 CadastralHelpDialog(onDismiss = { isHelpDialogVisible = false })
             }
             MetadataTab.LAYERS -> {
-                UnderDevelopmentHelpDialog(
-                    title = "Справка: Слои",
-                    description = "Раздел управления слоями карты находится в разработке.",
-                    onDismiss = { isHelpDialogVisible = false }
-                )
+                LayersSearchHelpDialog(onDismiss = { isHelpDialogVisible = false })
             }
         }
     }
@@ -265,7 +296,14 @@ fun MetadataEditorScreen(
                 )
             }
             MetadataTab.LAYERS -> {
-                TabUnderDevelopmentContent(tabTitle = selectedTab.title)
+                LayersTabContent(
+                    pointLayers = pointLayers,
+                    lineLayers = lineLayers,
+                    pointsConfig = pointsSearchConfigState,
+                    onPointsConfigChange = { pointsSearchConfigState = it },
+                    linesConfig = linesSearchConfigState,
+                    onLinesConfigChange = { linesSearchConfigState = it }
+                )
             }
         }
     }
@@ -827,23 +865,599 @@ private fun MetadataSectionCard(
 }
 
 @Composable
-private fun TabUnderDevelopmentContent(tabTitle: String) {
-    Box(
-        modifier = Modifier
+private fun LayersTabContent(
+    pointLayers: List<PointLayer>,
+    lineLayers: List<LineLayer>,
+    pointsConfig: LayerSearchConfig,
+    onPointsConfigChange: (LayerSearchConfig) -> Unit,
+    linesConfig: LayerSearchConfig,
+    onLinesConfigChange: (LayerSearchConfig) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scrollState = rememberScrollState()
+
+    // Сбор всех доступных кастомных и стандартных полей для точек
+    val availablePointFields = remember(pointLayers) {
+        val customFields = pointLayers.flatMap { it.fieldsSchema }.distinctBy { it.key }
+        val defaults = listOf(
+            LayerFieldDefinition(key = "typeCategory", name = "Категория", type = LayerFieldType.TEXT)
+        )
+        (defaults + customFields).distinctBy { it.key }
+    }
+
+    // Сбор всех доступных кастомных и стандартных полей для линий
+    val availableLineFields = remember(lineLayers) {
+        val customFields = lineLayers.flatMap { it.fieldsSchema }.distinctBy { it.key }
+        val defaults = listOf(
+            LayerFieldDefinition(key = "difficulty", name = "Сложность", type = LayerFieldType.TEXT),
+            LayerFieldDefinition(key = "environmentType", name = "Среда (ореол)", type = LayerFieldType.TEXT)
+        )
+        (defaults + customFields).distinctBy { it.key }
+    }
+
+    Column(
+        modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
+            .verticalScroll(scrollState)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        val hasPointLayers = pointLayers.isNotEmpty()
+        val hasLineLayers = lineLayers.isNotEmpty()
+
+        if (!hasPointLayers && !hasLineLayers) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppColors.bgCard)
+                    .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
+                    .padding(20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Слои точек и линий пока не созданы в проекте",
+                    fontSize = 13.5.sp,
+                    color = AppColors.textSecondary,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            if (hasPointLayers) {
+                LayerSearchConfigCard(
+                    blockTitle = "Слой точек",
+                    checkboxTitle = "Поиск по точкам",
+                    defaultFieldTitle = "Название точки",
+                    availableFields = availablePointFields,
+                    config = pointsConfig,
+                    onConfigChange = onPointsConfigChange
+                )
+            }
+
+            if (hasLineLayers) {
+                LayerSearchConfigCard(
+                    blockTitle = "Слой линий",
+                    checkboxTitle = "Поиск по линиям",
+                    defaultFieldTitle = "Название линии",
+                    availableFields = availableLineFields,
+                    config = linesConfig,
+                    onConfigChange = onLinesConfigChange
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun LayerSearchConfigCard(
+    blockTitle: String,
+    checkboxTitle: String,
+    defaultFieldTitle: String,
+    availableFields: List<LayerFieldDefinition>,
+    config: LayerSearchConfig,
+    onConfigChange: (LayerSearchConfig) -> Unit
+) {
+    // Сворачивание по умолчанию (isExpanded = false)
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
+    var isAddSearchFieldDropdownOpen by remember { mutableStateOf(false) }
+    var isAddSubtitleDropdownOpen by remember { mutableStateOf(false) }
+
+    val isSearchEnabled = config.isSearchEnabled
+
+    // Синхронизация: если поиск выключен, принудительно сворачиваем
+    LaunchedEffect(isSearchEnabled) {
+        if (!isSearchEnabled) {
+            isExpanded = false
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(AppColors.bgCard)
+            .border(
+                width = 1.dp,
+                color = if (isSearchEnabled) AppColors.borderColor else AppColors.borderColor.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(8.dp)
+            )
+    ) {
+        // А. Заголовок блока (Accordion Header)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = isSearchEnabled) { isExpanded = !isExpanded }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = "Раздел «$tabTitle» находится в разработке",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Normal,
-                color = AppColors.textSecondary,
-                textAlign = TextAlign.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Checkbox(
+                    checked = isSearchEnabled,
+                    onCheckedChange = { isChecked ->
+                        isExpanded = isChecked
+                        onConfigChange(config.copy(isSearchEnabled = isChecked))
+                    },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = AccentSkyBlue,
+                        uncheckedColor = AppColors.textSecondary,
+                        checkmarkColor = AppColors.bgMain
+                    )
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Column {
+                    Text(
+                        text = checkboxTitle,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isSearchEnabled) AppColors.textPrimary else AppColors.textSecondary.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = blockTitle,
+                        fontSize = 11.5.sp,
+                        color = if (isSearchEnabled) AppColors.textSecondary else AppColors.textSecondary.copy(alpha = 0.5f)
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (isSearchEnabled) AppColors.bgSurface else AppColors.bgSurface.copy(alpha = 0.4f))
+                    .border(
+                        width = 1.dp,
+                        color = if (isSearchEnabled) AppColors.borderColor else AppColors.borderColor.copy(alpha = 0.4f),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .clickable(enabled = isSearchEnabled) { isExpanded = !isExpanded },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = if (isExpanded) "Свернуть" else "Развернуть",
+                    tint = if (isSearchEnabled) AccentSkyBlue else AppColors.textSecondary.copy(alpha = 0.4f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // Развернутое содержимое аккордеона
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp)
+            ) {
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Б. Секция 1: «Поиск по атрибуту:»
+                Text(
+                    text = "Поиск по атрибуту:",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AccentSkyBlue
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Основная строка по умолчанию («Название»)
+                val nameItem = config.searchFields.firstOrNull { it.key == "name" }
+                    ?: SearchFieldItem(key = "name", title = defaultFieldTitle, isEnabled = true)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = nameItem.isEnabled,
+                        onCheckedChange = { checked ->
+                            val updatedFields = if (config.searchFields.any { it.key == "name" }) {
+                                config.searchFields.map {
+                                    if (it.key == "name") it.copy(isEnabled = checked) else it
+                                }
+                            } else {
+                                listOf(nameItem.copy(isEnabled = checked)) + config.searchFields
+                            }
+                            onConfigChange(config.copy(searchFields = updatedFields))
+                        },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = AccentSkyBlue,
+                            uncheckedColor = AppColors.textSecondary,
+                            checkmarkColor = AppColors.bgMain
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Планка с текстом [Название точки / линии]
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.bgSurface)
+                            .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                            .padding(horizontal = 10.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = defaultFieldTitle,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = AppColors.textPrimary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Кнопка [+] справа
+                    Box {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(AppColors.bgSurface)
+                                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                                .clickable { isAddSearchFieldDropdownOpen = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = "Добавить атрибут поиска",
+                                tint = AccentSkyBlue,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = isAddSearchFieldDropdownOpen,
+                            onDismissRequest = { isAddSearchFieldDropdownOpen = false },
+                            modifier = Modifier
+                                .background(AppColors.bgCard)
+                                .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                        ) {
+                            val existingKeys = config.searchFields.map { it.key }.toSet()
+                            val unaddedFields = availableFields.filter { it.key !in existingKeys && it.key != "name" }
+
+                            if (unaddedFields.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = if (availableFields.isEmpty()) "Нет доступных кастомных полей" else "Все поля уже добавлены",
+                                            fontSize = 12.5.sp,
+                                            color = AppColors.textSecondary
+                                        )
+                                    },
+                                    onClick = { isAddSearchFieldDropdownOpen = false },
+                                    enabled = false
+                                )
+                            } else {
+                                unaddedFields.forEach { field ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = field.name,
+                                                fontSize = 13.sp,
+                                                color = AppColors.textPrimary
+                                            )
+                                        },
+                                        onClick = {
+                                            isAddSearchFieldDropdownOpen = false
+                                            val newItem = SearchFieldItem(key = field.key, title = field.name, isEnabled = true)
+                                            onConfigChange(config.copy(searchFields = config.searchFields + newItem))
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Добавленные кастомные поля поиска
+                val customSearchFields = config.searchFields.filter { it.key != "name" }
+                customSearchFields.forEach { item ->
+                    CustomSearchFieldRow(
+                        item = item,
+                        availableFields = availableFields,
+                        existingKeys = config.searchFields.map { it.key }.toSet(),
+                        onToggleEnabled = { isEnabled ->
+                            val updatedFields = config.searchFields.map {
+                                if (it.key == item.key) it.copy(isEnabled = isEnabled) else it
+                            }
+                            onConfigChange(config.copy(searchFields = updatedFields))
+                        },
+                        onSelectField = { newField ->
+                            val updatedFields = config.searchFields.map {
+                                if (it.key == item.key) SearchFieldItem(key = newField.key, title = newField.name, isEnabled = item.isEnabled) else it
+                            }
+                            onConfigChange(config.copy(searchFields = updatedFields))
+                        },
+                        onDelete = {
+                            val updatedFields = config.searchFields.filter { it.key != item.key }
+                            onConfigChange(config.copy(searchFields = updatedFields))
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // В. Секция 2: «Подписи в результатах поиска:»
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Подписи в результатах:",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AccentSkyBlue
+                    )
+
+                    Box {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(AppColors.bgSurface)
+                                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                                .clickable { isAddSubtitleDropdownOpen = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = "Добавить подпись",
+                                tint = AccentSkyBlue,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = isAddSubtitleDropdownOpen,
+                            onDismissRequest = { isAddSubtitleDropdownOpen = false },
+                            modifier = Modifier
+                                .background(AppColors.bgCard)
+                                .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                        ) {
+                            val existingSubtitleKeys = config.subtitleFields.toSet()
+                            val unaddedSubtitleFields = availableFields.filter { it.key !in existingSubtitleKeys }
+
+                            if (unaddedSubtitleFields.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = if (availableFields.isEmpty()) "Нет доступных кастомных полей" else "Все подписи уже добавлены",
+                                            fontSize = 12.5.sp,
+                                            color = AppColors.textSecondary
+                                        )
+                                    },
+                                    onClick = { isAddSubtitleDropdownOpen = false },
+                                    enabled = false
+                                )
+                            } else {
+                                unaddedSubtitleFields.forEach { field ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = field.name,
+                                                fontSize = 13.sp,
+                                                color = AppColors.textPrimary
+                                            )
+                                        },
+                                        onClick = {
+                                            isAddSubtitleDropdownOpen = false
+                                            onConfigChange(config.copy(subtitleFields = config.subtitleFields + field.key))
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (config.subtitleFields.isEmpty()) {
+                    Text(
+                        text = "Подписи не выбраны (в результатах будет только название)",
+                        fontSize = 12.sp,
+                        color = AppColors.textSecondary,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                } else {
+                    config.subtitleFields.forEach { subKey ->
+                        val fieldName = availableFields.find { it.key == subKey }?.name ?: subKey
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(34.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(AppColors.bgSurface)
+                                    .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 10.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Text(
+                                    text = fieldName,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = AppColors.textPrimary
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(AppColors.bgSurface)
+                                    .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                                    .clickable {
+                                        val updatedSubtitles = config.subtitleFields.filter { it != subKey }
+                                        onConfigChange(config.copy(subtitleFields = updatedSubtitles))
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = "Удалить подпись",
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomSearchFieldRow(
+    item: SearchFieldItem,
+    availableFields: List<LayerFieldDefinition>,
+    existingKeys: Set<String>,
+    onToggleEnabled: (Boolean) -> Unit,
+    onSelectField: (LayerFieldDefinition) -> Unit,
+    onDelete: () -> Unit
+) {
+    var isDropdownOpen by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = item.isEnabled,
+            onCheckedChange = onToggleEnabled,
+            colors = CheckboxDefaults.colors(
+                checkedColor = AccentSkyBlue,
+                uncheckedColor = AppColors.textSecondary,
+                checkmarkColor = AppColors.bgMain
+            )
+        )
+
+        Spacer(modifier = Modifier.width(6.dp))
+
+        Box(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(AppColors.bgSurface)
+                    .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                    .clickable { isDropdownOpen = true }
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = item.title,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = AppColors.textPrimary
+                )
+
+                Icon(
+                    imageVector = Icons.Rounded.ArrowDropDown,
+                    contentDescription = "Выбрать поле",
+                    tint = AccentSkyBlue,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            DropdownMenu(
+                expanded = isDropdownOpen,
+                onDismissRequest = { isDropdownOpen = false },
+                modifier = Modifier
+                    .background(AppColors.bgCard)
+                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+            ) {
+                val candidateFields = availableFields.filter { it.key !in existingKeys || it.key == item.key }
+                candidateFields.forEach { field ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = field.name,
+                                fontSize = 13.sp,
+                                color = if (field.key == item.key) AccentSkyBlue else AppColors.textPrimary
+                            )
+                        },
+                        onClick = {
+                            isDropdownOpen = false
+                            if (field.key != item.key) {
+                                onSelectField(field)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(AppColors.bgSurface)
+                .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                .clickable(onClick = onDelete),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.DeleteOutline,
+                contentDescription = "Удалить поле поиска",
+                tint = Color(0xFFEF4444),
+                modifier = Modifier.size(18.dp)
             )
         }
     }
@@ -919,13 +1533,11 @@ private fun MainMetadataHelpDialog(
 }
 
 @Composable
-private fun UnderDevelopmentHelpDialog(
-    title: String,
-    description: String,
+private fun LayersSearchHelpDialog(
     onDismiss: () -> Unit
 ) {
     AppDialogContainer(
-        title = title,
+        title = "Справка: Поиск по слоям",
         onDismissRequest = onDismiss,
         buttons = {
             DialogCancelButton(
@@ -934,12 +1546,20 @@ private fun UnderDevelopmentHelpDialog(
             )
         }
     ) {
-        Text(
-            text = description,
-            fontSize = 13.sp,
-            color = AppColors.textSecondary,
-            lineHeight = 18.sp
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            HelpItem(
+                title = "Поиск по точкам и линиям:",
+                description = "Включает или выключает индексацию и поиск объектов соответствующего векторного слоя."
+            )
+            HelpItem(
+                title = "Поиск по атрибуту:",
+                description = "Позволяет искать объекты не только по их названию, но и по значениям кастомных полей (псевдонимы, описание, глубина и т.д.)."
+            )
+            HelpItem(
+                title = "Подписи в результатах поиска:",
+                description = "Значения выбранных полей будут выводиться в качестве дополнительной подписи под названием объекта в списке результатов."
+            )
+        }
     }
 }
 

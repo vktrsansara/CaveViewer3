@@ -11,10 +11,12 @@ import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
 import com.vktrsansara.app.caveviewer.domain.model.LineEnvironmentType
 import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.LineStyle
+import com.vktrsansara.app.caveviewer.domain.model.LayerSearchConfig
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.PointShape
+import com.vktrsansara.app.caveviewer.domain.model.SearchFieldItem
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -99,7 +101,9 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
                     scale_meters REAL NOT NULL DEFAULT 0.0,
                     angle_north REAL NOT NULL DEFAULT 0.0,
                     crs TEXT NOT NULL DEFAULT 'Simple',
-                    created_at INTEGER NOT NULL
+                    created_at INTEGER NOT NULL,
+                    points_search_config TEXT NOT NULL DEFAULT '{}',
+                    lines_search_config TEXT NOT NULL DEFAULT '{}'
                 );
                 """.trimIndent()
             )
@@ -227,7 +231,71 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
             try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN scale_meters REAL NOT NULL DEFAULT 0.0") } catch (_: Exception) {}
             try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN angle_north REAL NOT NULL DEFAULT 0.0") } catch (_: Exception) {}
             try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN crs TEXT NOT NULL DEFAULT 'Simple'") } catch (_: Exception) {}
+            try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN points_search_config TEXT NOT NULL DEFAULT '{}'") } catch (_: Exception) {}
+            try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN lines_search_config TEXT NOT NULL DEFAULT '{}'") } catch (_: Exception) {}
             try { db.execSQL("ALTER TABLE line_layers ADD COLUMN default_halo_width REAL NOT NULL DEFAULT 4.0") } catch (_: Exception) {}
+        }
+    }
+
+    private fun serializeSearchConfig(config: LayerSearchConfig): String {
+        return try {
+            val json = JSONObject()
+            json.put("isSearchEnabled", config.isSearchEnabled)
+            val fieldsArr = JSONArray()
+            config.searchFields.forEach { item ->
+                val fieldObj = JSONObject()
+                fieldObj.put("key", item.key)
+                fieldObj.put("title", item.title)
+                fieldObj.put("isEnabled", item.isEnabled)
+                fieldsArr.put(fieldObj)
+            }
+            json.put("searchFields", fieldsArr)
+            val subtitlesArr = JSONArray()
+            config.subtitleFields.forEach { key ->
+                subtitlesArr.put(key)
+            }
+            json.put("subtitleFields", subtitlesArr)
+            json.toString()
+        } catch (_: Exception) {
+            "{}"
+        }
+    }
+
+    private fun deserializeSearchConfig(jsonStr: String?): LayerSearchConfig {
+        if (jsonStr.isNullOrBlank() || jsonStr == "{}") return LayerSearchConfig()
+        return try {
+            val json = JSONObject(jsonStr)
+            val isSearchEnabled = json.optBoolean("isSearchEnabled", false)
+            val searchFields = mutableListOf<SearchFieldItem>()
+            val fieldsArr = json.optJSONArray("searchFields")
+            if (fieldsArr != null) {
+                for (i in 0 until fieldsArr.length()) {
+                    val fieldObj = fieldsArr.getJSONObject(i)
+                    searchFields.add(
+                        SearchFieldItem(
+                            key = fieldObj.getString("key"),
+                            title = fieldObj.getString("title"),
+                            isEnabled = fieldObj.optBoolean("isEnabled", true)
+                        )
+                    )
+                }
+            } else {
+                searchFields.add(SearchFieldItem(key = "name", title = "Название", isEnabled = true))
+            }
+            val subtitleFields = mutableListOf<String>()
+            val subtitlesArr = json.optJSONArray("subtitleFields")
+            if (subtitlesArr != null) {
+                for (i in 0 until subtitlesArr.length()) {
+                    subtitleFields.add(subtitlesArr.getString(i))
+                }
+            }
+            LayerSearchConfig(
+                isSearchEnabled = isSearchEnabled,
+                searchFields = if (searchFields.isNotEmpty()) searchFields else listOf(SearchFieldItem(key = "name", title = "Название", isEnabled = true)),
+                subtitleFields = subtitleFields
+            )
+        } catch (_: Exception) {
+            LayerSearchConfig()
         }
     }
 
@@ -268,6 +336,8 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
                 put("angle_north", metadata.angleNorth)
                 put("crs", metadata.crs)
                 put("created_at", metadata.createdAt)
+                put("points_search_config", serializeSearchConfig(metadata.pointsSearchConfig))
+                put("lines_search_config", serializeSearchConfig(metadata.linesSearchConfig))
             }
             db.insertWithOnConflict("map_metadata", null, values, SQLiteDatabase.CONFLICT_REPLACE)
         }
@@ -278,11 +348,15 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
         return try {
             withDatabase { db ->
                 val cursor = db.rawQuery(
-                    "SELECT id, project_name, image_width, image_height, tile_size, zoom_min, zoom_max, zoom_default, pixels_per_meter, scale_meters, angle_north, crs, created_at FROM map_metadata ORDER BY id DESC LIMIT 1",
+                    "SELECT id, project_name, image_width, image_height, tile_size, zoom_min, zoom_max, zoom_default, pixels_per_meter, scale_meters, angle_north, crs, created_at, points_search_config, lines_search_config FROM map_metadata ORDER BY id DESC LIMIT 1",
                     null
                 )
                 cursor.use { c ->
                     if (c.moveToFirst()) {
+                        val pointsSearchIdx = c.getColumnIndex("points_search_config")
+                        val linesSearchIdx = c.getColumnIndex("lines_search_config")
+                        val pointsConfig = if (pointsSearchIdx >= 0) deserializeSearchConfig(c.getString(pointsSearchIdx)) else LayerSearchConfig()
+                        val linesConfig = if (linesSearchIdx >= 0) deserializeSearchConfig(c.getString(linesSearchIdx)) else LayerSearchConfig()
                         MapMetadata(
                             id = c.getLong(0),
                             projectName = c.getString(1),
@@ -296,7 +370,9 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
                             scaleMeters = c.getDouble(9),
                             angleNorth = c.getDouble(10),
                             crs = c.getString(11) ?: "Simple",
-                            createdAt = c.getLong(12)
+                            createdAt = c.getLong(12),
+                            pointsSearchConfig = pointsConfig,
+                            linesSearchConfig = linesConfig
                         )
                     } else {
                         null

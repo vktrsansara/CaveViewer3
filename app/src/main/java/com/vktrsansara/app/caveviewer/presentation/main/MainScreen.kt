@@ -103,6 +103,8 @@ import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LineLayerProperti
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.LineLayerSettingsDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MapFilterDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MapFilterHelpDialog
+import com.vktrsansara.app.caveviewer.presentation.map.components.SearchHighlightOverlay
+import com.vktrsansara.app.caveviewer.presentation.search.SearchModalDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MultiToolDockHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingInputDialog
@@ -749,6 +751,8 @@ fun MainScreen(
                         location = uiState.activeProjectLocation,
                         entrances = uiState.activeProjectEntrances,
                         cadastralData = uiState.activeProjectCadastralData,
+                        pointLayers = uiState.pointLayers,
+                        lineLayers = uiState.lineLayers,
                         onSaveMetadata = { updatedMeta, updatedLocation, updatedEntrances, updatedCadastral ->
                             viewModel.handleIntent(
                                 MainUiIntent.SaveMetadata(
@@ -1403,6 +1407,22 @@ fun MainScreenContent(
                 )
             }
 
+            // Search Highlight Overlay (pulsing cyan circle for 3 seconds)
+            if (uiState.searchHighlightTarget != null && meta != null) {
+                SearchHighlightOverlay(
+                    target = uiState.searchHighlightTarget,
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    zoomMax = meta.zoomMax,
+                    projector = projector,
+                    currentTargetLat = currentTargetLat,
+                    currentTargetLon = currentTargetLon,
+                    currentZoom = currentZoom,
+                    mapBearing = mapBearing,
+                    onDismiss = { onIntent(MainUiIntent.DismissSearchHighlight) }
+                )
+            }
+
             // Step 1: Cave Entrance Pick Banner
             if (uiState.isEntranceCavePickMode) {
                 Box(
@@ -1853,9 +1873,13 @@ fun MainScreenContent(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
+            val isSearchAvailable = activeMeta != null && (activeMeta.pointsSearchConfig.isSearchEnabled || activeMeta.linesSearchConfig.isSearchEnabled)
+
             // Floating bottom bar
             FloatingBottomBar(
                 onMenuClick = { onIntent(MainUiIntent.ToggleMenu) },
+                showSearchButton = isSearchAvailable,
+                onSearchClick = { onIntent(MainUiIntent.OpenSearchModal) },
                 showMagnetButton = (uiState.isLineLayersModeActive || uiState.editingLineLayer != null || uiState.isPointLayersModeActive || uiState.editingPointLayer != null),
                 isMagnetEnabled = uiState.settings.snappingSettings.isEnabled,
                 onMagnetClick = { onIntent(MainUiIntent.OpenSnappingSettingsDialog) },
@@ -1869,6 +1893,51 @@ fun MainScreenContent(
                     onIntent(MainUiIntent.DisablePointLayersMode)
                     onIntent(MainUiIntent.DisableLineLayersMode)
                 }
+            )
+        }
+
+        // Top-anchored Search Modal Dialog
+        if (uiState.isSearchModalOpen && activeMeta != null) {
+            SearchModalDialog(
+                allPoints = uiState.allVisiblePoints,
+                pointLayers = uiState.pointLayers,
+                pointsConfig = activeMeta.pointsSearchConfig,
+                allLines = uiState.allVisibleLines,
+                lineLayers = uiState.lineLayers,
+                linesConfig = activeMeta.linesSearchConfig,
+                pixelsPerMeter = activeMeta.pixelsPerMeter,
+                searchHistory = uiState.searchHistory,
+                onSelectResult = { result ->
+                    when (result) {
+                        is SearchResultItem.PointResult -> {
+                            val targetLatLng = CaveMapBounds.imagePixelsToLatLng(
+                                pixelX = result.point.x,
+                                pixelY = result.point.y,
+                                imageWidth = activeMeta.imageWidth,
+                                imageHeight = activeMeta.imageHeight,
+                                maxZoom = activeMeta.zoomMax
+                            )
+                            moveCameraAction?.invoke(targetLatLng, null)
+                        }
+                        is SearchResultItem.LineResult -> {
+                            if (result.line.points.isNotEmpty()) {
+                                val mid = result.line.points[result.line.points.size / 2]
+                                val targetLatLng = CaveMapBounds.imagePixelsToLatLng(
+                                    pixelX = mid.first,
+                                    pixelY = mid.second,
+                                    imageWidth = activeMeta.imageWidth,
+                                    imageHeight = activeMeta.imageHeight,
+                                    maxZoom = activeMeta.zoomMax
+                                )
+                                moveCameraAction?.invoke(targetLatLng, null)
+                            }
+                        }
+                    }
+                    onIntent(MainUiIntent.SelectSearchResult(result))
+                },
+                onClearHistory = { onIntent(MainUiIntent.ClearSearchHistory) },
+                onClearMarkers = { onIntent(MainUiIntent.ClearSearchMarkers) },
+                onDismiss = { onIntent(MainUiIntent.DismissSearchModal) }
             )
         }
     }

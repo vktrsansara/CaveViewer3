@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.rounded.AddLocationAlt
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Polyline
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,11 +35,13 @@ import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 
 /**
  * Floating bottom control bar with 8.dp rounded shape and menu button,
- * plus dynamically added Magnet, Point Layers, and Line Layers mode buttons.
+ * plus dynamically added Magnet, Search, Point Layers, and Line Layers mode buttons.
  */
 @Composable
 fun FloatingBottomBar(
     onMenuClick: () -> Unit,
+    showSearchButton: Boolean = false,
+    onSearchClick: () -> Unit = {},
     showMagnetButton: Boolean = false,
     isMagnetEnabled: Boolean = true,
     onMagnetClick: () -> Unit = {},
@@ -103,6 +106,16 @@ fun FloatingBottomBar(
                     isEnabled = isMagnetEnabled
                 )
             }
+        }
+
+        // Кнопка поиска слева от кнопки Меню
+        if (showSearchButton) {
+            BarIconButton(
+                icon = Icons.Rounded.Search,
+                contentDescription = "Поиск",
+                tint = AccentSkyBlue,
+                onClick = onSearchClick
+            )
         }
 
         // Кнопка меню

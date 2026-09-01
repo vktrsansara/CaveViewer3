@@ -138,8 +138,52 @@ data class MainUiState(
     val isLinePlacementControlOpen: Boolean = false,
     val isLineDrawingHelpOpen: Boolean = false,
     val isSnappingSettingsDialogOpen: Boolean = false,
-    val pendingIntersection: PendingIntersection? = null
+    val pendingIntersection: PendingIntersection? = null,
+    // Layer Search State
+    val isSearchModalOpen: Boolean = false,
+    val searchHistory: List<String> = emptyList(),
+    val searchHighlightTarget: SearchHighlightTarget? = null
 ) : UiState
+
+data class SearchHighlightTarget(
+    val pixelX: Double,
+    val pixelY: Double,
+    val isLine: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+sealed interface SearchResultItem {
+    val id: Long
+    val name: String
+    val layerName: String
+    val layerColor: Long
+    val matchedFieldTitle: String?
+    val subtitles: List<String>
+
+    data class PointResult(
+        val point: LayerPoint,
+        val layer: PointLayer,
+        override val matchedFieldTitle: String? = null,
+        override val subtitles: List<String> = emptyList()
+    ) : SearchResultItem {
+        override val id: Long get() = point.id
+        override val name: String get() = point.name
+        override val layerName: String get() = layer.name
+        override val layerColor: Long get() = point.color
+    }
+
+    data class LineResult(
+        val line: LayerLine,
+        val layer: LineLayer,
+        override val matchedFieldTitle: String? = null,
+        override val subtitles: List<String> = emptyList()
+    ) : SearchResultItem {
+        override val id: Long get() = line.id
+        override val name: String get() = line.name
+        override val layerName: String get() = layer.name
+        override val layerColor: Long get() = line.colorOverride ?: layer.defaultColor
+    }
+}
 
 data class PendingIntersection(
     val intersectionPx: Pair<Double, Double>,
@@ -384,6 +428,14 @@ sealed interface MainUiIntent : UiIntent {
     data class SaveSnappingSettings(val settings: com.vktrsansara.app.caveviewer.domain.model.SnappingSettings) : MainUiIntent
     data class ConfirmIntersection(val createNode: Boolean) : MainUiIntent
     data object DismissIntersectionDialog : MainUiIntent
+
+    // Layer Search actions
+    data object OpenSearchModal : MainUiIntent
+    data object DismissSearchModal : MainUiIntent
+    data object ClearSearchHistory : MainUiIntent
+    data object ClearSearchMarkers : MainUiIntent
+    data class SelectSearchResult(val result: SearchResultItem) : MainUiIntent
+    data object DismissSearchHighlight : MainUiIntent
 }
 
 sealed interface MainUiEffect : UiEffect {

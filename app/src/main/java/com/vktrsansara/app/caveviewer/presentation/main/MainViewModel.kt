@@ -548,6 +548,8 @@ class MainViewModel(
                         val location = projectRepository.getProjectLocation(activeName)
                         val entrances = projectRepository.getProjectEntrances(activeName)
                         val cadastral = projectRepository.getProjectCadastralData(activeName)
+                        loadPointLayers(activeName)
+                        loadLineLayers(activeName)
                         _uiState.update {
                             it.copy(
                                 activeProjectMetadata = meta,
@@ -2435,6 +2437,70 @@ class MainViewModel(
                 viewModelScope.launch {
                     settingsRepository.setSnappingSettings(intent.settings)
                 }
+            }
+            is MainUiIntent.OpenSearchModal -> {
+                _uiState.update { it.copy(isSearchModalOpen = true) }
+            }
+            is MainUiIntent.DismissSearchModal -> {
+                _uiState.update { it.copy(isSearchModalOpen = false) }
+            }
+            is MainUiIntent.ClearSearchHistory -> {
+                _uiState.update { it.copy(searchHistory = emptyList()) }
+            }
+            is MainUiIntent.ClearSearchMarkers -> {
+                _uiState.update {
+                    it.copy(
+                        searchHighlightTarget = null,
+                        selectedPointForDetails = null,
+                        selectedLineForDetails = null
+                    )
+                }
+            }
+            is MainUiIntent.SelectSearchResult -> {
+                val item = intent.result
+                val currentHistory = _uiState.value.searchHistory.toMutableList()
+                if (!currentHistory.contains(item.name)) {
+                    currentHistory.add(0, item.name)
+                }
+                when (item) {
+                    is SearchResultItem.PointResult -> {
+                        _uiState.update {
+                            it.copy(
+                                isSearchModalOpen = false,
+                                searchHistory = currentHistory.take(15),
+                                searchHighlightTarget = SearchHighlightTarget(
+                                    pixelX = item.point.x,
+                                    pixelY = item.point.y
+                                ),
+                                isPointLayersModeActive = true,
+                                selectedPointForDetails = item.point
+                            )
+                        }
+                    }
+                    is SearchResultItem.LineResult -> {
+                        val midPt = if (item.line.points.isNotEmpty()) {
+                            item.line.points[item.line.points.size / 2]
+                        } else {
+                            0.0 to 0.0
+                        }
+                        _uiState.update {
+                            it.copy(
+                                isSearchModalOpen = false,
+                                searchHistory = currentHistory.take(15),
+                                searchHighlightTarget = SearchHighlightTarget(
+                                    pixelX = midPt.first,
+                                    pixelY = midPt.second,
+                                    isLine = true
+                                ),
+                                isLineLayersModeActive = true,
+                                selectedLineForDetails = item.line
+                            )
+                        }
+                    }
+                }
+            }
+            is MainUiIntent.DismissSearchHighlight -> {
+                _uiState.update { it.copy(searchHighlightTarget = null) }
             }
         }
     }
