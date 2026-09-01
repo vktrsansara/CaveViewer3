@@ -1347,8 +1347,8 @@ fun MainScreenContent(
                 )
             }
 
-            // Line Layers Selection Glow Overlay (Active ONLY when a line is selected for details)
-            if (isLineLayersVisible && meta != null && uiState.selectedLineForDetails != null) {
+            // Line Layers Vector Overlay (Core Stroke + Topographic Patterns + Selection Glow)
+            if (isLineLayersVisible && meta != null && uiState.lineLayers.isNotEmpty() && uiState.allVisibleLines.isNotEmpty()) {
                 LineLayersOverlay(
                     lineLayers = uiState.lineLayers,
                     allLines = uiState.allVisibleLines,
@@ -1365,12 +1365,11 @@ fun MainScreenContent(
                 )
             }
 
-            // Point Layers Selection Glow Overlay (Active ONLY when a point is selected for details)
-            if (isPointLayersVisible && meta != null && uiState.selectedPointForDetails != null) {
+            // Point Layers Vector Overlay (Shapes, Colors, Label Badges)
+            if (isPointLayersVisible && meta != null && uiState.pointLayers.isNotEmpty() && uiState.allVisiblePoints.isNotEmpty()) {
                 PointLayersOverlay(
                     pointLayers = uiState.pointLayers,
                     allPoints = uiState.allVisiblePoints,
-                    selectedPointId = uiState.selectedPointForDetails?.id,
                     imageWidth = meta.imageWidth,
                     imageHeight = meta.imageHeight,
                     zoomMax = meta.zoomMax,
