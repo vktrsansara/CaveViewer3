@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.RectF
 import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
@@ -53,6 +54,7 @@ object LegacyCaveViewerImporter {
         onProgress: (progress: Float, statusText: String) -> Unit = { _, _ -> }
     ): Result<String> = withContext(Dispatchers.IO) {
         val tempExtractDir = File(context.cacheDir, "legacy_import_${System.currentTimeMillis()}").apply { mkdirs() }
+        var dbInstance: ProjectDatabase? = null
         try {
             onProgress(0.1f, "Распаковка архива CaveViewer V1...")
 
@@ -123,6 +125,7 @@ object LegacyCaveViewerImporter {
             // 5. Инициализируем thismap.sqlite
             val dbFile = File(targetDir, "thismap.sqlite")
             val db = ProjectDatabase(dbFile)
+            dbInstance = db
 
             // Параметры карты (V1: map_character, V2: specifications.map):
             val charObj = metaJson.optJSONObject("map_character")
@@ -251,6 +254,7 @@ object LegacyCaveViewerImporter {
         } catch (e: Exception) {
             Result.failure(e)
         } finally {
+            dbInstance?.close()
             // 10. Очистка временных файлов
             try {
                 tempExtractDir.deleteRecursively()
@@ -281,7 +285,7 @@ object LegacyCaveViewerImporter {
 
         if (imageFile != null) {
             onProgress(0.72f, "Загрузка изображения карты...")
-            sourceBitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
+            sourceBitmap = decodeSampledBitmap(imageFile)
         }
 
         // 2. Если изображения нет в архиве, восстанавливаем полный растр из тайлов максимального зума
@@ -344,6 +348,34 @@ object LegacyCaveViewerImporter {
         }
     }
 
+    private fun decodeSampledBitmap(file: File): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        val maxMemory = Runtime.getRuntime().maxMemory()
+        val usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()
+        val availableMemory = maxMemory - usedMemory
+        val maxAllowedBytes = (availableMemory * 0.45).toLong().coerceAtMost(256L * 1024 * 1024)
+
+        var sampleSize = 1
+        var w = bounds.outWidth
+        var h = bounds.outHeight
+        val maxDim = 8192
+
+        while (w * h * 4L > maxAllowedBytes || w > maxDim || h > maxDim) {
+            sampleSize *= 2
+            w = bounds.outWidth / sampleSize
+            h = bounds.outHeight / sampleSize
+        }
+
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        return BitmapFactory.decodeFile(file.absolutePath, opts)
+    }
+
     private fun reconstructBitmapFromTiles(tilesSrcDir: File, metaWidth: Int, metaHeight: Int): Bitmap? {
         val zoomDirs = tilesSrcDir.listFiles { f -> f.isDirectory }
             ?.mapNotNull { it.name.toIntOrNull() }
@@ -380,17 +412,59 @@ object LegacyCaveViewerImporter {
 
         if (tileEntries.isEmpty()) return null
 
-        val targetWidth = if (metaWidth > 0) metaWidth else (maxCol + 1) * 256
-        val targetHeight = if (metaHeight > 0) metaHeight else (maxRow + 1) * 256
+        val rawTargetWidth = if (metaWidth > 0) metaWidth else (maxCol + 1) * 256
+        val rawTargetHeight = if (metaHeight > 0) metaHeight else (maxRow + 1) * 256
 
-        val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        // Safeguard against OutOfMemoryError on large reconstructed plans
+        val maxMemory = Runtime.getRuntime().maxMemory()
+        val usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()
+        val availableMemory = maxMemory - usedMemory
+        val maxAllowedBytes = (availableMemory * 0.35).toLong().coerceAtMost(192L * 1024 * 1024)
+        val maxDim = 6144
+
+        var downsample = 1
+        var curW = rawTargetWidth
+        var curH = rawTargetHeight
+        while (curW * curH * 4L > maxAllowedBytes || curW > maxDim || curH > maxDim) {
+            downsample *= 2
+            curW = rawTargetWidth / downsample
+            curH = rawTargetHeight / downsample
+        }
+
+        val targetWidth = curW.coerceAtLeast(1)
+        val targetHeight = curH.coerceAtLeast(1)
+
+        val bitmap = try {
+            Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        } catch (_: OutOfMemoryError) {
+            val fallbackW = (targetWidth / 2).coerceAtLeast(1)
+            val fallbackH = (targetHeight / 2).coerceAtLeast(1)
+            downsample *= 2
+            Bitmap.createBitmap(fallbackW, fallbackH, Bitmap.Config.ARGB_8888)
+        }
+
         val canvas = Canvas(bitmap)
-        val paint = Paint().apply { isFilterBitmap = true }
+        val paint = Paint().apply {
+            isFilterBitmap = true
+            isAntiAlias = true
+        }
+
+        val tileOpts = BitmapFactory.Options().apply {
+            if (downsample > 1) {
+                inSampleSize = downsample
+            }
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
 
         for ((col, row, file) in tileEntries) {
-            val tileBmp = BitmapFactory.decodeFile(file.absolutePath)
+            val tileBmp = BitmapFactory.decodeFile(file.absolutePath, tileOpts)
             if (tileBmp != null) {
-                canvas.drawBitmap(tileBmp, col * 256f, row * 256f, paint)
+                val dstLeft = (col * 256f) / downsample
+                val dstTop = (row * 256f) / downsample
+                val dstRight = dstLeft + (256f / downsample)
+                val dstBottom = dstTop + (256f / downsample)
+                val dstRect = RectF(dstLeft, dstTop, dstRight, dstBottom)
+                canvas.drawBitmap(tileBmp, null, dstRect, paint)
                 tileBmp.recycle()
             }
         }

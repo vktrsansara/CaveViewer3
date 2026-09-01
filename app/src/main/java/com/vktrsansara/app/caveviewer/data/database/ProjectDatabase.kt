@@ -22,27 +22,68 @@ import java.io.File
 /**
  * SQLite database manager for the project's thismap.sqlite file.
  */
-class ProjectDatabase(private val dbFile: File) {
+class ProjectDatabase(private val dbFile: File) : AutoCloseable {
 
-    init {
-        initTable()
+    companion object {
+        private val initializedDatabases = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+        fun invalidateSchemaCache(file: File) {
+            val path = try { file.canonicalPath } catch (_: Exception) { file.absolutePath }
+            initializedDatabases.remove(path)
+        }
     }
 
-    private fun openDatabase(): SQLiteDatabase {
-        dbFile.parentFile?.let {
-            if (!it.exists()) it.mkdirs()
+    private var dbInstance: SQLiteDatabase? = null
+    private val dbLock = Any()
+
+    init {
+        ensureSchemaInitialized()
+    }
+
+    private fun getDb(): SQLiteDatabase {
+        synchronized(dbLock) {
+            val current = dbInstance
+            if (current != null && current.isOpen) {
+                return current
+            }
+            dbFile.parentFile?.let {
+                if (!it.exists()) it.mkdirs()
+            }
+            val db = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
+            try {
+                db.rawQuery("PRAGMA journal_mode=WAL", null).close()
+                db.rawQuery("PRAGMA synchronous=NORMAL", null).close()
+                db.execSQL("PRAGMA foreign_keys=ON")
+            } catch (_: Exception) {}
+            dbInstance = db
+            return db
         }
-        val db = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
-        try {
-            db.rawQuery("PRAGMA journal_mode=MEMORY", null).close()
-            db.rawQuery("PRAGMA synchronous=OFF", null).close()
-            db.execSQL("PRAGMA foreign_keys=ON")
-        } catch (_: Exception) {}
-        return db
+    }
+
+    private inline fun <T> withDatabase(block: (SQLiteDatabase) -> T): T {
+        return block(getDb())
+    }
+
+    private fun ensureSchemaInitialized() {
+        val path = try { dbFile.canonicalPath } catch (_: Exception) { dbFile.absolutePath }
+        if (initializedDatabases.putIfAbsent(path, true) == null) {
+            initTable()
+        }
+    }
+
+    override fun close() {
+        synchronized(dbLock) {
+            try {
+                if (dbInstance?.isOpen == true) {
+                    dbInstance?.close()
+                }
+            } catch (_: Exception) {}
+            dbInstance = null
+        }
     }
 
     private fun initTable() {
-        openDatabase().use { db ->
+        withDatabase { db ->
             db.execSQL(
                 """
                 CREATE TABLE IF NOT EXISTS map_metadata (
@@ -210,7 +251,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun saveMetadata(metadata: MapMetadata) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             val values = ContentValues().apply {
                 if (metadata.id > 0) {
                     put("id", metadata.id)
@@ -235,7 +276,7 @@ class ProjectDatabase(private val dbFile: File) {
     fun getMetadata(): MapMetadata? {
         if (!dbFile.exists()) return null
         return try {
-            openDatabase().use { db ->
+            withDatabase { db ->
                 val cursor = db.rawQuery(
                     "SELECT id, project_name, image_width, image_height, tile_size, zoom_min, zoom_max, zoom_default, pixels_per_meter, scale_meters, angle_north, crs, created_at FROM map_metadata ORDER BY id DESC LIMIT 1",
                     null
@@ -268,7 +309,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun saveLocation(location: MapLocation) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             db.execSQL("DELETE FROM map_location")
             val values = ContentValues().apply {
                 put("country", location.country)
@@ -283,7 +324,7 @@ class ProjectDatabase(private val dbFile: File) {
     fun getLocation(): MapLocation {
         if (!dbFile.exists()) return MapLocation()
         return try {
-            openDatabase().use { db ->
+            withDatabase { db ->
                 val cursor = db.rawQuery("SELECT country, region, district, description FROM map_location LIMIT 1", null)
                 cursor.use { c ->
                     if (c.moveToFirst()) {
@@ -304,7 +345,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun saveEntrances(list: List<EntranceCoordinate>) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             db.beginTransaction()
             try {
                 db.execSQL("DELETE FROM entrance_coordinates")
@@ -328,7 +369,7 @@ class ProjectDatabase(private val dbFile: File) {
     fun getEntrances(): List<EntranceCoordinate> {
         if (!dbFile.exists()) return emptyList()
         return try {
-            openDatabase().use { db ->
+            withDatabase { db ->
                 val cursor = db.rawQuery("SELECT point_index, name, lat, lon, alt FROM entrance_coordinates ORDER BY point_index ASC", null)
                 val results = mutableListOf<EntranceCoordinate>()
                 cursor.use { c ->
@@ -352,7 +393,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun saveCadastralData(data: Map<String, List<CadastralItem>>) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             db.beginTransaction()
             try {
                 db.execSQL("DELETE FROM cadastral_records")
@@ -377,7 +418,7 @@ class ProjectDatabase(private val dbFile: File) {
     fun getCadastralData(): Map<String, List<CadastralItem>> {
         if (!dbFile.exists()) return emptyMap()
         return try {
-            openDatabase().use { db ->
+            withDatabase { db ->
                 val cursor = db.rawQuery("SELECT id, section, record_order, title, content FROM cadastral_records ORDER BY section ASC, record_order ASC", null)
                 val map = mutableMapOf<String, MutableList<CadastralItem>>()
                 cursor.use { c ->
@@ -477,7 +518,7 @@ class ProjectDatabase(private val dbFile: File) {
     fun getPointLayers(): List<PointLayer> {
         if (!dbFile.exists()) return emptyList()
         return try {
-            openDatabase().use { db ->
+            withDatabase { db ->
                 val cursor = db.rawQuery(
                     "SELECT id, name, is_visible, default_shape, default_color, default_size, show_labels, fields_schema_json, created_at FROM point_layers ORDER BY id ASC",
                     null
@@ -508,7 +549,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun insertPointLayer(layer: PointLayer): Long {
-        return openDatabase().use { db ->
+        return withDatabase { db ->
             val values = ContentValues().apply {
                 put("name", layer.name)
                 put("is_visible", if (layer.isVisible) 1 else 0)
@@ -524,7 +565,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun updatePointLayer(layer: PointLayer) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             val values = ContentValues().apply {
                 put("name", layer.name)
                 put("is_visible", if (layer.isVisible) 1 else 0)
@@ -539,14 +580,14 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun deletePointLayer(layerId: Long) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             db.delete("layer_points", "layer_id = ?", arrayOf(layerId.toString()))
             db.delete("point_layers", "id = ?", arrayOf(layerId.toString()))
         }
     }
 
     fun toggleLayerVisibility(layerId: Long, isVisible: Boolean) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             val values = ContentValues().apply {
                 put("is_visible", if (isVisible) 1 else 0)
             }
@@ -559,7 +600,7 @@ class ProjectDatabase(private val dbFile: File) {
     fun getPointsForLayer(layerId: Long): List<LayerPoint> {
         if (!dbFile.exists()) return emptyList()
         return try {
-            openDatabase().use { db ->
+            withDatabase { db ->
                 val cursor = db.rawQuery(
                     "SELECT id, layer_id, name, x, y, shape, color, type_category, custom_values_json, created_at, updated_at FROM layer_points WHERE layer_id = ? ORDER BY id ASC",
                     arrayOf(layerId.toString())
@@ -594,7 +635,7 @@ class ProjectDatabase(private val dbFile: File) {
     fun getAllVisiblePoints(): List<LayerPoint> {
         if (!dbFile.exists()) return emptyList()
         return try {
-            openDatabase().use { db ->
+            withDatabase { db ->
                 val cursor = db.rawQuery(
                     """
                     SELECT p.id, p.layer_id, p.name, p.x, p.y, p.shape, p.color, p.type_category, p.custom_values_json, p.created_at, p.updated_at 
@@ -633,7 +674,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun insertLayerPoint(point: LayerPoint): Long {
-        return openDatabase().use { db ->
+        return withDatabase { db ->
             val values = ContentValues().apply {
                 put("layer_id", point.layerId)
                 put("name", point.name)
@@ -651,7 +692,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun updateLayerPoint(point: LayerPoint) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             val values = ContentValues().apply {
                 put("name", point.name)
                 put("x", point.x)
@@ -667,7 +708,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun deleteLayerPoint(pointId: Long) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             db.delete("layer_points", "id = ?", arrayOf(pointId.toString()))
         }
     }
@@ -710,7 +751,7 @@ class ProjectDatabase(private val dbFile: File) {
     fun getLineLayers(): List<LineLayer> {
         if (!dbFile.exists()) return emptyList()
         return try {
-            openDatabase().use { db ->
+            withDatabase { db ->
                 val cursor = db.rawQuery(
                     "SELECT id, name, is_visible, default_width, is_heatmap_enabled, default_color, default_environment, fields_schema_json, created_at, default_halo_width FROM line_layers ORDER BY id ASC",
                     null
@@ -743,7 +784,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun insertLineLayer(layer: LineLayer): Long {
-        return openDatabase().use { db ->
+        return withDatabase { db ->
             val values = ContentValues().apply {
                 put("name", layer.name)
                 put("is_visible", if (layer.isVisible) 1 else 0)
@@ -760,7 +801,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun updateLineLayer(layer: LineLayer) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             val values = ContentValues().apply {
                 put("name", layer.name)
                 put("is_visible", if (layer.isVisible) 1 else 0)
@@ -776,14 +817,14 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun deleteLineLayer(layerId: Long) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             db.delete("layer_lines", "layer_id = ?", arrayOf(layerId.toString()))
             db.delete("line_layers", "id = ?", arrayOf(layerId.toString()))
         }
     }
 
     fun toggleLineLayerVisibility(layerId: Long, isVisible: Boolean) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             val values = ContentValues().apply {
                 put("is_visible", if (isVisible) 1 else 0)
             }
@@ -796,7 +837,7 @@ class ProjectDatabase(private val dbFile: File) {
     fun getLinesForLayer(layerId: Long): List<LayerLine> {
         if (!dbFile.exists()) return emptyList()
         return try {
-            openDatabase().use { db ->
+            withDatabase { db ->
                 val cursor = db.rawQuery(
                     "SELECT id, layer_id, name, points_json, length_meters, length_px, difficulty, line_style, environment_type, halo_color, color_override, custom_values_json, created_at, updated_at FROM layer_lines WHERE layer_id = ? ORDER BY id ASC",
                     arrayOf(layerId.toString())
@@ -834,7 +875,7 @@ class ProjectDatabase(private val dbFile: File) {
     fun getAllVisibleLines(): List<LayerLine> {
         if (!dbFile.exists()) return emptyList()
         return try {
-            openDatabase().use { db ->
+            withDatabase { db ->
                 val cursor = db.rawQuery(
                     """
                     SELECT l.id, l.layer_id, l.name, l.points_json, l.length_meters, l.length_px, l.difficulty, l.line_style, l.environment_type, l.halo_color, l.color_override, l.custom_values_json, l.created_at, l.updated_at 
@@ -876,7 +917,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun insertLayerLine(line: LayerLine): Long {
-        return openDatabase().use { db ->
+        return withDatabase { db ->
             val values = ContentValues().apply {
                 put("layer_id", line.layerId)
                 put("name", line.name)
@@ -897,7 +938,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun updateLayerLine(line: LayerLine) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             val values = ContentValues().apply {
                 put("name", line.name)
                 put("points_json", serializeLinePoints(line.points))
@@ -916,7 +957,7 @@ class ProjectDatabase(private val dbFile: File) {
     }
 
     fun deleteLayerLine(lineId: Long) {
-        openDatabase().use { db ->
+        withDatabase { db ->
             db.delete("layer_lines", "id = ?", arrayOf(lineId.toString()))
         }
     }

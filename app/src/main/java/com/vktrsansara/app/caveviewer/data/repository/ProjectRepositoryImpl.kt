@@ -47,6 +47,22 @@ class ProjectRepositoryImpl(
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private val databaseCache = java.util.concurrent.ConcurrentHashMap<String, ProjectDatabase>()
+
+    private fun getDatabase(dbFile: File): ProjectDatabase {
+        val path = try { dbFile.canonicalPath } catch (_: Exception) { dbFile.absolutePath }
+        return databaseCache.computeIfAbsent(path) {
+            ProjectDatabase(dbFile)
+        }
+    }
+
+    private fun closeDatabase(dbFile: File) {
+        val path = try { dbFile.canonicalPath } catch (_: Exception) { dbFile.absolutePath }
+        val db = databaseCache.remove(path)
+        db?.close()
+        ProjectDatabase.invalidateSchemaCache(dbFile)
+    }
+
     private object PreferencesKeys {
         val ACTIVE_PROJECT_NAME = stringPreferencesKey("active_project_name")
     }
@@ -115,7 +131,7 @@ class ProjectRepositoryImpl(
         val dir = getProjectDir(projectName) ?: return@withContext null
         val dbFile = File(dir, "thismap.sqlite")
         if (!dbFile.exists()) return@withContext null
-        ProjectDatabase(dbFile).getMetadata()
+        getDatabase(dbFile).getMetadata()
     }
 
     override suspend fun updateProjectMetadata(
@@ -139,6 +155,7 @@ class ProjectRepositoryImpl(
                 if (newDir.exists()) {
                     return@withContext Result.failure(IllegalStateException("Проект с названием «$cleanNewName» уже существует"))
                 }
+                closeDatabase(File(oldDir, "thismap.sqlite"))
                 val renamed = oldDir.renameTo(newDir)
                 if (!renamed) {
                     return@withContext Result.failure(IllegalStateException("Не удалось переименовать папку проекта"))
@@ -149,7 +166,7 @@ class ProjectRepositoryImpl(
             }
 
             val dbFile = File(targetDir, "thismap.sqlite")
-            val db = ProjectDatabase(dbFile)
+            val db = getDatabase(dbFile)
             val updated = metadata.copy(projectName = cleanNewName)
             db.saveMetadata(updated)
 
@@ -168,7 +185,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            val db = ProjectDatabase(dbFile)
+            val db = getDatabase(dbFile)
             val updated = db.updateScaleBinding(pixelsPerMeter, scaleMeters)
                 ?: return@withContext Result.failure(IllegalStateException("Не удалось обновить масштаб в базе данных"))
             Result.success(updated)
@@ -185,7 +202,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            val db = ProjectDatabase(dbFile)
+            val db = getDatabase(dbFile)
             val updated = db.updateNorthBinding(angleNorth)
                 ?: return@withContext Result.failure(IllegalStateException("Не удалось обновить направление севера в базе данных"))
             Result.success(updated)
@@ -198,7 +215,7 @@ class ProjectRepositoryImpl(
         val dir = getProjectDir(projectName) ?: return@withContext MapLocation()
         val dbFile = File(dir, "thismap.sqlite")
         if (!dbFile.exists()) return@withContext MapLocation()
-        ProjectDatabase(dbFile).getLocation()
+        getDatabase(dbFile).getLocation()
     }
 
     override suspend fun saveProjectLocation(projectName: String, location: MapLocation): Result<Unit> = withContext(Dispatchers.IO) {
@@ -206,7 +223,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).saveLocation(location)
+            getDatabase(dbFile).saveLocation(location)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -217,7 +234,7 @@ class ProjectRepositoryImpl(
         val dir = getProjectDir(projectName) ?: return@withContext emptyList()
         val dbFile = File(dir, "thismap.sqlite")
         if (!dbFile.exists()) return@withContext emptyList()
-        ProjectDatabase(dbFile).getEntrances()
+        getDatabase(dbFile).getEntrances()
     }
 
     override suspend fun saveProjectEntrances(projectName: String, entrances: List<EntranceCoordinate>): Result<Unit> = withContext(Dispatchers.IO) {
@@ -225,7 +242,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).saveEntrances(entrances)
+            getDatabase(dbFile).saveEntrances(entrances)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -240,7 +257,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            val db = ProjectDatabase(dbFile)
+            val db = getDatabase(dbFile)
             val current = db.getEntrances().toMutableList()
             current.add(entrance.copy(pointIndex = current.size))
             db.saveEntrances(current)
@@ -254,7 +271,7 @@ class ProjectRepositoryImpl(
         val dir = getProjectDir(projectName) ?: return@withContext emptyMap()
         val dbFile = File(dir, "thismap.sqlite")
         if (!dbFile.exists()) return@withContext emptyMap()
-        ProjectDatabase(dbFile).getCadastralData()
+        getDatabase(dbFile).getCadastralData()
     }
 
     override suspend fun saveProjectCadastralData(projectName: String, data: Map<String, List<CadastralItem>>): Result<Unit> = withContext(Dispatchers.IO) {
@@ -262,7 +279,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).saveCadastralData(data)
+            getDatabase(dbFile).saveCadastralData(data)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -274,6 +291,9 @@ class ProjectRepositoryImpl(
             val baseDir = getProjectsBaseDir()
             val dir = File(baseDir, projectName)
             if (dir.exists()) {
+                val dbFile = File(dir, "thismap.sqlite")
+                closeDatabase(dbFile)
+
                 // Release SQLite connection pools and cache handles before moving/deleting
                 try {
                     SQLiteDatabase.releaseMemory()
@@ -327,31 +347,66 @@ class ProjectRepositoryImpl(
             }
             createdProjectDir = projectDir
 
-            val inputStream = context.contentResolver.openInputStream(imageUri)
-                ?: return@withContext Result.failure(IllegalStateException("Не удалось прочитать выбранный файл карты"))
-
-            val bitmap = inputStream.use { stream ->
-                BitmapFactory.decodeStream(stream)
-            } ?: return@withContext Result.failure(IllegalStateException("Не удалось распознать формат изображения"))
-
-            // Save source map image
+            // 1. Copy source stream directly to map/image.png without loading entire bitmap into RAM
             val targetFile = File(mapDir, "image.png")
-            FileOutputStream(targetFile).use { out ->
-                val compressed = bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                if (!compressed) {
-                    return@withContext Result.failure(IllegalStateException("Ошибка при сохранении PNG карты"))
+            val copied = context.contentResolver.openInputStream(imageUri)?.use { input ->
+                FileOutputStream(targetFile).use { output ->
+                    input.copyTo(output) > 0
                 }
+            } ?: false
+
+            if (!copied || !targetFile.exists() || targetFile.length() == 0L) {
+                return@withContext Result.failure(IllegalStateException("Не удалось прочитать выбранный файл карты"))
             }
 
-            // Cut tile pyramid and save thismap.sqlite
-            TileCutter.cutTiles(
-                projectName = cleanName,
-                projectDir = projectDir,
-                sourceBitmap = bitmap,
-                onProgress = onProgress
-            )
+            // 2. Check image dimensions using inJustDecodeBounds to prevent OOM
+            val boundsOptions = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            BitmapFactory.decodeFile(targetFile.absolutePath, boundsOptions)
+            val rawWidth = boundsOptions.outWidth
+            val rawHeight = boundsOptions.outHeight
+            if (rawWidth <= 0 || rawHeight <= 0) {
+                return@withContext Result.failure(IllegalStateException("Не удалось распознать формат изображения карты"))
+            }
 
-            bitmap.recycle()
+            // 3. Compute safe inSampleSize based on available JVM heap and texture limits
+            val maxMemory = Runtime.getRuntime().maxMemory()
+            val usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()
+            val availableMemory = maxMemory - usedMemory
+            val maxAllowedBytes = (availableMemory * 0.45).toLong().coerceAtMost(256L * 1024 * 1024)
+
+            var sampleSize = 1
+            var w = rawWidth
+            var h = rawHeight
+            val maxDim = 8192
+
+            while (w * h * 4L > maxAllowedBytes || w > maxDim || h > maxDim) {
+                sampleSize *= 2
+                w = rawWidth / sampleSize
+                h = rawHeight / sampleSize
+            }
+
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val bitmap = BitmapFactory.decodeFile(targetFile.absolutePath, decodeOptions)
+                ?: return@withContext Result.failure(IllegalStateException("Не удалось декодировать изображение карты"))
+
+            try {
+                // Cut tile pyramid and save thismap.sqlite
+                TileCutter.cutTiles(
+                    projectName = cleanName,
+                    projectDir = projectDir,
+                    sourceBitmap = bitmap,
+                    onProgress = onProgress
+                )
+            } finally {
+                if (!bitmap.isRecycled) {
+                    bitmap.recycle()
+                }
+            }
             Result.success(projectDir)
         } catch (e: CancellationException) {
             // User cancelled tile generation -> immediately purge partial directory
@@ -445,7 +500,7 @@ class ProjectRepositoryImpl(
             }
 
             // 5. Read project name from metadata or archive filename
-            val db = ProjectDatabase(sqliteFile)
+            val db = getDatabase(sqliteFile)
             val metadata = try { db.getMetadata() } catch (e: Exception) { null }
             val rawName = metadata?.projectName?.takeIf { it.isNotBlank() }
                 ?: getFileNameFromUri(archiveUri)?.substringBeforeLast(".")
@@ -496,7 +551,7 @@ class ProjectRepositoryImpl(
             val finalDbFile = File(finalDir, "thismap.sqlite")
             if (finalDbFile.exists()) {
                 try {
-                    val finalDb = ProjectDatabase(finalDbFile)
+                    val finalDb = getDatabase(finalDbFile)
                     val currentMeta = finalDb.getMetadata()
                     if (currentMeta != null && currentMeta.projectName != finalName) {
                         finalDb.saveMetadata(currentMeta.copy(projectName = finalName))
@@ -598,7 +653,7 @@ class ProjectRepositoryImpl(
         val dir = getProjectDir(projectName) ?: return@withContext emptyList()
         val dbFile = File(dir, "thismap.sqlite")
         if (!dbFile.exists()) return@withContext emptyList()
-        ProjectDatabase(dbFile).getPointLayers()
+        getDatabase(dbFile).getPointLayers()
     }
 
     override suspend fun insertPointLayer(projectName: String, layer: PointLayer): Result<Long> = withContext(Dispatchers.IO) {
@@ -606,7 +661,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            val id = ProjectDatabase(dbFile).insertPointLayer(layer)
+            val id = getDatabase(dbFile).insertPointLayer(layer)
             Result.success(id)
         } catch (e: Exception) {
             Result.failure(e)
@@ -618,7 +673,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).updatePointLayer(layer)
+            getDatabase(dbFile).updatePointLayer(layer)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -630,7 +685,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).deletePointLayer(layerId)
+            getDatabase(dbFile).deletePointLayer(layerId)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -642,7 +697,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).toggleLayerVisibility(layerId, isVisible)
+            getDatabase(dbFile).toggleLayerVisibility(layerId, isVisible)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -653,14 +708,14 @@ class ProjectRepositoryImpl(
         val dir = getProjectDir(projectName) ?: return@withContext emptyList()
         val dbFile = File(dir, "thismap.sqlite")
         if (!dbFile.exists()) return@withContext emptyList()
-        ProjectDatabase(dbFile).getPointsForLayer(layerId)
+        getDatabase(dbFile).getPointsForLayer(layerId)
     }
 
     override suspend fun getAllVisiblePoints(projectName: String): List<LayerPoint> = withContext(Dispatchers.IO) {
         val dir = getProjectDir(projectName) ?: return@withContext emptyList()
         val dbFile = File(dir, "thismap.sqlite")
         if (!dbFile.exists()) return@withContext emptyList()
-        ProjectDatabase(dbFile).getAllVisiblePoints()
+        getDatabase(dbFile).getAllVisiblePoints()
     }
 
     override suspend fun insertLayerPoint(projectName: String, point: LayerPoint): Result<Long> = withContext(Dispatchers.IO) {
@@ -668,7 +723,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            val id = ProjectDatabase(dbFile).insertLayerPoint(point)
+            val id = getDatabase(dbFile).insertLayerPoint(point)
             Result.success(id)
         } catch (e: Exception) {
             Result.failure(e)
@@ -680,7 +735,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).updateLayerPoint(point)
+            getDatabase(dbFile).updateLayerPoint(point)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -692,7 +747,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).deleteLayerPoint(pointId)
+            getDatabase(dbFile).deleteLayerPoint(pointId)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -705,7 +760,7 @@ class ProjectRepositoryImpl(
         val dir = getProjectDir(projectName) ?: return@withContext emptyList()
         val dbFile = File(dir, "thismap.sqlite")
         if (!dbFile.exists()) return@withContext emptyList()
-        ProjectDatabase(dbFile).getLineLayers()
+        getDatabase(dbFile).getLineLayers()
     }
 
     override suspend fun insertLineLayer(projectName: String, layer: LineLayer): Result<Long> = withContext(Dispatchers.IO) {
@@ -713,7 +768,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            val id = ProjectDatabase(dbFile).insertLineLayer(layer)
+            val id = getDatabase(dbFile).insertLineLayer(layer)
             Result.success(id)
         } catch (e: Exception) {
             Result.failure(e)
@@ -725,7 +780,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).updateLineLayer(layer)
+            getDatabase(dbFile).updateLineLayer(layer)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -737,7 +792,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).deleteLineLayer(layerId)
+            getDatabase(dbFile).deleteLineLayer(layerId)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -749,7 +804,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).toggleLineLayerVisibility(layerId, isVisible)
+            getDatabase(dbFile).toggleLineLayerVisibility(layerId, isVisible)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -762,14 +817,14 @@ class ProjectRepositoryImpl(
         val dir = getProjectDir(projectName) ?: return@withContext emptyList()
         val dbFile = File(dir, "thismap.sqlite")
         if (!dbFile.exists()) return@withContext emptyList()
-        ProjectDatabase(dbFile).getLinesForLayer(layerId)
+        getDatabase(dbFile).getLinesForLayer(layerId)
     }
 
     override suspend fun getAllVisibleLines(projectName: String): List<LayerLine> = withContext(Dispatchers.IO) {
         val dir = getProjectDir(projectName) ?: return@withContext emptyList()
         val dbFile = File(dir, "thismap.sqlite")
         if (!dbFile.exists()) return@withContext emptyList()
-        ProjectDatabase(dbFile).getAllVisibleLines()
+        getDatabase(dbFile).getAllVisibleLines()
     }
 
     override suspend fun insertLayerLine(projectName: String, line: LayerLine): Result<Long> = withContext(Dispatchers.IO) {
@@ -777,7 +832,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            val id = ProjectDatabase(dbFile).insertLayerLine(line)
+            val id = getDatabase(dbFile).insertLayerLine(line)
             Result.success(id)
         } catch (e: Exception) {
             Result.failure(e)
@@ -789,7 +844,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).updateLayerLine(line)
+            getDatabase(dbFile).updateLayerLine(line)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -801,7 +856,7 @@ class ProjectRepositoryImpl(
             val dir = getProjectDir(projectName)
                 ?: return@withContext Result.failure(IllegalStateException("Папка проекта не найдена"))
             val dbFile = File(dir, "thismap.sqlite")
-            ProjectDatabase(dbFile).deleteLayerLine(lineId)
+            getDatabase(dbFile).deleteLayerLine(lineId)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

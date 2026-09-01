@@ -82,106 +82,109 @@ object TileCutter {
         // 2. High-Quality Progressive Downsampling (Pyramid scaling)
         var currentBitmap = sourceBitmap
 
-        for (z in zoomMax downTo zoomMin) {
-            coroutineContext.ensureActive()
+        try {
+            for (z in zoomMax downTo zoomMin) {
+                coroutineContext.ensureActive()
 
-            val (range, imageTopLeft) = zoomRangeMap[z]
-                ?: CaveMapBounds.calculateTileRange(width, height, zoomMax, z)
-            val (imageLeftPx, imageTopPx) = imageTopLeft
+                val (range, imageTopLeft) = zoomRangeMap[z]
+                    ?: CaveMapBounds.calculateTileRange(width, height, zoomMax, z)
+                val (imageLeftPx, imageTopPx) = imageTopLeft
 
-            val scale = 2.0.pow((z - zoomMax).toDouble())
-            val targetScaledW = (width * scale).roundToInt().coerceAtLeast(1)
-            val targetScaledH = (height * scale).roundToInt().coerceAtLeast(1)
+                val scale = 2.0.pow((z - zoomMax).toDouble())
+                val targetScaledW = (width * scale).roundToInt().coerceAtLeast(1)
+                val targetScaledH = (height * scale).roundToInt().coerceAtLeast(1)
 
-            val levelBitmap = if (z == zoomMax) {
-                sourceBitmap
-            } else {
-                Bitmap.createScaledBitmap(currentBitmap, targetScaledW, targetScaledH, true)
-            }
+                val levelBitmap = if (z == zoomMax) {
+                    sourceBitmap
+                } else {
+                    Bitmap.createScaledBitmap(currentBitmap, targetScaledW, targetScaledH, true)
+                }
 
-            if (currentBitmap != sourceBitmap && currentBitmap != levelBitmap) {
-                currentBitmap.recycle()
-            }
-            currentBitmap = levelBitmap
+                if (currentBitmap != sourceBitmap && currentBitmap != levelBitmap) {
+                    currentBitmap.recycle()
+                }
+                currentBitmap = levelBitmap
 
-            for (tileX in range.minTileX..range.maxTileX) {
-                val tileDir = File(tilesDir, "$z/$tileX")
-                if (!tileDir.exists()) tileDir.mkdirs()
+                for (tileX in range.minTileX..range.maxTileX) {
+                    val tileDir = File(tilesDir, "$z/$tileX")
+                    if (!tileDir.exists()) tileDir.mkdirs()
 
-                for (tileY in range.minTileY..range.maxTileY) {
-                    coroutineContext.ensureActive()
+                    for (tileY in range.minTileY..range.maxTileY) {
+                        coroutineContext.ensureActive()
 
-                    val tileFile = File(tileDir, "$tileY.png")
+                        val tileFile = File(tileDir, "$tileY.png")
 
-                    // Create 256x256 ARGB_8888 tile with transparent background
-                    val tileBitmap = Bitmap.createBitmap(tileSize, tileSize, Bitmap.Config.ARGB_8888)
-                    val canvas = Canvas(tileBitmap)
-                    canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+                        // Create 256x256 ARGB_8888 tile with transparent background
+                        val tileBitmap = Bitmap.createBitmap(tileSize, tileSize, Bitmap.Config.ARGB_8888)
+                        val canvas = Canvas(tileBitmap)
+                        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
 
-                    // Calculate the pixel rect inside levelBitmap corresponding to this tile
-                    val tileWorldLeft = tileX * tileSize
-                    val tileWorldTop = tileY * tileSize
+                        // Calculate the pixel rect inside levelBitmap corresponding to this tile
+                        val tileWorldLeft = tileX * tileSize
+                        val tileWorldTop = tileY * tileSize
 
-                    val srcX = (tileWorldLeft - imageLeftPx).roundToInt()
-                    val srcY = (tileWorldTop - imageTopPx).roundToInt()
+                        val srcX = (tileWorldLeft - imageLeftPx).roundToInt()
+                        val srcY = (tileWorldTop - imageTopPx).roundToInt()
 
-                    // Source and Destination clipping with transparent edge padding
-                    val srcLeft = srcX.coerceAtLeast(0)
-                    val srcTop = srcY.coerceAtLeast(0)
-                    val srcRight = (srcX + tileSize).coerceAtMost(levelBitmap.width)
-                    val srcBottom = (srcY + tileSize).coerceAtMost(levelBitmap.height)
+                        // Source and Destination clipping with transparent edge padding
+                        val srcLeft = srcX.coerceAtLeast(0)
+                        val srcTop = srcY.coerceAtLeast(0)
+                        val srcRight = (srcX + tileSize).coerceAtMost(levelBitmap.width)
+                        val srcBottom = (srcY + tileSize).coerceAtMost(levelBitmap.height)
 
-                    if (srcRight > srcLeft && srcBottom > srcTop) {
-                        val dstLeft = (srcLeft - srcX).coerceAtLeast(0)
-                        val dstTop = (srcTop - srcY).coerceAtLeast(0)
-                        val dstRight = dstLeft + (srcRight - srcLeft)
-                        val dstBottom = dstTop + (srcBottom - srcTop)
+                        if (srcRight > srcLeft && srcBottom > srcTop) {
+                            val dstLeft = (srcLeft - srcX).coerceAtLeast(0)
+                            val dstTop = (srcTop - srcY).coerceAtLeast(0)
+                            val dstRight = dstLeft + (srcRight - srcLeft)
+                            val dstBottom = dstTop + (srcBottom - srcTop)
 
-                        val srcRect = Rect(srcLeft, srcTop, srcRight, srcBottom)
-                        val dstRect = Rect(dstLeft, dstTop, dstRight, dstBottom)
-                        canvas.drawBitmap(levelBitmap, srcRect, dstRect, paint)
-                    }
+                            val srcRect = Rect(srcLeft, srcTop, srcRight, srcBottom)
+                            val dstRect = Rect(dstLeft, dstTop, dstRight, dstBottom)
+                            canvas.drawBitmap(levelBitmap, srcRect, dstRect, paint)
+                        }
 
-                    FileOutputStream(tileFile).use { out ->
-                        tileBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                    }
-                    tileBitmap.recycle()
+                        FileOutputStream(tileFile).use { out ->
+                            tileBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        }
+                        tileBitmap.recycle()
 
-                    currentTileCount++
-                    val fraction = if (totalTiles > 0) currentTileCount.toFloat() / totalTiles.toFloat() else 1f
-                    onProgress(
-                        TileCutProgress(
-                            currentTile = currentTileCount,
-                            totalTiles = totalTiles,
-                            currentZoom = z,
-                            zoomMin = zoomMin,
-                            zoomMax = zoomMax,
-                            progressFraction = fraction
+                        currentTileCount++
+                        val fraction = if (totalTiles > 0) currentTileCount.toFloat() / totalTiles.toFloat() else 1f
+                        onProgress(
+                            TileCutProgress(
+                                currentTile = currentTileCount,
+                                totalTiles = totalTiles,
+                                currentZoom = z,
+                                zoomMin = zoomMin,
+                                zoomMax = zoomMax,
+                                progressFraction = fraction
+                            )
                         )
-                    )
+                    }
                 }
             }
-        }
-
-        if (currentBitmap != sourceBitmap) {
-            currentBitmap.recycle()
+        } finally {
+            if (currentBitmap != sourceBitmap && !currentBitmap.isRecycled) {
+                currentBitmap.recycle()
+            }
         }
 
         // 3. Save metadata into thismap.sqlite
         val dbFile = File(projectDir, "thismap.sqlite")
-        val db = ProjectDatabase(dbFile)
-        db.saveMetadata(
-            MapMetadata(
-                projectName = projectName,
-                imageWidth = width,
-                imageHeight = height,
-                tileSize = tileSize,
-                zoomMin = zoomMin,
-                zoomMax = zoomMax,
-                zoomDefault = zoomDefault,
-                createdAt = System.currentTimeMillis()
+        ProjectDatabase(dbFile).use { db ->
+            db.saveMetadata(
+                MapMetadata(
+                    projectName = projectName,
+                    imageWidth = width,
+                    imageHeight = height,
+                    tileSize = tileSize,
+                    zoomMin = zoomMin,
+                    zoomMax = zoomMax,
+                    zoomDefault = zoomDefault,
+                    createdAt = System.currentTimeMillis()
+                )
             )
-        )
+        }
         File(tilesDir, ".v3_aligned").createNewFile()
     }
 }

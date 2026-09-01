@@ -99,26 +99,28 @@ fun MapLibreViewer(
         withContext(Dispatchers.IO) {
             try {
                 val dbFile = File(projectDir, "thismap.sqlite")
-                val db = ProjectDatabase(dbFile)
-                var meta = db.getMetadata()
+                var meta: MapMetadata? = null
+                ProjectDatabase(dbFile).use { db ->
+                    meta = db.getMetadata()
 
-                val tilesDir = File(projectDir, "tiles")
-                val mapFile = File(projectDir, "map/image.png")
+                    val tilesDir = File(projectDir, "tiles")
+                    val mapFile = File(projectDir, "map/image.png")
 
-                val v3Marker = File(tilesDir, ".v3_aligned")
-                if (meta == null || !tilesDir.exists() || !v3Marker.exists()) {
-                    if (mapFile.exists()) {
-                        loadingStatus = "Оптимизация четкости тайлов карты..."
-                        val bitmap = BitmapFactory.decodeFile(mapFile.absolutePath)
-                        if (bitmap != null) {
-                            TileCutter.cutTiles(
-                                projectName = projectDir.name,
-                                projectDir = projectDir,
-                                sourceBitmap = bitmap,
-                                onProgress = {}
-                            )
-                            bitmap.recycle()
-                            meta = db.getMetadata()
+                    val v3Marker = File(tilesDir, ".v3_aligned")
+                    if (meta == null || !tilesDir.exists() || !v3Marker.exists()) {
+                        if (mapFile.exists()) {
+                            loadingStatus = "Оптимизация четкости тайлов карты..."
+                            val bitmap = BitmapFactory.decodeFile(mapFile.absolutePath)
+                            if (bitmap != null) {
+                                TileCutter.cutTiles(
+                                    projectName = projectDir.name,
+                                    projectDir = projectDir,
+                                    sourceBitmap = bitmap,
+                                    onProgress = {}
+                                )
+                                bitmap.recycle()
+                                meta = db.getMetadata()
+                            }
                         }
                     }
                 }
