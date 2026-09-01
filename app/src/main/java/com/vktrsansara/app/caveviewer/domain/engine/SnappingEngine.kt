@@ -85,6 +85,28 @@ object SnappingEngine {
     const val CURSOR_SNAP_RADIUS_DP = 12f // 12 dp для курсорных режимов
     const val TOUCH_SNAP_RADIUS_DP = 24f  // 24 dp для режима FREE_TAP (прямое касание пальцем)
 
+    private val internalGrid = SpatialHashGrid(cellSize = 256.0)
+    private var lastLinesRef: List<LayerLine>? = null
+    private var lastPointsRef: List<LayerPoint>? = null
+    private var lastIntersectionModeRef: IntersectionMode? = null
+
+    /**
+     * Gets or rebuilds the internal cached SpatialHashGrid when layer datasets change.
+     */
+    fun getOrBuildGrid(
+        lines: List<LayerLine>,
+        points: List<LayerPoint>,
+        intersectionMode: IntersectionMode
+    ): SpatialHashGrid {
+        if (lines !== lastLinesRef || points !== lastPointsRef || intersectionMode != lastIntersectionModeRef) {
+            internalGrid.build(lines, points, intersectionMode)
+            lastLinesRef = lines
+            lastPointsRef = points
+            lastIntersectionModeRef = intersectionMode
+        }
+        return internalGrid
+    }
+
     /**
      * Converts screen snapping radius (in DP) to raster image pixels based on current camera zoom and density.
      * In MapLibre: scale = 2^(currentZoom - zoomMax)
@@ -189,17 +211,15 @@ object SnappingEngine {
     }
 
     /**
-     * Ultra-fast magnetic snapping target search in World Pixel Space.
-     * All Euclidean distance checks, bounding box culling, and projections are performed in 2D raster pixels.
-     * ZERO calls to [CaveMapBounds.imagePixelsToLatLng] or [projector] occur inside the search loops.
+     * Ultra-fast magnetic snapping target search using SpatialHashGrid in O(1) / O(K) complexity.
+     * Queries candidates from 1-4 neighboring spatial cells.
+     * All Euclidean distance checks and projections are performed in 2D raster pixels.
      * [projector] is called AT MOST ONCE at the very end to compute screenOffset for the winning target.
      */
     fun findSnapTarget(
         cursorImagePx: Pair<Double, Double>,
         snapRadiusImagePx: Double,
-        cachedLines: List<CachedSnapLine>,
-        cachedPoints: List<CachedSnapPoint>,
-        cachedIntersections: List<CachedIntersection>,
+        spatialGrid: SpatialHashGrid,
         settings: SnappingSettings,
         imageWidth: Int,
         imageHeight: Int,
@@ -209,13 +229,9 @@ object SnappingEngine {
     ): SnapTarget? {
         if (!settings.isEnabled || snapRadiusImagePx <= 0.0) return null
         val radiusSq = snapRadiusImagePx * snapRadiusImagePx
-
         val allowLines = !forPointCreation || settings.snapPointsToLines
 
-        val minX = cursorImagePx.first - snapRadiusImagePx
-        val maxX = cursorImagePx.first + snapRadiusImagePx
-        val minY = cursorImagePx.second - snapRadiusImagePx
-        val maxY = cursorImagePx.second + snapRadiusImagePx
+        val candidates = spatialGrid.queryCandidates(cursorImagePx, snapRadiusImagePx)
 
         // 1. Приоритет 1: Привязка к вершинам линий
         if (settings.snapToVertices && allowLines) {
@@ -223,26 +239,14 @@ object SnappingEngine {
             var lineName = ""
             var minDistanceSq = Double.MAX_VALUE
 
-            for (cachedLine in cachedLines) {
-                // Bounding Box Culling на уровне всей линии в растровом пространстве
-                if (cachedLine.maxPixelX < minX || cachedLine.minPixelX > maxX ||
-                    cachedLine.maxPixelY < minY || cachedLine.minPixelY > maxY) {
-                    continue
-                }
-
-                for (pt in cachedLine.line.points) {
-                    if (pt.first < minX || pt.first > maxX ||
-                        pt.second < minY || pt.second > maxY) {
-                        continue
-                    }
-                    val dx = cursorImagePx.first - pt.first
-                    val dy = cursorImagePx.second - pt.second
-                    val distSq = dx * dx + dy * dy
-                    if (distSq <= radiusSq && distSq < minDistanceSq) {
-                        minDistanceSq = distSq
-                        closestVertex = pt
-                        lineName = cachedLine.line.name
-                    }
+            for (v in candidates.vertices) {
+                val dx = cursorImagePx.first - v.px.first
+                val dy = cursorImagePx.second - v.px.second
+                val distSq = dx * dx + dy * dy
+                if (distSq <= radiusSq && distSq < minDistanceSq) {
+                    minDistanceSq = distSq
+                    closestVertex = v.px
+                    lineName = v.lineName
                 }
             }
 
@@ -252,24 +256,20 @@ object SnappingEngine {
             }
         }
 
-        // 2. Приоритет 2: Привязка к перекресткам существующих линий (пересечениям отрезков)
+        // 2. Приоритет 2: Привязка к перекресткам существующих линий
         if (allowLines && settings.intersectionMode != IntersectionMode.NO) {
             var closestIntersection: Pair<Double, Double>? = null
             var line1Name = ""
             var line2Name = ""
             var minDistanceSq = Double.MAX_VALUE
 
-            for (ix in cachedIntersections) {
-                if (ix.point.first < minX || ix.point.first > maxX ||
-                    ix.point.second < minY || ix.point.second > maxY) {
-                    continue
-                }
-                val dx = cursorImagePx.first - ix.point.first
-                val dy = cursorImagePx.second - ix.point.second
+            for (ix in candidates.intersections) {
+                val dx = cursorImagePx.first - ix.px.first
+                val dy = cursorImagePx.second - ix.px.second
                 val distSq = dx * dx + dy * dy
                 if (distSq <= radiusSq && distSq < minDistanceSq) {
                     minDistanceSq = distSq
-                    closestIntersection = ix.point
+                    closestIntersection = ix.px
                     line1Name = ix.line1Name
                     line2Name = ix.line2Name
                 }
@@ -286,12 +286,7 @@ object SnappingEngine {
             var closestPoint: LayerPoint? = null
             var minDistanceSq = Double.MAX_VALUE
 
-            for (cp in cachedPoints) {
-                val p = cp.point
-                if (p.x < minX || p.x > maxX ||
-                    p.y < minY || p.y > maxY) {
-                    continue
-                }
+            for (p in candidates.points) {
                 val dx = cursorImagePx.first - p.x
                 val dy = cursorImagePx.second - p.y
                 val distSq = dx * dx + dy * dy
@@ -314,38 +309,18 @@ object SnappingEngine {
             var lineName = ""
             var minDistanceSq = Double.MAX_VALUE
 
-            for (cachedLine in cachedLines) {
-                if (cachedLine.maxPixelX < minX || cachedLine.minPixelX > maxX ||
-                    cachedLine.maxPixelY < minY || cachedLine.minPixelY > maxY) {
-                    continue
-                }
+            for (seg in candidates.segments) {
+                val projResult = projectPointToSegmentPixel(cursorImagePx, seg.p1, seg.p2)
+                val projPt = projResult.first
 
-                val verts = cachedLine.line.points
-                for (i in 0 until verts.size - 1) {
-                    val v1 = verts[i]
-                    val v2 = verts[i + 1]
+                val dx = cursorImagePx.first - projPt.first
+                val dy = cursorImagePx.second - projPt.second
+                val distSq = dx * dx + dy * dy
 
-                    val segMinX = minOf(v1.first, v2.first)
-                    val segMaxX = maxOf(v1.first, v2.first)
-                    val segMinY = minOf(v1.second, v2.second)
-                    val segMaxY = maxOf(v1.second, v2.second)
-
-                    if (segMaxX < minX || segMinX > maxX || segMaxY < minY || segMinY > maxY) {
-                        continue
-                    }
-
-                    val projResult = projectPointToSegmentPixel(cursorImagePx, v1, v2)
-                    val projPt = projResult.first
-
-                    val dx = cursorImagePx.first - projPt.first
-                    val dy = cursorImagePx.second - projPt.second
-                    val distSq = dx * dx + dy * dy
-
-                    if (distSq <= radiusSq && distSq < minDistanceSq) {
-                        minDistanceSq = distSq
-                        closestEdgePt = projPt
-                        lineName = cachedLine.line.name
-                    }
+                if (distSq <= radiusSq && distSq < minDistanceSq) {
+                    minDistanceSq = distSq
+                    closestEdgePt = projPt
+                    lineName = seg.lineName
                 }
             }
 
@@ -359,7 +334,64 @@ object SnappingEngine {
     }
 
     /**
-     * Alias for findSnapTarget for backward compatibility.
+     * Backward-compatible overload for legacy cached lists.
+     */
+    fun findSnapTarget(
+        cursorImagePx: Pair<Double, Double>,
+        snapRadiusImagePx: Double,
+        cachedLines: List<CachedSnapLine>,
+        cachedPoints: List<CachedSnapPoint>,
+        cachedIntersections: List<CachedIntersection>,
+        settings: SnappingSettings,
+        imageWidth: Int,
+        imageHeight: Int,
+        zoomMax: Int,
+        projector: ((LatLng) -> Offset)? = null,
+        forPointCreation: Boolean = false
+    ): SnapTarget? {
+        val lines = cachedLines.map { it.line }
+        val points = cachedPoints.map { it.point }
+        val grid = getOrBuildGrid(lines, points, settings.intersectionMode)
+        return findSnapTarget(
+            cursorImagePx = cursorImagePx,
+            snapRadiusImagePx = snapRadiusImagePx,
+            spatialGrid = grid,
+            settings = settings,
+            imageWidth = imageWidth,
+            imageHeight = imageHeight,
+            zoomMax = zoomMax,
+            projector = projector,
+            forPointCreation = forPointCreation
+        )
+    }
+
+    /**
+     * Alias for findSnapTarget with SpatialHashGrid for backward compatibility.
+     */
+    fun findSnapTargetFast(
+        cursorImagePx: Pair<Double, Double>,
+        snapRadiusImagePx: Double,
+        spatialGrid: SpatialHashGrid,
+        settings: SnappingSettings,
+        imageWidth: Int,
+        imageHeight: Int,
+        zoomMax: Int,
+        projector: ((LatLng) -> Offset)? = null,
+        forPointCreation: Boolean = false
+    ): SnapTarget? = findSnapTarget(
+        cursorImagePx = cursorImagePx,
+        snapRadiusImagePx = snapRadiusImagePx,
+        spatialGrid = spatialGrid,
+        settings = settings,
+        imageWidth = imageWidth,
+        imageHeight = imageHeight,
+        zoomMax = zoomMax,
+        projector = projector,
+        forPointCreation = forPointCreation
+    )
+
+    /**
+     * Alias for findSnapTarget with cached lists for backward compatibility.
      */
     fun findSnapTargetFast(
         cursorImagePx: Pair<Double, Double>,

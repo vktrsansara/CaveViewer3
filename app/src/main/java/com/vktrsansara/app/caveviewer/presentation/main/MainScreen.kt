@@ -828,19 +828,13 @@ fun MainScreenContent(
 
     val activeMeta = mapMetadata ?: uiState.activeProjectMetadata
 
-    // Pre-cached snapping structures (recomputed ONLY when layers change, never on camera movement)
-    val cachedSnapLines = remember(uiState.allVisibleLines) {
-        SnappingEngine.buildCachedLines(uiState.allVisibleLines)
-    }
-
-    val cachedSnapPoints = remember(uiState.allVisiblePoints) {
-        SnappingEngine.buildCachedPoints(uiState.allVisiblePoints)
-    }
-
-    val cachedSnapIntersections = remember(uiState.allVisibleLines, uiState.settings.snappingSettings.intersectionMode) {
-        if (uiState.settings.snappingSettings.intersectionMode != IntersectionMode.NO) {
-            SnappingEngine.buildCachedIntersections(uiState.allVisibleLines)
-        } else emptyList()
+    // Spatial Hash Grid for high-performance snapping & intersection index (recomputed ONLY when layers change)
+    val spatialGrid = remember(uiState.allVisibleLines, uiState.allVisiblePoints, uiState.settings.snappingSettings.intersectionMode) {
+        SnappingEngine.getOrBuildGrid(
+            lines = uiState.allVisibleLines,
+            points = uiState.allVisiblePoints,
+            intersectionMode = uiState.settings.snappingSettings.intersectionMode
+        )
     }
 
     val isCalibrationMode = uiState.isScaleBindingMode || uiState.isNorthBindingMode || uiState.isEntranceCavePickMode
@@ -1030,9 +1024,7 @@ fun MainScreenContent(
                                         val snap = SnappingEngine.findSnapTarget(
                                             cursorImagePx = liveCenterPx,
                                             snapRadiusImagePx = snapRadiusImagePx,
-                                            cachedLines = cachedSnapLines,
-                                            cachedPoints = cachedSnapPoints,
-                                            cachedIntersections = cachedSnapIntersections,
+                                            spatialGrid = spatialGrid,
                                             settings = uiState.settings.snappingSettings,
                                             imageWidth = curMeta.imageWidth,
                                             imageHeight = curMeta.imageHeight,
@@ -1074,9 +1066,7 @@ fun MainScreenContent(
                                         val snap = SnappingEngine.findSnapTarget(
                                             cursorImagePx = clickedPx,
                                             snapRadiusImagePx = snapRadiusImagePx,
-                                            cachedLines = cachedSnapLines,
-                                            cachedPoints = cachedSnapPoints,
-                                            cachedIntersections = cachedSnapIntersections,
+                                            spatialGrid = spatialGrid,
                                             settings = uiState.settings.snappingSettings,
                                             imageWidth = curMeta.imageWidth,
                                             imageHeight = curMeta.imageHeight,
@@ -1126,9 +1116,7 @@ fun MainScreenContent(
                                         val snap = SnappingEngine.findSnapTarget(
                                             cursorImagePx = liveCenterPx,
                                             snapRadiusImagePx = snapRadiusImagePx,
-                                            cachedLines = cachedSnapLines,
-                                            cachedPoints = cachedSnapPoints,
-                                            cachedIntersections = cachedSnapIntersections,
+                                            spatialGrid = spatialGrid,
                                             settings = uiState.settings.snappingSettings,
                                             imageWidth = curMeta.imageWidth,
                                             imageHeight = curMeta.imageHeight,
@@ -1160,9 +1148,7 @@ fun MainScreenContent(
                                         val snap = SnappingEngine.findSnapTarget(
                                             cursorImagePx = clickedPx,
                                             snapRadiusImagePx = snapRadiusImagePx,
-                                            cachedLines = cachedSnapLines,
-                                            cachedPoints = cachedSnapPoints,
-                                            cachedIntersections = cachedSnapIntersections,
+                                            spatialGrid = spatialGrid,
                                             settings = uiState.settings.snappingSettings,
                                             imageWidth = curMeta.imageWidth,
                                             imageHeight = curMeta.imageHeight,
@@ -1238,9 +1224,7 @@ fun MainScreenContent(
                 SnappingEngine.findSnapTarget(
                     cursorImagePx = centerPx,
                     snapRadiusImagePx = snapRadiusImagePx,
-                    cachedLines = cachedSnapLines,
-                    cachedPoints = cachedSnapPoints,
-                    cachedIntersections = cachedSnapIntersections,
+                    spatialGrid = spatialGrid,
                     settings = uiState.settings.snappingSettings,
                     imageWidth = meta.imageWidth,
                     imageHeight = meta.imageHeight,
@@ -1611,9 +1595,7 @@ fun MainScreenContent(
                                     val snap = SnappingEngine.findSnapTarget(
                                         cursorImagePx = liveCenterPx,
                                         snapRadiusImagePx = snapRadiusImagePx,
-                                        cachedLines = cachedSnapLines,
-                                        cachedPoints = cachedSnapPoints,
-                                        cachedIntersections = cachedSnapIntersections,
+                                        spatialGrid = spatialGrid,
                                         settings = uiState.settings.snappingSettings,
                                         imageWidth = curMeta.imageWidth,
                                         imageHeight = curMeta.imageHeight,
@@ -1669,9 +1651,7 @@ fun MainScreenContent(
                                     val snap = SnappingEngine.findSnapTarget(
                                         cursorImagePx = rawCenterPx,
                                         snapRadiusImagePx = snapRadiusImagePx,
-                                        cachedLines = cachedSnapLines,
-                                        cachedPoints = cachedSnapPoints,
-                                        cachedIntersections = cachedSnapIntersections,
+                                        spatialGrid = spatialGrid,
                                         settings = uiState.settings.snappingSettings,
                                         imageWidth = curMeta.imageWidth,
                                         imageHeight = curMeta.imageHeight,
