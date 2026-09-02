@@ -1,6 +1,7 @@
 package com.vktrsansara.app.caveviewer.presentation.metadata
 
 import java.util.Locale
+import kotlin.math.roundToInt
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -49,6 +50,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -80,6 +83,7 @@ import com.vktrsansara.app.caveviewer.domain.model.LayerSearchConfig
 import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.NavigationConfig
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.SearchFieldItem
 import com.vktrsansara.app.caveviewer.presentation.components.AppDialogContainer
@@ -144,9 +148,10 @@ fun MetadataEditorScreen(
     // Cadastral data form fields
     var cadastralState by remember(cadastralData) { mutableStateOf(initialCadastral) }
 
-    // Layer search configs
+    // Layer search & navigation configs
     var pointsSearchConfigState by remember(metadata) { mutableStateOf(metadata.pointsSearchConfig) }
     var linesSearchConfigState by remember(metadata) { mutableStateOf(metadata.linesSearchConfig) }
+    var navigationConfigState by remember(metadata) { mutableStateOf(metadata.navigationConfig) }
 
     // Lock states (default locked)
     var isNameLocked by remember { mutableStateOf(true) }
@@ -164,7 +169,8 @@ fun MetadataEditorScreen(
         initialProjectName, initialPpm, initialScale, initialAngle,
         locationState, initialLocation, entrancesState, initialEntrances, cadastralState, initialCadastral,
         pointsSearchConfigState, metadata.pointsSearchConfig,
-        linesSearchConfigState, metadata.linesSearchConfig
+        linesSearchConfigState, metadata.linesSearchConfig,
+        navigationConfigState, metadata.navigationConfig
     ) {
         projectName.trim() != initialProjectName.trim() ||
                 pixelsPerMeter.trim() != initialPpm.trim() ||
@@ -174,7 +180,8 @@ fun MetadataEditorScreen(
                 entrancesState != initialEntrances ||
                 cadastralState != initialCadastral ||
                 pointsSearchConfigState != metadata.pointsSearchConfig ||
-                linesSearchConfigState != metadata.linesSearchConfig
+                linesSearchConfigState != metadata.linesSearchConfig ||
+                navigationConfigState != metadata.navigationConfig
     }
 
     val handleBackPress = {
@@ -198,7 +205,8 @@ fun MetadataEditorScreen(
             angleNorth = angleVal,
             crs = "Simple",
             pointsSearchConfig = pointsSearchConfigState,
-            linesSearchConfig = linesSearchConfigState
+            linesSearchConfig = linesSearchConfigState,
+            navigationConfig = navigationConfigState
         )
         onSaveMetadata(updated, locationState, entrancesState, cadastralState)
     }
@@ -302,7 +310,9 @@ fun MetadataEditorScreen(
                     pointsConfig = pointsSearchConfigState,
                     onPointsConfigChange = { pointsSearchConfigState = it },
                     linesConfig = linesSearchConfigState,
-                    onLinesConfigChange = { linesSearchConfigState = it }
+                    onLinesConfigChange = { linesSearchConfigState = it },
+                    navigationConfig = navigationConfigState,
+                    onNavigationConfigChange = { navigationConfigState = it }
                 )
             }
         }
@@ -872,6 +882,8 @@ private fun LayersTabContent(
     onPointsConfigChange: (LayerSearchConfig) -> Unit,
     linesConfig: LayerSearchConfig,
     onLinesConfigChange: (LayerSearchConfig) -> Unit,
+    navigationConfig: NavigationConfig,
+    onNavigationConfigChange: (NavigationConfig) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -942,6 +954,11 @@ private fun LayersTabContent(
                     availableFields = availableLineFields,
                     config = linesConfig,
                     onConfigChange = onLinesConfigChange
+                )
+
+                NavigationConfigCard(
+                    config = navigationConfig,
+                    onConfigChange = onNavigationConfigChange
                 )
             }
         }
@@ -1458,6 +1475,310 @@ private fun CustomSearchFieldRow(
                 contentDescription = "Удалить поле поиска",
                 tint = Color(0xFFEF4444),
                 modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun NavigationConfigCard(
+    config: NavigationConfig,
+    onConfigChange: (NavigationConfig) -> Unit
+) {
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
+    var isHelpDialogOpen by remember { mutableStateOf(false) }
+
+    val isNavEnabled = config.isEnabled
+
+    if (isHelpDialogOpen) {
+        NavigationHelpDialog(onDismiss = { isHelpDialogOpen = false })
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(AppColors.bgCard)
+            .border(
+                width = 1.dp,
+                color = if (isNavEnabled) AccentSkyBlue.copy(alpha = 0.5f) else AppColors.borderColor,
+                shape = RoundedCornerShape(8.dp)
+            )
+    ) {
+        // Заголовок блока
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { isExpanded = !isExpanded }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Checkbox(
+                    checked = isNavEnabled,
+                    onCheckedChange = { isChecked ->
+                        onConfigChange(config.copy(isEnabled = isChecked))
+                    },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = AccentSkyBlue,
+                        uncheckedColor = AppColors.textSecondary,
+                        checkmarkColor = AppColors.bgMain
+                    )
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Column {
+                    Text(
+                        text = "Навигация по ходам",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isNavEnabled) AppColors.textPrimary else AppColors.textSecondary.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = "Построение маршрутов A*",
+                        fontSize = 11.5.sp,
+                        color = if (isNavEnabled) AccentSkyBlue else AppColors.textSecondary.copy(alpha = 0.5f)
+                    )
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Кнопка [ℹ️ Справка]
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(AppColors.bgSurface)
+                        .border(
+                            width = 1.dp,
+                            color = AppColors.borderColor,
+                            shape = RoundedCornerShape(6.dp)
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(color = AppColors.pressedColor),
+                            onClick = { isHelpDialogOpen = true }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Info,
+                        contentDescription = "Справка",
+                        tint = GreenInfoColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                // Кнопка сворачивания [🔽 / 🔼]
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(AppColors.bgSurface)
+                        .border(
+                            width = 1.dp,
+                            color = AppColors.borderColor,
+                            shape = RoundedCornerShape(6.dp)
+                        )
+                        .clickable { isExpanded = !isExpanded },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = if (isExpanded) "Свернуть" else "Развернуть",
+                        tint = AccentSkyBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        // Развернутое содержимое
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp)
+            ) {
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 1. Слайдер «Точность построения маршрута»
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Точность построения маршрута:",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AppColors.textPrimary
+                    )
+                    Text(
+                        text = String.format(Locale.US, "%.1f", config.accuracyQuality),
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentSkyBlue
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Быстро (1.0)",
+                        fontSize = 11.sp,
+                        color = AppColors.textSecondary
+                    )
+                    Text(
+                        text = "Точно (2.0)",
+                        fontSize = 11.sp,
+                        color = AppColors.textSecondary
+                    )
+                }
+
+                Slider(
+                    value = config.accuracyQuality,
+                    onValueChange = { newVal ->
+                        val rounded = (newVal * 10f).roundToInt() / 10f
+                        onConfigChange(config.copy(accuracyQuality = rounded))
+                    },
+                    valueRange = 1.0f..2.0f,
+                    steps = 9,
+                    colors = SliderDefaults.colors(
+                        thumbColor = AccentSkyBlue,
+                        activeTrackColor = AccentSkyBlue,
+                        inactiveTrackColor = AppColors.borderColor
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text(
+                    text = "При значении 1.0 выбирается кратчайший физический путь. При 2.0 сильно штрафуются узости и сложные участки, отдавая приоритет просторным ходам.",
+                    fontSize = 11.5.sp,
+                    color = AppColors.textSecondary,
+                    lineHeight = 16.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 2. Чекбокс «Альтернативный маршрут»
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable {
+                            onConfigChange(config.copy(isAlternativeRouteEnabled = !config.isAlternativeRouteEnabled))
+                        }
+                        .padding(vertical = 4.dp)
+                ) {
+                    Checkbox(
+                        checked = config.isAlternativeRouteEnabled,
+                        onCheckedChange = { isChecked ->
+                            onConfigChange(config.copy(isAlternativeRouteEnabled = isChecked))
+                        },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = AccentSkyBlue,
+                            uncheckedColor = AppColors.textSecondary,
+                            checkmarkColor = AppColors.bgMain
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Column {
+                        Text(
+                            text = "Альтернативный маршрут",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppColors.textPrimary
+                        )
+                        Text(
+                            text = "Рассчитывает второй вариант пути в разветвленных лабиринтах",
+                            fontSize = 11.5.sp,
+                            color = AppColors.textSecondary
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavigationHelpDialog(onDismiss: () -> Unit) {
+    AppDialogContainer(
+        title = "Справка: Навигация",
+        onDismissRequest = onDismiss,
+        buttons = {
+            DialogCancelButton(text = "Закрыть", onClick = onDismiss)
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Предупреждающая плашка
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF2E2000))
+                    .border(width = 1.dp, color = Color(0xFFD97706), shape = RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "⚠️",
+                        fontSize = 18.sp
+                    )
+                    Text(
+                        text = "Эта функция актуальна для больших пещерных систем лабиринтного типа",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFDE047),
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+
+            HelpItem(
+                title = "Построение графа ходов",
+                description = "Навигатор объединяет векторные линии ходов пещеры в единый топологический граф. Учитываются физическая длина отрезков в метрах и коэффициент их сложности (0.1..8.0)."
+            )
+
+            HelpItem(
+                title = "Алгоритм A* и точность",
+                description = "Маршрут строится с помощью алгоритма A* с весовой формулой: вес = длина × сложность^точность. При значении 1.0 строится кратчайший путь, а при 2.0 система избегает узостей, завалов и трудных участков."
+            )
+
+            HelpItem(
+                title = "Альтернативный маршрут",
+                description = "При включенной опции система рассчитывает второй путь через параллельные галереи и обходные кольцовки лабиринта."
             )
         }
     }

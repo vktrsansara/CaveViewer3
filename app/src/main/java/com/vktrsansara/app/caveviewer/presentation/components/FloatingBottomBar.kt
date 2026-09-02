@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.rounded.AddLocationAlt
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Polyline
 import androidx.compose.material.icons.rounded.Search
@@ -45,6 +46,9 @@ fun FloatingBottomBar(
     showMagnetButton: Boolean = false,
     isMagnetEnabled: Boolean = true,
     onMagnetClick: () -> Unit = {},
+    showNavigationButton: Boolean = false,
+    isNavigationModeActive: Boolean = false,
+    onNavigationClick: () -> Unit = {},
     isPointLayersModeActive: Boolean = false,
     onPointLayersClick: () -> Unit = {},
     onClosePointLayersClick: () -> Unit = {},
@@ -124,6 +128,16 @@ fun FloatingBottomBar(
             contentDescription = "Меню",
             onClick = onMenuClick
         )
+
+        // Кнопка режима «Навигация по ходам» справа от кнопки Меню
+        if (showNavigationButton) {
+            BarIconButton(
+                icon = Icons.Rounded.Explore,
+                contentDescription = "Навигация по ходам",
+                tint = if (isNavigationModeActive) Color(0xFF06B6D4) else AccentSkyBlue,
+                onClick = onNavigationClick
+            )
+        }
 
         // Кнопка режима «Слои точек»
         if (isPointLayersModeActive) {

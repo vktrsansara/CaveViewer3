@@ -6,6 +6,7 @@ import com.vktrsansara.app.caveviewer.core.mvi.UiIntent
 import com.vktrsansara.app.caveviewer.core.mvi.UiState
 import com.vktrsansara.app.caveviewer.domain.model.AppSettings
 import com.vktrsansara.app.caveviewer.domain.model.CadastralItem
+import com.vktrsansara.app.caveviewer.domain.model.CaveRoute
 import com.vktrsansara.app.caveviewer.domain.model.CompassTapMode
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
@@ -144,7 +145,15 @@ data class MainUiState(
     val searchHistory: List<String> = emptyList(),
     val searchHighlightTarget: SearchHighlightTarget? = null,
     val searchedPoints: List<LayerPoint> = emptyList(),
-    val searchedLines: List<LayerLine> = emptyList()
+    val searchedLines: List<LayerLine> = emptyList(),
+    // Cave Navigation State (A* Route Finder)
+    val isNavigationModeActive: Boolean = false,
+    val navigationStartPoint: Pair<Double, Double>? = null,
+    val navigationEndPoint: Pair<Double, Double>? = null,
+    val navigationPrimaryRoute: CaveRoute? = null,
+    val navigationAlternativeRoute: CaveRoute? = null,
+    val isCalculatingRoute: Boolean = false,
+    val navigationErrorMessage: String? = null
 ) : UiState
 
 data class SearchHighlightTarget(
@@ -438,6 +447,11 @@ sealed interface MainUiIntent : UiIntent {
     data object ClearSearchMarkers : MainUiIntent
     data class SelectSearchResult(val result: SearchResultItem) : MainUiIntent
     data object DismissSearchHighlight : MainUiIntent
+
+    // Cave Navigation (A* Route Finder) actions
+    data class ToggleNavigationMode(val enabled: Boolean) : MainUiIntent
+    data class SetNavigationMapPoint(val pixelX: Double, val pixelY: Double) : MainUiIntent
+    data object ResetNavigationPoints : MainUiIntent
 }
 
 sealed interface MainUiEffect : UiEffect {

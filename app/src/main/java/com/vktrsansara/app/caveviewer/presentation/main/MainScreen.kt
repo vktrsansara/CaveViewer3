@@ -77,11 +77,13 @@ import com.vktrsansara.app.caveviewer.presentation.map.components.LineDrawingSid
 import com.vktrsansara.app.caveviewer.presentation.map.components.LineLayersOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.MultiToolSideBar
+import com.vktrsansara.app.caveviewer.presentation.map.components.CaveNavigatorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.NorthBindingOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.PointDetailsCard
 import com.vktrsansara.app.caveviewer.presentation.map.components.PointEditorSideControl
 import com.vktrsansara.app.caveviewer.presentation.map.components.PointLayersOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.RadiusMeasureOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.components.RouteInfoCard
 import com.vktrsansara.app.caveviewer.presentation.map.components.RulerOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.getBindingSideControlCloseOffset
 import com.vktrsansara.app.caveviewer.presentation.map.components.getMultiToolSideBarCloseOffset
@@ -649,11 +651,13 @@ fun MainScreen(
                 uiState.isNorthBindingMode ||
                 uiState.isEntranceCavePickMode ||
                 uiState.isOsmEntranceBindingMode ||
+                uiState.isNavigationModeActive ||
                 uiState.dockedTools.isNotEmpty()
     ) {
         when {
             uiState.isSearchModalOpen -> viewModel.handleIntent(MainUiIntent.DismissSearchModal)
             uiState.isMenuExpanded -> viewModel.handleIntent(MainUiIntent.DismissMenu)
+            uiState.isNavigationModeActive -> viewModel.handleIntent(MainUiIntent.ToggleNavigationMode(false))
             uiState.selectedPointForDetails != null -> viewModel.handleIntent(MainUiIntent.DismissPointDetails)
             uiState.selectedLineForDetails != null -> viewModel.handleIntent(MainUiIntent.DismissLineDetails)
             uiState.editingPointLayer != null -> viewModel.handleIntent(MainUiIntent.ExitPointEditorMode)
@@ -900,7 +904,7 @@ fun MainScreenContent(
     ) {
         // Main content: active MapLibreViewer or NoProjectPlaceholder
         val activeDir = uiState.activeProjectDir
-        val isLineLayersVisible = (uiState.isLineLayersModeActive || uiState.editingLineLayer != null || uiState.searchedLines.isNotEmpty())
+        val isLineLayersVisible = (uiState.isLineLayersModeActive || uiState.editingLineLayer != null || uiState.searchedLines.isNotEmpty() || uiState.isNavigationModeActive)
         val isPointLayersVisible = (uiState.isPointLayersModeActive || uiState.editingPointLayer != null || uiState.searchedPoints.isNotEmpty())
         if (activeDir != null && uiState.hasActiveProject) {
             MapLibreViewer(
@@ -945,8 +949,18 @@ fun MainScreenContent(
                     getMapCenter = getter
                 },
                 onMapClick = { clickedLatLng ->
-                    var pointHit = false
                     val curMeta = mapMetadata ?: uiState.activeProjectMetadata
+                    if (uiState.isNavigationModeActive && curMeta != null) {
+                        val (clickPxX, clickPxY) = CaveMapBounds.latLngToImagePixels(
+                            latLng = clickedLatLng,
+                            imageWidth = curMeta.imageWidth,
+                            imageHeight = curMeta.imageHeight,
+                            maxZoom = curMeta.zoomMax
+                        )
+                        onIntent(MainUiIntent.SetNavigationMapPoint(clickPxX, clickPxY))
+                        return@MapLibreViewer true
+                    }
+                    var pointHit = false
                     val isMeasuringTools = isCalibrationMode || isAnyToolActive
                     val isPointLayersActive = uiState.isPointLayersModeActive || uiState.editingPointLayer != null || uiState.searchedPoints.isNotEmpty()
                     val pointsToCheck = if (uiState.isPointLayersModeActive || uiState.editingPointLayer != null) uiState.allVisiblePoints else uiState.searchedPoints
@@ -1355,6 +1369,25 @@ fun MainScreenContent(
                     currentZoom = currentZoom,
                     mapBearing = mapBearing,
                     onDismiss = { onIntent(MainUiIntent.DismissSearchHighlight) }
+                )
+            }
+
+            // 6. Cave Navigator Overlay (A* Route Finder)
+            if (uiState.isNavigationModeActive && meta != null) {
+                CaveNavigatorOverlay(
+                    startPoint = uiState.navigationStartPoint,
+                    endPoint = uiState.navigationEndPoint,
+                    primaryRoute = uiState.navigationPrimaryRoute,
+                    alternativeRoute = uiState.navigationAlternativeRoute,
+                    imageWidth = meta.imageWidth,
+                    imageHeight = meta.imageHeight,
+                    zoomMax = meta.zoomMax,
+                    projector = projector,
+                    currentTargetLat = currentTargetLat,
+                    currentTargetLon = currentTargetLon,
+                    currentZoom = currentZoom,
+                    mapBearing = mapBearing,
+                    modifier = Modifier.fillMaxSize().clipToBounds()
                 )
             }
 
@@ -1922,6 +1955,28 @@ fun MainScreenContent(
             )
 
             val isSearchAvailable = activeMeta != null && (activeMeta.pointsSearchConfig.isSearchEnabled || activeMeta.linesSearchConfig.isSearchEnabled)
+            val isNavAvailable = activeMeta?.navigationConfig?.isEnabled == true &&
+                    !uiState.isPointLayersModeActive &&
+                    !uiState.isLineLayersModeActive &&
+                    uiState.editingPointLayer == null &&
+                    uiState.editingLineLayer == null &&
+                    !isAnyToolActive &&
+                    !isCalibrationMode
+
+            // Route Info Card (during active navigation mode)
+            if (uiState.isNavigationModeActive) {
+                RouteInfoCard(
+                    startPoint = uiState.navigationStartPoint,
+                    endPoint = uiState.navigationEndPoint,
+                    primaryRoute = uiState.navigationPrimaryRoute,
+                    alternativeRoute = uiState.navigationAlternativeRoute,
+                    isCalculating = uiState.isCalculatingRoute,
+                    errorMessage = uiState.navigationErrorMessage,
+                    onResetClick = { onIntent(MainUiIntent.ResetNavigationPoints) },
+                    onCloseClick = { onIntent(MainUiIntent.ToggleNavigationMode(false)) },
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
 
             // Floating bottom bar
             FloatingBottomBar(
@@ -1931,6 +1986,9 @@ fun MainScreenContent(
                 showMagnetButton = (uiState.isLineLayersModeActive || uiState.editingLineLayer != null || uiState.isPointLayersModeActive || uiState.editingPointLayer != null),
                 isMagnetEnabled = uiState.settings.snappingSettings.isEnabled,
                 onMagnetClick = { onIntent(MainUiIntent.OpenSnappingSettingsDialog) },
+                showNavigationButton = isNavAvailable,
+                isNavigationModeActive = uiState.isNavigationModeActive,
+                onNavigationClick = { onIntent(MainUiIntent.ToggleNavigationMode(!uiState.isNavigationModeActive)) },
                 isPointLayersModeActive = uiState.isPointLayersModeActive,
                 onPointLayersClick = { onIntent(MainUiIntent.OpenLayerManager) },
                 onClosePointLayersClick = { onIntent(MainUiIntent.DisablePointLayersMode) },

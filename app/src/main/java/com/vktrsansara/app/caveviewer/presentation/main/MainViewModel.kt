@@ -2,6 +2,7 @@ package com.vktrsansara.app.caveviewer.presentation.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vktrsansara.app.caveviewer.domain.engine.CaveGraphRouter
 import com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDateTimeUtils
@@ -13,12 +14,14 @@ import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.NavigationConfig
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.model.ToolType
 import com.vktrsansara.app.caveviewer.domain.repository.ProjectRepository
 import com.vktrsansara.app.caveviewer.domain.repository.SettingsRepository
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -2509,6 +2512,97 @@ class MainViewModel(
             }
             is MainUiIntent.DismissSearchHighlight -> {
                 _uiState.update { it.copy(searchHighlightTarget = null) }
+            }
+            is MainUiIntent.ToggleNavigationMode -> {
+                val enabled = intent.enabled
+                _uiState.update {
+                    it.copy(
+                        isNavigationModeActive = enabled,
+                        navigationStartPoint = null,
+                        navigationEndPoint = null,
+                        navigationPrimaryRoute = null,
+                        navigationAlternativeRoute = null,
+                        isCalculatingRoute = false,
+                        navigationErrorMessage = null,
+                        isMenuExpanded = false
+                    )
+                }
+            }
+            is MainUiIntent.ResetNavigationPoints -> {
+                _uiState.update {
+                    it.copy(
+                        navigationStartPoint = null,
+                        navigationEndPoint = null,
+                        navigationPrimaryRoute = null,
+                        navigationAlternativeRoute = null,
+                        isCalculatingRoute = false,
+                        navigationErrorMessage = null
+                    )
+                }
+            }
+            is MainUiIntent.SetNavigationMapPoint -> {
+                val currentState = _uiState.value
+                val clickPx = Pair(intent.pixelX, intent.pixelY)
+
+                if (currentState.navigationStartPoint == null) {
+                    // Тап 1: ставит Точку А (Старт 🟢)
+                    _uiState.update {
+                        it.copy(
+                            navigationStartPoint = clickPx,
+                            navigationEndPoint = null,
+                            navigationPrimaryRoute = null,
+                            navigationAlternativeRoute = null,
+                            navigationErrorMessage = null
+                        )
+                    }
+                } else if (currentState.navigationEndPoint == null) {
+                    // Тап 2: ставит Точку Б (Финиш 🔴) и запускает расчет A*
+                    val startPt = currentState.navigationStartPoint
+                    val endPt = clickPx
+                    _uiState.update {
+                        it.copy(
+                            navigationEndPoint = endPt,
+                            isCalculatingRoute = true,
+                            navigationErrorMessage = null
+                        )
+                    }
+
+                    viewModelScope.launch(Dispatchers.Default) {
+                        val meta = _uiState.value.activeProjectMetadata
+                        val ppm = meta?.pixelsPerMeter ?: 0.0
+                        val navConfig = meta?.navigationConfig ?: NavigationConfig()
+                        val visibleLines = _uiState.value.allVisibleLines
+
+                        val result = CaveGraphRouter.findRoute(
+                            lines = visibleLines,
+                            startPx = startPt,
+                            endPx = endPt,
+                            pixelsPerMeter = ppm,
+                            quality = navConfig.accuracyQuality,
+                            isAlternativeEnabled = navConfig.isAlternativeRouteEnabled
+                        )
+
+                        _uiState.update {
+                            it.copy(
+                                isCalculatingRoute = false,
+                                navigationPrimaryRoute = result.primaryRoute,
+                                navigationAlternativeRoute = result.alternativeRoute,
+                                navigationErrorMessage = result.errorMessage
+                            )
+                        }
+                    }
+                } else {
+                    // Обе точки уже установлены: сбрасываем и ставим новую точку А
+                    _uiState.update {
+                        it.copy(
+                            navigationStartPoint = clickPx,
+                            navigationEndPoint = null,
+                            navigationPrimaryRoute = null,
+                            navigationAlternativeRoute = null,
+                            navigationErrorMessage = null
+                        )
+                    }
+                }
             }
         }
     }

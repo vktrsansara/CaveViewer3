@@ -14,6 +14,7 @@ import com.vktrsansara.app.caveviewer.domain.model.LineStyle
 import com.vktrsansara.app.caveviewer.domain.model.LayerSearchConfig
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.NavigationConfig
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.PointShape
 import com.vktrsansara.app.caveviewer.domain.model.SearchFieldItem
@@ -233,6 +234,7 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
             try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN crs TEXT NOT NULL DEFAULT 'Simple'") } catch (_: Exception) {}
             try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN points_search_config TEXT NOT NULL DEFAULT '{}'") } catch (_: Exception) {}
             try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN lines_search_config TEXT NOT NULL DEFAULT '{}'") } catch (_: Exception) {}
+            try { db.execSQL("ALTER TABLE map_metadata ADD COLUMN navigation_config TEXT NOT NULL DEFAULT '{}'") } catch (_: Exception) {}
             try { db.execSQL("ALTER TABLE line_layers ADD COLUMN default_halo_width REAL NOT NULL DEFAULT 4.0") } catch (_: Exception) {}
         }
     }
@@ -299,6 +301,32 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
         }
     }
 
+    private fun serializeNavigationConfig(config: NavigationConfig): String {
+        return try {
+            val json = JSONObject()
+            json.put("isEnabled", config.isEnabled)
+            json.put("accuracyQuality", config.accuracyQuality.toDouble())
+            json.put("isAlternativeRouteEnabled", config.isAlternativeRouteEnabled)
+            json.toString()
+        } catch (_: Exception) {
+            "{}"
+        }
+    }
+
+    private fun deserializeNavigationConfig(jsonStr: String?): NavigationConfig {
+        if (jsonStr.isNullOrBlank() || jsonStr == "{}") return NavigationConfig()
+        return try {
+            val json = JSONObject(jsonStr)
+            NavigationConfig(
+                isEnabled = json.optBoolean("isEnabled", false),
+                accuracyQuality = json.optDouble("accuracyQuality", 1.5).toFloat(),
+                isAlternativeRouteEnabled = json.optBoolean("isAlternativeRouteEnabled", false)
+            )
+        } catch (_: Exception) {
+            NavigationConfig()
+        }
+    }
+
     fun updateScaleBinding(pixelsPerMeter: Double, scaleMeters: Double): MapMetadata? {
         val current = getMetadata() ?: return null
         val updated = current.copy(
@@ -338,6 +366,7 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
                 put("created_at", metadata.createdAt)
                 put("points_search_config", serializeSearchConfig(metadata.pointsSearchConfig))
                 put("lines_search_config", serializeSearchConfig(metadata.linesSearchConfig))
+                put("navigation_config", serializeNavigationConfig(metadata.navigationConfig))
             }
             db.insertWithOnConflict("map_metadata", null, values, SQLiteDatabase.CONFLICT_REPLACE)
         }
@@ -348,15 +377,17 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
         return try {
             withDatabase { db ->
                 val cursor = db.rawQuery(
-                    "SELECT id, project_name, image_width, image_height, tile_size, zoom_min, zoom_max, zoom_default, pixels_per_meter, scale_meters, angle_north, crs, created_at, points_search_config, lines_search_config FROM map_metadata ORDER BY id DESC LIMIT 1",
+                    "SELECT id, project_name, image_width, image_height, tile_size, zoom_min, zoom_max, zoom_default, pixels_per_meter, scale_meters, angle_north, crs, created_at, points_search_config, lines_search_config, navigation_config FROM map_metadata ORDER BY id DESC LIMIT 1",
                     null
                 )
                 cursor.use { c ->
                     if (c.moveToFirst()) {
                         val pointsSearchIdx = c.getColumnIndex("points_search_config")
                         val linesSearchIdx = c.getColumnIndex("lines_search_config")
+                        val navConfigIdx = c.getColumnIndex("navigation_config")
                         val pointsConfig = if (pointsSearchIdx >= 0) deserializeSearchConfig(c.getString(pointsSearchIdx)) else LayerSearchConfig()
                         val linesConfig = if (linesSearchIdx >= 0) deserializeSearchConfig(c.getString(linesSearchIdx)) else LayerSearchConfig()
+                        val navConfig = if (navConfigIdx >= 0) deserializeNavigationConfig(c.getString(navConfigIdx)) else NavigationConfig()
                         MapMetadata(
                             id = c.getLong(0),
                             projectName = c.getString(1),
@@ -372,7 +403,8 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
                             crs = c.getString(11) ?: "Simple",
                             createdAt = c.getLong(12),
                             pointsSearchConfig = pointsConfig,
-                            linesSearchConfig = linesConfig
+                            linesSearchConfig = linesConfig,
+                            navigationConfig = navConfig
                         )
                     } else {
                         null
