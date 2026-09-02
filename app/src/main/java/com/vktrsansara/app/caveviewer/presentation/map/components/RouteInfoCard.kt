@@ -31,7 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vktrsansara.app.caveviewer.domain.model.CaveRoute
@@ -58,7 +62,7 @@ fun RouteInfoCard(
             .clip(RoundedCornerShape(8.dp))
             .background(AppColors.bgCard)
             .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .padding(horizontal = 12.dp, vertical = 9.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -66,7 +70,10 @@ fun RouteInfoCard(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             // Левая информационная часть
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
                 when {
                     isCalculating -> {
                         Row(
@@ -79,9 +86,11 @@ fun RouteInfoCard(
                                 strokeWidth = 2.dp
                             )
                             Text(
-                                text = "Поиск оптимального маршрута A*...",
-                                fontSize = 13.sp,
-                                color = AppColors.textPrimary
+                                text = "Поиск оптимального маршрута...",
+                                fontSize = 12.5.sp,
+                                color = AppColors.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -98,58 +107,52 @@ fun RouteInfoCard(
                             )
                             Text(
                                 text = errorMessage,
-                                fontSize = 12.5.sp,
+                                fontSize = 12.sp,
                                 color = Color(0xFFEF4444),
                                 lineHeight = 16.sp
                             )
                         }
                     }
                     primaryRoute != null -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Длина маршрута: ",
-                                fontSize = 13.sp,
-                                color = AppColors.textSecondary
-                            )
-                            Text(
-                                text = "${primaryRoute.lengthMeters} м",
-                                fontSize = 13.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF06B6D4)
-                            )
-                            Text(
-                                text = " • Сложность: ",
-                                fontSize = 13.sp,
-                                color = AppColors.textSecondary
-                            )
-                            Text(
-                                text = "${primaryRoute.averageDifficulty}",
-                                fontSize = 13.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AppColors.textPrimary
-                            )
-                        }
+                        Text(
+                            text = buildAnnotatedString {
+                                withStyle(SpanStyle(color = AppColors.textSecondary, fontSize = 12.5.sp, fontWeight = FontWeight.Normal)) {
+                                    append(if (alternativeRoute != null) "Основной: " else "Маршрут: ")
+                                }
+                                withStyle(SpanStyle(color = Color(0xFF06B6D4), fontSize = 13.sp, fontWeight = FontWeight.Bold)) {
+                                    append("${primaryRoute.lengthMeters} м")
+                                }
+                                withStyle(SpanStyle(color = AppColors.textSecondary, fontSize = 12.5.sp, fontWeight = FontWeight.Normal)) {
+                                    append(" • Сложность: ")
+                                }
+                                withStyle(SpanStyle(color = AppColors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)) {
+                                    append("${primaryRoute.averageDifficulty}")
+                                }
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
 
                         if (alternativeRoute != null) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Альтернативный: ",
-                                    fontSize = 11.5.sp,
-                                    color = AppColors.textSecondary
-                                )
-                                Text(
-                                    text = "${alternativeRoute.lengthMeters} м",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFFF59E0B)
-                                )
-                                Text(
-                                    text = " • Сложность: ${alternativeRoute.averageDifficulty}",
-                                    fontSize = 11.5.sp,
-                                    color = AppColors.textSecondary
-                                )
-                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = buildAnnotatedString {
+                                    withStyle(SpanStyle(color = AppColors.textSecondary, fontSize = 11.5.sp, fontWeight = FontWeight.Normal)) {
+                                        append("Альтернативный: ")
+                                    }
+                                    withStyle(SpanStyle(color = Color(0xFFF59E0B), fontSize = 12.sp, fontWeight = FontWeight.Bold)) {
+                                        append("${alternativeRoute.lengthMeters} м")
+                                    }
+                                    withStyle(SpanStyle(color = AppColors.textSecondary, fontSize = 11.5.sp, fontWeight = FontWeight.Normal)) {
+                                        append(" • Сложность: ")
+                                    }
+                                    withStyle(SpanStyle(color = AppColors.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)) {
+                                        append("${alternativeRoute.averageDifficulty}")
+                                    }
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                     startPoint != null && endPoint == null -> {
@@ -159,12 +162,14 @@ fun RouteInfoCard(
                         ) {
                             Text(
                                 text = "🟢",
-                                fontSize = 14.sp
+                                fontSize = 13.sp
                             )
                             Text(
                                 text = "Точка А выбрана • Выберите точку Б (Финиш)",
                                 fontSize = 12.5.sp,
-                                color = AppColors.textPrimary
+                                color = AppColors.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -180,16 +185,18 @@ fun RouteInfoCard(
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = "Нажмите на карте для выбора точки А (Старт)",
+                                text = "Нажмите на карту для выбора точки А (Старт)",
                                 fontSize = 12.5.sp,
-                                color = AppColors.textPrimary
+                                color = AppColors.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
             // Правые кнопки управления: [↩️ Сбросить] и [✕ Выход]
             Row(
