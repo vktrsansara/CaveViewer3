@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.RectF
 import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
@@ -132,9 +133,6 @@ object LegacyCaveViewerImporter {
 
             val rawWidth = charObj?.optInt("width", 0) ?: 0
             val rawHeight = charObj?.optInt("height", 0) ?: 0
-            val zoomMin = charObj?.optInt("zoom_min", 2) ?: 2
-            val zoomMax = charObj?.optInt("zoom_max", 6) ?: 6
-            val zoomDef = charObj?.optInt("zoom_default", 4) ?: 4
             val ppm = charObj?.optDouble("pixels_per_meter", 0.0) ?: 0.0
             val scale = charObj?.optDouble("scale", 10.0) ?: 10.0
             val angleNorth = charObj?.optDouble("angle_north", 0.0) ?: 0.0
@@ -147,57 +145,52 @@ object LegacyCaveViewerImporter {
 
             var width = rawWidth
             var height = rawHeight
-            var finalZoomMin = zoomMin
-            var finalZoomMax = zoomMax
 
-            if (tilesSrcDir != null && tilesSrcDir.exists()) {
+            if (tilesSrcDir != null && tilesSrcDir.exists() && (width <= 0 || height <= 0)) {
                 val zoomDirs = tilesSrcDir.listFiles { f -> f.isDirectory }
                     ?.mapNotNull { it.name.toIntOrNull() }
                     ?: emptyList()
                 if (zoomDirs.isNotEmpty()) {
-                    if (finalZoomMin <= 0) finalZoomMin = zoomDirs.minOrNull() ?: 2
-                    if (finalZoomMax <= 0) finalZoomMax = zoomDirs.maxOrNull() ?: 6
-                    if (width <= 0 || height <= 0) {
-                        val maxZ = zoomDirs.maxOrNull() ?: finalZoomMax
-                        val maxZoomDir = File(tilesSrcDir, maxZ.toString())
-                        var maxCol = 0
-                        var maxRow = 0
-                        maxZoomDir.listFiles()?.forEach { item ->
-                            if (item.isDirectory) {
-                                val col = item.name.toIntOrNull() ?: return@forEach
-                                item.listFiles { f -> f.isFile }?.forEach { f ->
-                                    val row = f.nameWithoutExtension.toIntOrNull() ?: return@forEach
-                                    if (col > maxCol) maxCol = col
-                                    if (row > maxRow) maxRow = row
-                                }
-                            } else if (item.isFile) {
-                                val parts = item.nameWithoutExtension.split("_", "-")
-                                if (parts.size == 2) {
-                                    val col = parts[0].toIntOrNull() ?: return@forEach
-                                    val row = parts[1].toIntOrNull() ?: return@forEach
-                                    if (col > maxCol) maxCol = col
-                                    if (row > maxRow) maxRow = row
-                                }
+                    val maxZ = zoomDirs.maxOrNull() ?: 6
+                    val maxZoomDir = File(tilesSrcDir, maxZ.toString())
+                    var maxCol = 0
+                    var maxRow = 0
+                    maxZoomDir.listFiles()?.forEach { item ->
+                        if (item.isDirectory) {
+                            val col = item.name.toIntOrNull() ?: return@forEach
+                            item.listFiles { f -> f.isFile }?.forEach { f ->
+                                val row = f.nameWithoutExtension.toIntOrNull() ?: return@forEach
+                                if (col > maxCol) maxCol = col
+                                if (row > maxRow) maxRow = row
+                            }
+                        } else if (item.isFile) {
+                            val parts = item.nameWithoutExtension.split("_", "-")
+                            if (parts.size == 2) {
+                                val col = parts[0].toIntOrNull() ?: return@forEach
+                                val row = parts[1].toIntOrNull() ?: return@forEach
+                                if (col > maxCol) maxCol = col
+                                if (row > maxRow) maxRow = row
                             }
                         }
-                        if (width <= 0) width = (maxCol + 1) * CaveMapBounds.TILE_SIZE
-                        if (height <= 0) height = (maxRow + 1) * CaveMapBounds.TILE_SIZE
                     }
+                    if (width <= 0) width = (maxCol + 1) * CaveMapBounds.TILE_SIZE
+                    if (height <= 0) height = (maxRow + 1) * CaveMapBounds.TILE_SIZE
                 }
             }
 
-            val finalZoomDef = zoomDef.coerceIn(finalZoomMin, finalZoomMax)
+            // Рассчитываем уровни зума исходя из разрешения карты (единый стандарт CaveViewer3)
+            val (zoomMin, zoomMax, zoomDefault) = TileCutter.calculateZoomLevels(width, height)
 
-            // Сохраняем оригинальные метаданные проекта в SQLite БЕЗ даунсемплинга и искажения зумов
+            // Сохраняем оригинальные размеры и стандартизированные зумы CaveViewer3 в SQLite
             db.saveMetadata(
                 MapMetadata(
                     projectName = targetDir.name,
                     imageWidth = width,
                     imageHeight = height,
                     tileSize = CaveMapBounds.TILE_SIZE,
-                    zoomMin = finalZoomMin,
-                    zoomMax = finalZoomMax,
-                    zoomDefault = finalZoomDef,
+                    zoomMin = zoomMin,
+                    zoomMax = zoomMax,
+                    zoomDefault = zoomDefault,
                     pixelsPerMeter = ppm,
                     scaleMeters = scale,
                     angleNorth = angleNorth,
@@ -323,8 +316,8 @@ object LegacyCaveViewerImporter {
                     dstDir = tilesDstDir,
                     width = width,
                     height = height,
-                    zoomMin = finalZoomMin,
-                    zoomMax = finalZoomMax,
+                    zoomMin = zoomMin,
+                    zoomMax = zoomMax,
                     onProgress = { p, text ->
                         onProgress(0.75f + p * 0.23f, text)
                     }
@@ -385,11 +378,20 @@ object LegacyCaveViewerImporter {
             isAntiAlias = true
         }
 
+        val oldZoomDirs = srcDir.listFiles { f -> f.isDirectory }
+            ?.mapNotNull { it.name.toIntOrNull() }
+            ?.sorted() ?: emptyList()
+
+        val oldMaxZoom = oldZoomDirs.maxOrNull() ?: zoomMax
+        val oldMinZoom = oldZoomDirs.minOrNull() ?: 2
+        val zoomShift = zoomMax - oldMaxZoom
+
         val totalZooms = (zoomMax - zoomMin + 1).coerceAtLeast(1)
 
-        for ((zoomIdx, z) in (zoomMin..zoomMax).withIndex()) {
-            val srcZoomDir = File(srcDir, z.toString())
-            if (!srcZoomDir.exists()) continue
+        for ((zoomIdx, z) in (zoomMax downTo zoomMin).withIndex()) {
+            val z_old = z - zoomShift
+            val srcZoomDir = if (z_old >= oldMinZoom) File(srcDir, z_old.toString()) else null
+            val hasOldTiles = srcZoomDir != null && srcZoomDir.exists()
 
             onProgress(
                 zoomIdx.toFloat() / totalZooms,
@@ -405,37 +407,87 @@ object LegacyCaveViewerImporter {
             val minTileY = floor(imageTopPx / tileSize).toInt()
             val maxTileX = floor((imageLeftPx + scaledW - 0.001) / tileSize).toInt()
             val maxTileY = floor((imageTopPx + scaledH - 0.001) / tileSize).toInt()
-            val maxOldCol = floor((scaledW - 0.001) / tileSize).toInt()
-            val maxOldRow = floor((scaledH - 0.001) / tileSize).toInt()
 
-            for (tx in minTileX..maxTileX) {
-                val targetColDir = File(dstDir, "$z/$tx").apply { mkdirs() }
-                val tileWorldLeft = tx * tileSize
-                for (ty in minTileY..maxTileY) {
-                    val tileWorldTop = ty * tileSize
-                    val srcX0 = tileWorldLeft - imageLeftPx
-                    val srcY0 = tileWorldTop - imageTopPx
-                    val srcX1 = srcX0 + tileSize
-                    val srcY1 = srcY0 + tileSize
-                    val oldColMin = maxOf(0, floor(srcX0 / tileSize).toInt())
-                    val oldColMax = minOf(maxOldCol, floor((srcX1 - 0.001) / tileSize).toInt())
-                    val oldRowMin = maxOf(0, floor(srcY0 / tileSize).toInt())
-                    val oldRowMax = minOf(maxOldRow, floor((srcY1 - 0.001) / tileSize).toInt())
+            if (hasOldTiles) {
+                // Прямой субпиксельный перенос исходных тайлов на сетку Web Mercator
+                val maxOldCol = floor((scaledW - 0.001) / tileSize).toInt()
+                val maxOldRow = floor((scaledH - 0.001) / tileSize).toInt()
 
-                    if (oldColMin > oldColMax || oldRowMin > oldRowMax) {
-                        continue
+                for (tx in minTileX..maxTileX) {
+                    val targetColDir = File(dstDir, "$z/$tx").apply { mkdirs() }
+                    val tileWorldLeft = tx * tileSize
+                    for (ty in minTileY..maxTileY) {
+                        val tileWorldTop = ty * tileSize
+                        val srcX0 = tileWorldLeft - imageLeftPx
+                        val srcY0 = tileWorldTop - imageTopPx
+                        val srcX1 = srcX0 + tileSize
+                        val srcY1 = srcY0 + tileSize
+                        val oldColMin = maxOf(0, floor(srcX0 / tileSize).toInt())
+                        val oldColMax = minOf(maxOldCol, floor((srcX1 - 0.001) / tileSize).toInt())
+                        val oldRowMin = maxOf(0, floor(srcY0 / tileSize).toInt())
+                        val oldRowMax = minOf(maxOldRow, floor((srcY1 - 0.001) / tileSize).toInt())
+
+                        if (oldColMin > oldColMax || oldRowMin > oldRowMax) {
+                            continue
+                        }
+
+                        var targetBitmap: Bitmap? = null
+                        var canvas: Canvas? = null
+                        var hasDrawn = false
+
+                        for (c in oldColMin..oldColMax) {
+                            for (r in oldRowMin..oldRowMax) {
+                                val oldTileFile = findOldTileFile(srcZoomDir!!, c, r)
+                                if (oldTileFile != null) {
+                                    val oldBmp = BitmapFactory.decodeFile(oldTileFile.absolutePath)
+                                    if (oldBmp != null) {
+                                        if (targetBitmap == null) {
+                                            targetBitmap = Bitmap.createBitmap(
+                                                CaveMapBounds.TILE_SIZE,
+                                                CaveMapBounds.TILE_SIZE,
+                                                Bitmap.Config.ARGB_8888
+                                            )
+                                            canvas = Canvas(targetBitmap)
+                                        }
+                                        val drawX = (c * tileSize + imageLeftPx - tileWorldLeft).toFloat()
+                                        val drawY = (r * tileSize + imageTopPx - tileWorldTop).toFloat()
+                                        canvas!!.drawBitmap(oldBmp, drawX, drawY, paint)
+                                        oldBmp.recycle()
+                                        hasDrawn = true
+                                    }
+                                }
+                            }
+                        }
+
+                        if (targetBitmap != null && hasDrawn) {
+                            val outTileFile = File(targetColDir, "$ty.png")
+                            FileOutputStream(outTileFile).use { out ->
+                                targetBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            targetBitmap.recycle()
+                        }
                     }
+                }
+            } else {
+                // Понижающая прогрессивная перенарезка (downsampling) из тайлов уровня (z + 1)
+                for (tx in minTileX..maxTileX) {
+                    val targetColDir = File(dstDir, "$z/$tx").apply { mkdirs() }
+                    for (ty in minTileY..maxTileY) {
+                        val children = listOf(
+                            Pair(File(dstDir, "${z + 1}/${2 * tx}/${2 * ty}.png"), RectF(0f, 0f, 128f, 128f)),
+                            Pair(File(dstDir, "${z + 1}/${2 * tx + 1}/${2 * ty}.png"), RectF(128f, 0f, 256f, 128f)),
+                            Pair(File(dstDir, "${z + 1}/${2 * tx}/${2 * ty + 1}.png"), RectF(0f, 128f, 128f, 256f)),
+                            Pair(File(dstDir, "${z + 1}/${2 * tx + 1}/${2 * ty + 1}.png"), RectF(128f, 128f, 256f, 256f))
+                        )
 
-                    var targetBitmap: Bitmap? = null
-                    var canvas: Canvas? = null
-                    var hasDrawn = false
+                        var targetBitmap: Bitmap? = null
+                        var canvas: Canvas? = null
+                        var hasDrawn = false
 
-                    for (c in oldColMin..oldColMax) {
-                        for (r in oldRowMin..oldRowMax) {
-                            val oldTileFile = findOldTileFile(srcZoomDir, c, r)
-                            if (oldTileFile != null) {
-                                val oldBmp = BitmapFactory.decodeFile(oldTileFile.absolutePath)
-                                if (oldBmp != null) {
+                        for ((childFile, dstRect) in children) {
+                            if (childFile.exists()) {
+                                val childBmp = BitmapFactory.decodeFile(childFile.absolutePath)
+                                if (childBmp != null) {
                                     if (targetBitmap == null) {
                                         targetBitmap = Bitmap.createBitmap(
                                             CaveMapBounds.TILE_SIZE,
@@ -444,22 +496,20 @@ object LegacyCaveViewerImporter {
                                         )
                                         canvas = Canvas(targetBitmap)
                                     }
-                                    val drawX = (c * tileSize + imageLeftPx - tileWorldLeft).toFloat()
-                                    val drawY = (r * tileSize + imageTopPx - tileWorldTop).toFloat()
-                                    canvas!!.drawBitmap(oldBmp, drawX, drawY, paint)
-                                    oldBmp.recycle()
+                                    canvas!!.drawBitmap(childBmp, null, dstRect, paint)
+                                    childBmp.recycle()
                                     hasDrawn = true
                                 }
                             }
                         }
-                    }
 
-                    if (targetBitmap != null && hasDrawn) {
-                        val outTileFile = File(targetColDir, "$ty.png")
-                        FileOutputStream(outTileFile).use { out ->
-                            targetBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        if (targetBitmap != null && hasDrawn) {
+                            val outTileFile = File(targetColDir, "$ty.png")
+                            FileOutputStream(outTileFile).use { out ->
+                                targetBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            targetBitmap.recycle()
                         }
-                        targetBitmap.recycle()
                     }
                 }
             }
