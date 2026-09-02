@@ -14,6 +14,7 @@ import com.vktrsansara.app.caveviewer.domain.model.LineStyle
 import com.vktrsansara.app.caveviewer.domain.model.LayerSearchConfig
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.NavAlgorithm
 import com.vktrsansara.app.caveviewer.domain.model.NavigationConfig
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.PointShape
@@ -305,7 +306,8 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
         return try {
             val json = JSONObject()
             json.put("isEnabled", config.isEnabled)
-            json.put("accuracyQuality", config.accuracyQuality.toDouble())
+            json.put("algorithm", config.algorithm.name)
+            json.put("quality", config.quality.toDouble())
             json.put("isAlternativeRouteEnabled", config.isAlternativeRouteEnabled)
             json.toString()
         } catch (_: Exception) {
@@ -317,9 +319,21 @@ class ProjectDatabase(private val dbFile: File) : AutoCloseable {
         if (jsonStr.isNullOrBlank() || jsonStr == "{}") return NavigationConfig()
         return try {
             val json = JSONObject(jsonStr)
+            val algoStr = json.optString("algorithm", "ASTAR")
+            val algo = try {
+                NavAlgorithm.valueOf(algoStr)
+            } catch (_: Exception) {
+                NavAlgorithm.ASTAR
+            }
+            val qualityVal = if (json.has("quality")) {
+                json.optDouble("quality", 1.5).toFloat()
+            } else {
+                json.optDouble("accuracyQuality", 1.5).toFloat()
+            }
             NavigationConfig(
                 isEnabled = json.optBoolean("isEnabled", false),
-                accuracyQuality = json.optDouble("accuracyQuality", 1.5).toFloat(),
+                algorithm = algo,
+                quality = qualityVal,
                 isAlternativeRouteEnabled = json.optBoolean("isAlternativeRouteEnabled", false)
             )
         } catch (_: Exception) {

@@ -1,13 +1,20 @@
 package com.vktrsansara.app.caveviewer.domain.model
 
-/**
- * Settings configuration for cave passages route finder (A*).
- */
+enum class NavAlgorithm(val title: String) {
+    ASTAR("A* (По умолчанию)"),
+    BIDIRECTIONAL_ASTAR("Bidirectional A*"),
+    YEN("Алгоритм Йена"),
+    DIJKSTRA("Dijkstra (Волновой обход)")
+}
+
 data class NavigationConfig(
     val isEnabled: Boolean = false,
-    val accuracyQuality: Float = 1.5f, // 1.0f (Быстро / кратчайший путь) .. 2.0f (Точно / учет сложности)
+    val algorithm: NavAlgorithm = NavAlgorithm.ASTAR,
+    val quality: Float = 1.5f,                           // Точность (1.0..2.0)
     val isAlternativeRouteEnabled: Boolean = false
-)
+) {
+    val accuracyQuality: Float get() = quality
+}
 
 /**
  * Represents a computed route along the cave passages graph.

@@ -2578,7 +2578,8 @@ class MainViewModel(
                             startPx = startPt,
                             endPx = endPt,
                             pixelsPerMeter = ppm,
-                            quality = navConfig.accuracyQuality,
+                            algorithm = navConfig.algorithm,
+                            quality = navConfig.quality,
                             isAlternativeEnabled = navConfig.isAlternativeRouteEnabled
                         )
 

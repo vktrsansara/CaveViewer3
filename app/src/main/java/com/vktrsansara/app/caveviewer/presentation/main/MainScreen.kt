@@ -1885,6 +1885,24 @@ fun MainScreenContent(
                     )
                 }
             }
+
+            // Route Info Card (during active navigation mode)
+            if (uiState.isNavigationModeActive) {
+                RouteInfoCard(
+                    startPoint = uiState.navigationStartPoint,
+                    endPoint = uiState.navigationEndPoint,
+                    primaryRoute = uiState.navigationPrimaryRoute,
+                    alternativeRoute = uiState.navigationAlternativeRoute,
+                    isCalculating = uiState.isCalculatingRoute,
+                    errorMessage = uiState.navigationErrorMessage,
+                    onResetClick = { onIntent(MainUiIntent.ResetNavigationPoints) },
+                    onCloseClick = { onIntent(MainUiIntent.ToggleNavigationMode(false)) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 75.dp)
+                )
+            }
         } else {
             NoProjectPlaceholder()
         }
@@ -1962,21 +1980,6 @@ fun MainScreenContent(
                     uiState.editingLineLayer == null &&
                     !isAnyToolActive &&
                     !isCalibrationMode
-
-            // Route Info Card (during active navigation mode)
-            if (uiState.isNavigationModeActive) {
-                RouteInfoCard(
-                    startPoint = uiState.navigationStartPoint,
-                    endPoint = uiState.navigationEndPoint,
-                    primaryRoute = uiState.navigationPrimaryRoute,
-                    alternativeRoute = uiState.navigationAlternativeRoute,
-                    isCalculating = uiState.isCalculatingRoute,
-                    errorMessage = uiState.navigationErrorMessage,
-                    onResetClick = { onIntent(MainUiIntent.ResetNavigationPoints) },
-                    onCloseClick = { onIntent(MainUiIntent.ToggleNavigationMode(false)) },
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
 
             // Floating bottom bar
             FloatingBottomBar(

@@ -63,6 +63,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -83,6 +84,7 @@ import com.vktrsansara.app.caveviewer.domain.model.LayerSearchConfig
 import com.vktrsansara.app.caveviewer.domain.model.LineLayer
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
+import com.vktrsansara.app.caveviewer.domain.model.NavAlgorithm
 import com.vktrsansara.app.caveviewer.domain.model.NavigationConfig
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.SearchFieldItem
@@ -937,8 +939,7 @@ private fun LayersTabContent(
         } else {
             if (hasPointLayers) {
                 LayerSearchConfigCard(
-                    blockTitle = "Слой точек",
-                    checkboxTitle = "Поиск по точкам",
+                    title = "Слой точек",
                     defaultFieldTitle = "Название точки",
                     availableFields = availablePointFields,
                     config = pointsConfig,
@@ -948,8 +949,7 @@ private fun LayersTabContent(
 
             if (hasLineLayers) {
                 LayerSearchConfigCard(
-                    blockTitle = "Слой линий",
-                    checkboxTitle = "Поиск по линиям",
+                    title = "Слой линий",
                     defaultFieldTitle = "Название линии",
                     availableFields = availableLineFields,
                     config = linesConfig,
@@ -969,8 +969,7 @@ private fun LayersTabContent(
 
 @Composable
 private fun LayerSearchConfigCard(
-    blockTitle: String,
-    checkboxTitle: String,
+    title: String,
     defaultFieldTitle: String,
     availableFields: List<LayerFieldDefinition>,
     config: LayerSearchConfig,
@@ -1029,19 +1028,12 @@ private fun LayerSearchConfigCard(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                Column {
-                    Text(
-                        text = checkboxTitle,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isSearchEnabled) AppColors.textPrimary else AppColors.textSecondary.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = blockTitle,
-                        fontSize = 11.5.sp,
-                        color = if (isSearchEnabled) AppColors.textSecondary else AppColors.textSecondary.copy(alpha = 0.5f)
-                    )
-                }
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isSearchEnabled) AppColors.textPrimary else AppColors.textSecondary.copy(alpha = 0.6f)
+                )
             }
 
             Box(
@@ -1487,6 +1479,7 @@ private fun NavigationConfigCard(
 ) {
     var isExpanded by rememberSaveable { mutableStateOf(false) }
     var isHelpDialogOpen by remember { mutableStateOf(false) }
+    var isAlgorithmDropdownOpen by remember { mutableStateOf(false) }
 
     val isNavEnabled = config.isEnabled
 
@@ -1532,19 +1525,12 @@ private fun NavigationConfigCard(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                Column {
-                    Text(
-                        text = "Навигация по ходам",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isNavEnabled) AppColors.textPrimary else AppColors.textSecondary.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        text = "Построение маршрутов A*",
-                        fontSize = 11.5.sp,
-                        color = if (isNavEnabled) AccentSkyBlue else AppColors.textSecondary.copy(alpha = 0.5f)
-                    )
-                }
+                Text(
+                    text = "Навигация по ходам",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isNavEnabled) AppColors.textPrimary else AppColors.textSecondary.copy(alpha = 0.7f)
+                )
             }
 
             Row(
@@ -1615,72 +1601,148 @@ private fun NavigationConfigCard(
                 HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 1. Слайдер «Точность построения маршрута»
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Точность построения маршрута:",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AppColors.textPrimary
-                    )
-                    Text(
-                        text = String.format(Locale.US, "%.1f", config.accuracyQuality),
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AccentSkyBlue
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Быстро (1.0)",
-                        fontSize = 11.sp,
-                        color = AppColors.textSecondary
-                    )
-                    Text(
-                        text = "Точно (2.0)",
-                        fontSize = 11.sp,
-                        color = AppColors.textSecondary
-                    )
-                }
-
-                Slider(
-                    value = config.accuracyQuality,
-                    onValueChange = { newVal ->
-                        val rounded = (newVal * 10f).roundToInt() / 10f
-                        onConfigChange(config.copy(accuracyQuality = rounded))
-                    },
-                    valueRange = 1.0f..2.0f,
-                    steps = 9,
-                    colors = SliderDefaults.colors(
-                        thumbColor = AccentSkyBlue,
-                        activeTrackColor = AccentSkyBlue,
-                        inactiveTrackColor = AppColors.borderColor
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
+                // 1. Выбор алгоритма маршрутизации
                 Text(
-                    text = "При значении 1.0 выбирается кратчайший физический путь. При 2.0 сильно штрафуются узости и сложные участки, отдавая приоритет просторным ходам.",
-                    fontSize = 11.5.sp,
-                    color = AppColors.textSecondary,
-                    lineHeight = 16.sp
+                    text = "Алгоритм маршрутизации:",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.textPrimary
                 )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.bgSurface)
+                            .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(6.dp))
+                            .clickable { isAlgorithmDropdownOpen = true }
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = config.algorithm.title,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = AccentSkyBlue
+                            )
+                            Icon(
+                                imageVector = Icons.Rounded.ArrowDropDown,
+                                contentDescription = "Выбор алгоритма",
+                                tint = AccentSkyBlue
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = isAlgorithmDropdownOpen,
+                        onDismissRequest = { isAlgorithmDropdownOpen = false },
+                        modifier = Modifier
+                            .background(AppColors.bgSurface)
+                            .border(width = 1.dp, color = AppColors.borderColor, shape = RoundedCornerShape(8.dp))
+                    ) {
+                        NavAlgorithm.entries.forEach { algo ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = algo.title,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (config.algorithm == algo) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (config.algorithm == algo) AccentSkyBlue else AppColors.textPrimary
+                                    )
+                                },
+                                onClick = {
+                                    onConfigChange(config.copy(algorithm = algo))
+                                    isAlgorithmDropdownOpen = false
+                                }
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(14.dp))
                 HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 2. Слайдер «Точность построения маршрута» (1.0 .. 2.0)
+                val isDijkstra = config.algorithm == NavAlgorithm.DIJKSTRA
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .alpha(if (isDijkstra) 0.35f else 1.0f)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Точность построения маршрута:",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppColors.textPrimary
+                        )
+                        Text(
+                            text = if (isDijkstra) "—" else String.format(Locale.US, "%.1f", config.quality),
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDijkstra) AppColors.textSecondary else AccentSkyBlue
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Быстро (1.0)",
+                            fontSize = 11.sp,
+                            color = AppColors.textSecondary
+                        )
+                        Text(
+                            text = "Точно (2.0)",
+                            fontSize = 11.sp,
+                            color = AppColors.textSecondary
+                        )
+                    }
+
+                    Slider(
+                        value = config.quality,
+                        onValueChange = { newVal ->
+                            val rounded = (newVal * 10f).roundToInt() / 10f
+                            onConfigChange(config.copy(quality = rounded))
+                        },
+                        enabled = !isDijkstra,
+                        valueRange = 1.0f..2.0f,
+                        steps = 9,
+                        colors = SliderDefaults.colors(
+                            thumbColor = AccentSkyBlue,
+                            activeTrackColor = AccentSkyBlue,
+                            inactiveTrackColor = AppColors.borderColor,
+                            disabledThumbColor = AppColors.borderColor,
+                            disabledActiveTrackColor = AppColors.borderColor,
+                            disabledInactiveTrackColor = AppColors.borderColor.copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor.copy(alpha = 0.5f))
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 2. Чекбокс «Альтернативный маршрут»
+                // 3. Чекбокс «Альтернативный маршрут»
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -1705,19 +1767,12 @@ private fun NavigationConfigCard(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    Column {
-                        Text(
-                            text = "Альтернативный маршрут",
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AppColors.textPrimary
-                        )
-                        Text(
-                            text = "Рассчитывает второй вариант пути в разветвленных лабиринтах",
-                            fontSize = 11.5.sp,
-                            color = AppColors.textSecondary
-                        )
-                    }
+                    Text(
+                        text = "Альтернативный маршрут",
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AppColors.textPrimary
+                    )
                 }
             }
         }
@@ -1739,7 +1794,7 @@ private fun NavigationHelpDialog(onDismiss: () -> Unit) {
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Предупреждающая плашка
+            // Верхний предупреждающий баннер
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1766,19 +1821,57 @@ private fun NavigationHelpDialog(onDismiss: () -> Unit) {
                 }
             }
 
-            HelpItem(
-                title = "Построение графа ходов",
-                description = "Навигатор объединяет векторные линии ходов пещеры в единый топологический граф. Учитываются физическая длина отрезков в метрах и коэффициент их сложности (0.1..8.0)."
+            // Раздел «Алгоритмы навигации»
+            Text(
+                text = "Алгоритмы навигации",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentSkyBlue
             )
 
             HelpItem(
-                title = "Алгоритм A* и точность",
-                description = "Маршрут строится с помощью алгоритма A* с весовой формулой: вес = длина × сложность^точность. При значении 1.0 строится кратчайший путь, а при 2.0 система избегает узостей, завалов и трудных участков."
+                title = "A* (По умолчанию)",
+                description = "Классический эвристический поиск пути по графу ходов с балансом длины и сложности."
             )
 
             HelpItem(
-                title = "Альтернативный маршрут",
-                description = "При включенной опции система рассчитывает второй путь через параллельные галереи и обходные кольцовки лабиринта."
+                title = "Bidirectional A*",
+                description = "Одновременный встречный поиск от старта и финиша. Работает в 2–4 раза быстрее на больших запутанных лабиринтах."
+            )
+
+            HelpItem(
+                title = "Алгоритм Йена",
+                description = "Рассчитывает несколько независимых путей. Идеален для построения альтернативного маршрута в обход завалов и препятствий."
+            )
+
+            HelpItem(
+                title = "Dijkstra (Волновой обход)",
+                description = "Равномерный волновой поиск во всех направлениях без эвристического смещения. Находит гарантированно кратчайший физический путь."
+            )
+
+            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor.copy(alpha = 0.5f))
+
+            // Раздел «Точность построения маршрута (1.0 .. 2.0)»
+            Text(
+                text = "Точность построения маршрута (1.0 .. 2.0)",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentSkyBlue
+            )
+
+            HelpItem(
+                title = "1.0 (Быстро / Кратчайший)",
+                description = "Ищет кратчайший физический путь без оглядки на узости и сложность."
+            )
+
+            HelpItem(
+                title = "2.0 (Точно / Легко)",
+                description = "Сильно штрафует сложные ходы (value 2.0), направляя маршрут по просторным галереям в полный рост."
+            )
+
+            HelpItem(
+                title = "1.5 (Сбалансированный)",
+                description = "Оптимальное соотношение расстояния и проходимости."
             )
         }
     }
