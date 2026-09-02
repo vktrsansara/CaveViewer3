@@ -22,7 +22,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -65,8 +67,8 @@ fun RadiusMeasureOverlay(
         MeasureUtils.calculateCircleMetrics(liveRadiusPx, ppm)
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().clipToBounds()) {
+        Canvas(modifier = Modifier.fillMaxSize().clipToBounds()) {
             val centerScreen = Offset(size.width / 2f, size.height / 2f)
             if (centerPoint != null && centerScreenPoint != null) {
                 if (isActive) {
@@ -125,6 +127,7 @@ fun RadiusMeasureOverlay(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
+                    .zIndex(10f)
                     .padding(top = 16.dp, start = 20.dp, end = 20.dp)
                     .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
                     .clip(RoundedCornerShape(8.dp))

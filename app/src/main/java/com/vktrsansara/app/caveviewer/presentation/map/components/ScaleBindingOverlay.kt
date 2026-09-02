@@ -12,7 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -49,9 +51,9 @@ fun ScaleBindingOverlay(
     }
     val distanceText = String.format(Locale.US, "%.4f", distancePx)
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().clipToBounds()) {
         // Canvas rendering markers and dashed line
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize().clipToBounds()) {
             val centerScreen = Offset(size.width / 2f, size.height / 2f)
             val dashPathEffect = PathEffect.dashPathEffect(floatArrayOf(16f, 10f), 0f)
 
@@ -119,6 +121,7 @@ fun ScaleBindingOverlay(
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
+                .zIndex(10f)
                 .padding(top = 16.dp, start = 60.dp, end = 60.dp)
                 .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
                 .clip(RoundedCornerShape(8.dp))

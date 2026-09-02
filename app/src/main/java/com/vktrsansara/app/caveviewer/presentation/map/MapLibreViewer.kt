@@ -78,8 +78,10 @@ fun MapLibreViewer(
     isLineLayersVisible: Boolean = false,
     isPointLayersVisible: Boolean = false,
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit = { _, _, _, _ -> },
+    onCameraIdle: ((targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit)? = null,
     onBindingScreenPointsChanged: (List<Offset>) -> Unit = {},
     onProjectorReady: (((LatLng) -> Offset) -> Unit)? = null,
+    onVisibleBoundsReady: (((() -> org.maplibre.android.geometry.LatLngBounds?)) -> Unit)? = null,
     onGetMapCenterReady: (((() -> LatLng)) -> Unit)? = null,
     onMapCenterClick: (LatLng) -> Unit = {},
     onMapClick: ((LatLng) -> Boolean)? = null,
@@ -202,8 +204,10 @@ fun MapLibreViewer(
                     isPointLayersVisible = isPointLayersVisible,
                     lifecycleOwner = lifecycleOwner,
                     onCameraPositionChanged = onCameraPositionChanged,
+                    onCameraIdle = onCameraIdle,
                     onBindingScreenPointsChanged = onBindingScreenPointsChanged,
                     onProjectorReady = onProjectorReady,
+                    onVisibleBoundsReady = onVisibleBoundsReady,
                     onGetMapCenterReady = onGetMapCenterReady,
                     onMapCenterClick = onMapCenterClick,
                     onMapClick = onMapClick,
@@ -231,8 +235,10 @@ private fun MapLibreMapViewContainer(
     isPointLayersVisible: Boolean,
     lifecycleOwner: LifecycleOwner,
     onCameraPositionChanged: (targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit,
+    onCameraIdle: ((targetLat: Double, targetLon: Double, zoom: Double, bearing: Double) -> Unit)? = null,
     onBindingScreenPointsChanged: (List<Offset>) -> Unit,
     onProjectorReady: (((LatLng) -> Offset) -> Unit)? = null,
+    onVisibleBoundsReady: (((() -> org.maplibre.android.geometry.LatLngBounds?)) -> Unit)? = null,
     onGetMapCenterReady: (((() -> LatLng)) -> Unit)? = null,
     onMapCenterClick: (LatLng) -> Unit,
     onMapClick: ((LatLng) -> Boolean)? = null,
@@ -247,8 +253,10 @@ private fun MapLibreMapViewContainer(
     val currentOnMapClick by rememberUpdatedState(onMapClick)
     val currentOnMapCenterClick by rememberUpdatedState(onMapCenterClick)
     val currentOnCameraPositionChanged by rememberUpdatedState(onCameraPositionChanged)
+    val currentOnCameraIdle by rememberUpdatedState(onCameraIdle)
     val currentOnBindingScreenPointsChanged by rememberUpdatedState(onBindingScreenPointsChanged)
     val currentOnProjectorReady by rememberUpdatedState(onProjectorReady)
+    val currentOnVisibleBoundsReady by rememberUpdatedState(onVisibleBoundsReady)
     val currentOnGetMapCenterReady by rememberUpdatedState(onGetMapCenterReady)
     val currentOnResetBearingReady by rememberUpdatedState(onResetBearingReady)
     val currentOnMoveCameraReady by rememberUpdatedState(onMoveCameraReady)
@@ -313,11 +321,18 @@ private fun MapLibreMapViewContainer(
         """.trimIndent()
     }
 
-    // Helper to calculate screen offsets of active binding points
+    // Helper to calculate screen offsets of active binding points and update projectors
     fun calculateScreenPoints(map: MapLibreMap) {
         currentOnProjectorReady?.invoke { latLng ->
             val p = map.projection.toScreenLocation(latLng)
             Offset(p.x, p.y)
+        }
+        currentOnVisibleBoundsReady?.invoke {
+            try {
+                map.projection.visibleRegion.latLngBounds
+            } catch (_: Exception) {
+                null
+            }
         }
         if (currentBindingPoints.isNotEmpty()) {
             val offsets = currentBindingPoints.map { pt ->
@@ -408,6 +423,19 @@ private fun MapLibreMapViewContainer(
                         } else {
                             currentOnCameraPositionChanged(target.latitude, target.longitude, cam.zoom, cam.bearing)
                         }
+                    }
+                    cameraVersion++
+                    calculateScreenPoints(maplibreMap)
+                }
+
+                // Handle camera idle -> persists camera position in database when motion stops (ZERO UI re-composition during gestures)
+                maplibreMap.addOnCameraIdleListener {
+                    val cam = maplibreMap.cameraPosition
+                    val target = cam.target
+                    if (target != null) {
+                        val clampedLat = target.latitude.coerceIn(bounds.latitudeSouth, bounds.latitudeNorth)
+                        val clampedLon = target.longitude.coerceIn(bounds.longitudeWest, bounds.longitudeEast)
+                        currentOnCameraIdle?.invoke(clampedLat, clampedLon, cam.zoom, cam.bearing)
                     }
                     cameraVersion++
                     calculateScreenPoints(maplibreMap)

@@ -25,7 +25,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -67,9 +69,9 @@ fun RulerOverlay(
         total
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().clipToBounds()) {
         // Canvas rendering polyline, points, dynamic ray, and segment labels
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize().clipToBounds()) {
             val centerScreen = Offset(size.width / 2f, size.height / 2f)
             val dashEffect = PathEffect.dashPathEffect(floatArrayOf(16f, 10f), 0f)
             val strokeWidthPx = 2.5.dp.toPx()
@@ -193,6 +195,7 @@ fun RulerOverlay(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
+                    .zIndex(10f)
                     .padding(top = 16.dp, start = 20.dp, end = 20.dp)
                     .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
                     .clip(RoundedCornerShape(8.dp))

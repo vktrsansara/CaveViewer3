@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -828,6 +829,7 @@ fun MainScreenContent(
     var mapMetadata by remember(uiState.activeProjectMetadata) { mutableStateOf(uiState.activeProjectMetadata) }
     var bindingScreenPoints by remember { mutableStateOf<List<Offset>>(emptyList()) }
     var projector by remember { mutableStateOf<((LatLng) -> Offset)?>(null) }
+    var visibleBoundsProvider by remember { mutableStateOf<(() -> org.maplibre.android.geometry.LatLngBounds?)?>(null) }
     val density = LocalDensity.current
 
     val activeMeta = mapMetadata ?: uiState.activeProjectMetadata
@@ -851,36 +853,45 @@ fun MainScreenContent(
         else -> emptyList()
     }
 
-    // Screen offsets projected for each tool
+    // Screen offsets projected for each tool (lazy evaluated ONLY when the tool is active or docked)
     val rulerScreenPoints = remember(uiState.rulerPoints, projector, currentZoom, currentTargetLat, currentTargetLon, mapBearing) {
-        uiState.rulerPoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
+        if (ToolType.RULER !in uiState.dockedTools && uiState.activeTool != ToolType.RULER) emptyList()
+        else uiState.rulerPoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
     }
     val areaScreenPoints = remember(uiState.areaPoints, projector, currentZoom, currentTargetLat, currentTargetLon, mapBearing) {
-        uiState.areaPoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
+        if (ToolType.AREA !in uiState.dockedTools && uiState.activeTool != ToolType.AREA) emptyList()
+        else uiState.areaPoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
     }
     val angleScreenPoints = remember(uiState.anglePoints, projector, currentZoom, currentTargetLat, currentTargetLon, mapBearing) {
-        uiState.anglePoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
+        if (ToolType.ANGLE !in uiState.dockedTools && uiState.activeTool != ToolType.ANGLE) emptyList()
+        else uiState.anglePoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
     }
     val azimuthScreenPoint = remember(uiState.azimuthOriginPoint, projector, currentZoom, currentTargetLat, currentTargetLon, mapBearing) {
-        uiState.azimuthOriginPoint?.latLng?.let { projector?.invoke(it) }
+        if (ToolType.AZIMUTH !in uiState.dockedTools && uiState.activeTool != ToolType.AZIMUTH) null
+        else uiState.azimuthOriginPoint?.latLng?.let { projector?.invoke(it) }
     }
     val faultLineScreenPoints = remember(uiState.faultLinePoints, projector, currentZoom, currentTargetLat, currentTargetLon, mapBearing) {
-        uiState.faultLinePoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
+        if (ToolType.FAULT_LINE !in uiState.dockedTools && uiState.activeTool != ToolType.FAULT_LINE) emptyList()
+        else uiState.faultLinePoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
     }
     val radiusScreenPoint = remember(uiState.radiusCenterPoint, projector, currentZoom, currentTargetLat, currentTargetLon, mapBearing) {
-        uiState.radiusCenterPoint?.latLng?.let { projector?.invoke(it) }
+        if (ToolType.RADIUS !in uiState.dockedTools && uiState.activeTool != ToolType.RADIUS) null
+        else uiState.radiusCenterPoint?.latLng?.let { projector?.invoke(it) }
     }
     val deltaOffsetScreenPoint = remember(uiState.deltaOffsetOriginPoint, projector, currentZoom, currentTargetLat, currentTargetLon, mapBearing) {
-        uiState.deltaOffsetOriginPoint?.latLng?.let { projector?.invoke(it) }
+        if (ToolType.DELTA_OFFSET !in uiState.dockedTools && uiState.activeTool != ToolType.DELTA_OFFSET) null
+        else uiState.deltaOffsetOriginPoint?.latLng?.let { projector?.invoke(it) }
     }
     val lineDrawingScreenPoints = remember(uiState.drawingLinePoints, projector, currentZoom, currentTargetLat, currentTargetLon, mapBearing) {
-        uiState.drawingLinePoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
+        if (uiState.editingLineLayer == null) emptyList()
+        else uiState.drawingLinePoints.mapNotNull { pt -> projector?.invoke(pt.latLng) }
     }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(AppColors.bgMain)
+            .clipToBounds()
     ) {
         // Main content: active MapLibreViewer or NoProjectPlaceholder
         val activeDir = uiState.activeProjectDir
@@ -903,6 +914,8 @@ fun MainScreenContent(
                     currentTargetLon = lon
                     mapBearing = bearing
                     currentZoom = zoom
+                },
+                onCameraIdle = { lat, lon, zoom, bearing ->
                     onIntent(
                         MainUiIntent.UpdateMapCameraPosition(
                             MapCameraPosition(
@@ -919,6 +932,9 @@ fun MainScreenContent(
                 },
                 onProjectorReady = { proj ->
                     projector = proj
+                },
+                onVisibleBoundsReady = { provider ->
+                    visibleBoundsProvider = provider
                 },
                 onGetMapCenterReady = { getter ->
                     getMapCenter = getter
@@ -1248,106 +1264,7 @@ fun MainScreenContent(
 
             val snapScreenPoint = snapTarget?.screenOffset
 
-            // Scale Calibration Overlay
-            if (uiState.isScaleBindingMode && meta != null && centerPx != null) {
-                ScaleBindingOverlay(
-                    points = uiState.scaleBindingPoints,
-                    screenPoints = bindingScreenPoints,
-                    currentCenterPx = centerPx
-                )
-            }
-
-            // North Calibration Overlay
-            if (uiState.isNorthBindingMode && meta != null && centerPx != null) {
-                NorthBindingOverlay(
-                    points = uiState.northBindingPoints,
-                    screenPoints = bindingScreenPoints,
-                    currentCenterPx = centerPx
-                )
-            }
-
-            // Ruler Overlay
-            if (ToolType.RULER in uiState.dockedTools && meta != null) {
-                RulerOverlay(
-                    points = uiState.rulerPoints,
-                    screenPoints = rulerScreenPoints,
-                    currentCenterPx = centerPx,
-                    ppm = meta.pixelsPerMeter,
-                    isActive = (uiState.activeTool == ToolType.RULER)
-                )
-            }
-
-            // Area Measure Overlay
-            if (ToolType.AREA in uiState.dockedTools && meta != null) {
-                AreaMeasureOverlay(
-                    points = uiState.areaPoints,
-                    screenPoints = areaScreenPoints,
-                    currentCenterPx = centerPx,
-                    ppm = meta.pixelsPerMeter,
-                    isActive = (uiState.activeTool == ToolType.AREA)
-                )
-            }
-
-            // Angle Measure Overlay
-            if (ToolType.ANGLE in uiState.dockedTools && meta != null) {
-                AngleMeasureOverlay(
-                    points = uiState.anglePoints,
-                    screenPoints = angleScreenPoints,
-                    currentCenterPx = centerPx,
-                    ppm = meta.pixelsPerMeter,
-                    isActive = (uiState.activeTool == ToolType.ANGLE)
-                )
-            }
-
-            // Azimuth Overlay
-            if (ToolType.AZIMUTH in uiState.dockedTools && meta != null) {
-                AzimuthOverlay(
-                    originPoint = uiState.azimuthOriginPoint,
-                    originScreenPoint = azimuthScreenPoint,
-                    currentCenterPx = centerPx,
-                    angleNorth = meta.angleNorth,
-                    ppm = meta.pixelsPerMeter,
-                    isActive = (uiState.activeTool == ToolType.AZIMUTH)
-                )
-            }
-
-            // Fault Line Overlay
-            if (ToolType.FAULT_LINE in uiState.dockedTools && meta != null) {
-                FaultLineOverlay(
-                    points = uiState.faultLinePoints,
-                    screenPoints = faultLineScreenPoints,
-                    infiniteEndPoints = null,
-                    currentCenterPx = centerPx,
-                    angleNorth = meta.angleNorth,
-                    ppm = meta.pixelsPerMeter,
-                    isActive = (uiState.activeTool == ToolType.FAULT_LINE)
-                )
-            }
-
-            // Radius Measure Overlay
-            if (ToolType.RADIUS in uiState.dockedTools && meta != null) {
-                RadiusMeasureOverlay(
-                    centerPoint = uiState.radiusCenterPoint,
-                    centerScreenPoint = radiusScreenPoint,
-                    currentCenterPx = centerPx,
-                    ppm = meta.pixelsPerMeter,
-                    isActive = (uiState.activeTool == ToolType.RADIUS)
-                )
-            }
-
-            // Delta Offset Overlay
-            if (ToolType.DELTA_OFFSET in uiState.dockedTools && meta != null) {
-                DeltaOffsetOverlay(
-                    originPoint = uiState.deltaOffsetOriginPoint,
-                    originScreenPoint = deltaOffsetScreenPoint,
-                    currentCenterPx = centerPx,
-                    angleNorth = meta.angleNorth,
-                    ppm = meta.pixelsPerMeter,
-                    isActive = (uiState.activeTool == ToolType.DELTA_OFFSET)
-                )
-            }
-
-            // Line Layers Vector Overlay (Core Stroke + Topographic Patterns + Selection Glow)
+            // 1. Line Layers Vector Overlay (Core Stroke + Topographic Patterns + Selection Glow)
             if (isLineLayersVisible && meta != null && uiState.lineLayers.isNotEmpty() && uiState.allVisibleLines.isNotEmpty()) {
                 LineLayersOverlay(
                     lineLayers = uiState.lineLayers,
@@ -1357,6 +1274,7 @@ fun MainScreenContent(
                     imageHeight = meta.imageHeight,
                     zoomMax = meta.zoomMax,
                     projector = projector,
+                    visibleBoundsProvider = visibleBoundsProvider,
                     currentTargetLat = currentTargetLat,
                     currentTargetLon = currentTargetLon,
                     currentZoom = currentZoom,
@@ -1365,7 +1283,7 @@ fun MainScreenContent(
                 )
             }
 
-            // Point Layers Vector Overlay (Shapes, Colors, Label Badges)
+            // 2. Point Layers Vector Overlay (Shapes, Colors, Label Badges)
             if (isPointLayersVisible && meta != null && uiState.pointLayers.isNotEmpty() && uiState.allVisiblePoints.isNotEmpty()) {
                 PointLayersOverlay(
                     pointLayers = uiState.pointLayers,
@@ -1374,6 +1292,7 @@ fun MainScreenContent(
                     imageHeight = meta.imageHeight,
                     zoomMax = meta.zoomMax,
                     projector = projector,
+                    visibleBoundsProvider = visibleBoundsProvider,
                     currentTargetLat = currentTargetLat,
                     currentTargetLon = currentTargetLon,
                     currentZoom = currentZoom,
@@ -1382,7 +1301,7 @@ fun MainScreenContent(
                 )
             }
 
-            // Line Drawing Overlay (Real-time vertices, live dashed ray, and magnetic snapping)
+            // 3. Line Drawing Overlay (Real-time vertices, live dashed ray, and magnetic snapping)
             if (uiState.editingLineLayer != null) {
                 LineDrawingOverlay(
                     layer = uiState.editingLineLayer!!,
@@ -1397,7 +1316,7 @@ fun MainScreenContent(
                 )
             }
 
-            // Point Editor Snapping Target Overlay (shows pink QGIS target at cursor)
+            // 4. Point Editor Snapping Target Overlay (shows pink QGIS target at cursor)
             if (uiState.editingPointLayer != null && snapTarget != null && snapScreenPoint != null) {
                 SnappingIndicatorOverlay(
                     snapTarget = snapTarget,
@@ -1406,7 +1325,7 @@ fun MainScreenContent(
                 )
             }
 
-            // Search Highlight Overlay (pulsing cyan circle for 3 seconds)
+            // 5. Search Highlight Overlay (pulsing cyan circle for 3 seconds)
             if (uiState.searchHighlightTarget != null && meta != null) {
                 SearchHighlightOverlay(
                     target = uiState.searchHighlightTarget,
@@ -1422,11 +1341,121 @@ fun MainScreenContent(
                 )
             }
 
+            // 6. Calibration & Measurement Tools Overlays (drawn ON TOP of cave map layers and points)
+            // Scale Calibration Overlay
+            if (uiState.isScaleBindingMode && meta != null && centerPx != null) {
+                ScaleBindingOverlay(
+                    points = uiState.scaleBindingPoints,
+                    screenPoints = bindingScreenPoints,
+                    currentCenterPx = centerPx,
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
+            // North Calibration Overlay
+            if (uiState.isNorthBindingMode && meta != null && centerPx != null) {
+                NorthBindingOverlay(
+                    points = uiState.northBindingPoints,
+                    screenPoints = bindingScreenPoints,
+                    currentCenterPx = centerPx,
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
+            // Ruler Overlay
+            if (ToolType.RULER in uiState.dockedTools && meta != null) {
+                RulerOverlay(
+                    points = uiState.rulerPoints,
+                    screenPoints = rulerScreenPoints,
+                    currentCenterPx = centerPx,
+                    ppm = meta.pixelsPerMeter,
+                    isActive = (uiState.activeTool == ToolType.RULER),
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
+            // Area Measure Overlay
+            if (ToolType.AREA in uiState.dockedTools && meta != null) {
+                AreaMeasureOverlay(
+                    points = uiState.areaPoints,
+                    screenPoints = areaScreenPoints,
+                    currentCenterPx = centerPx,
+                    ppm = meta.pixelsPerMeter,
+                    isActive = (uiState.activeTool == ToolType.AREA),
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
+            // Angle Measure Overlay
+            if (ToolType.ANGLE in uiState.dockedTools && meta != null) {
+                AngleMeasureOverlay(
+                    points = uiState.anglePoints,
+                    screenPoints = angleScreenPoints,
+                    currentCenterPx = centerPx,
+                    ppm = meta.pixelsPerMeter,
+                    isActive = (uiState.activeTool == ToolType.ANGLE),
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
+            // Azimuth Overlay
+            if (ToolType.AZIMUTH in uiState.dockedTools && meta != null) {
+                AzimuthOverlay(
+                    originPoint = uiState.azimuthOriginPoint,
+                    originScreenPoint = azimuthScreenPoint,
+                    currentCenterPx = centerPx,
+                    angleNorth = meta.angleNorth,
+                    ppm = meta.pixelsPerMeter,
+                    isActive = (uiState.activeTool == ToolType.AZIMUTH),
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
+            // Fault Line Overlay
+            if (ToolType.FAULT_LINE in uiState.dockedTools && meta != null) {
+                FaultLineOverlay(
+                    points = uiState.faultLinePoints,
+                    screenPoints = faultLineScreenPoints,
+                    infiniteEndPoints = null,
+                    currentCenterPx = centerPx,
+                    angleNorth = meta.angleNorth,
+                    ppm = meta.pixelsPerMeter,
+                    isActive = (uiState.activeTool == ToolType.FAULT_LINE),
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
+            // Radius Measure Overlay
+            if (ToolType.RADIUS in uiState.dockedTools && meta != null) {
+                RadiusMeasureOverlay(
+                    centerPoint = uiState.radiusCenterPoint,
+                    centerScreenPoint = radiusScreenPoint,
+                    currentCenterPx = centerPx,
+                    ppm = meta.pixelsPerMeter,
+                    isActive = (uiState.activeTool == ToolType.RADIUS),
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
+            // Delta Offset Overlay
+            if (ToolType.DELTA_OFFSET in uiState.dockedTools && meta != null) {
+                DeltaOffsetOverlay(
+                    originPoint = uiState.deltaOffsetOriginPoint,
+                    originScreenPoint = deltaOffsetScreenPoint,
+                    currentCenterPx = centerPx,
+                    angleNorth = meta.angleNorth,
+                    ppm = meta.pixelsPerMeter,
+                    isActive = (uiState.activeTool == ToolType.DELTA_OFFSET),
+                    modifier = Modifier.fillMaxSize().clipToBounds()
+                )
+            }
+
             // Step 1: Cave Entrance Pick Banner
             if (uiState.isEntranceCavePickMode) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        .zIndex(10f)
                         .padding(top = 16.dp, start = 30.dp, end = 30.dp)
                         .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
                         .clip(RoundedCornerShape(8.dp))
@@ -1458,6 +1487,7 @@ fun MainScreenContent(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        .zIndex(10f)
                         .padding(top = 16.dp, start = 20.dp, end = 20.dp)
                         .shadow(elevation = 6.dp, shape = RoundedCornerShape(8.dp))
                         .clip(RoundedCornerShape(8.dp))

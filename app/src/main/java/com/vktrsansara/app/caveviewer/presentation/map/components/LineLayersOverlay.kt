@@ -23,14 +23,19 @@ import com.vktrsansara.app.caveviewer.domain.model.LineStyle
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
 import com.vktrsansara.app.caveviewer.ui.theme.AccentSkyBlue
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
 
 /**
- * Pre-cached polyline holding unchanging geographic LatLng vertices.
+ * Pre-cached polyline holding unchanging geographic LatLng vertices and AABB bounds.
  * Computed ONLY once per dataset update, eliminating millions of trigonometrical calculations per second.
  */
 private data class CachedLine(
     val line: LayerLine,
-    val latLngPoints: List<LatLng>
+    val latLngPoints: List<LatLng>,
+    val minLat: Double,
+    val maxLat: Double,
+    val minLon: Double,
+    val maxLon: Double
 )
 
 /**
@@ -52,7 +57,7 @@ private data class ProjectedLine(
  * High-performance vector overlay for displaying all visible cave line layers and polylines.
  * Supports:
  * - Pre-cached LatLng vertices with fast screen projection
- * - Viewport Bounding Box Culling (skips off-screen geometry & Path allocation)
+ * - Geo AABB & Screen Viewport Culling (skips off-screen geometry & JNI calls)
  * - Layer 1: Selection Glow outline
  * - Layer 2: Core Difficulty Stroke (Heatmap 0.0..8.0 or layer default color, styles: Solid, Dashed, Dotted)
  * - Layer 3: Topographic vector ticks & hatches (UIS/Therion speleological cartography standard)
@@ -66,6 +71,7 @@ fun LineLayersOverlay(
     imageHeight: Int,
     zoomMax: Int,
     projector: ((LatLng) -> Offset)?,
+    visibleBoundsProvider: (() -> LatLngBounds?)? = null,
     currentTargetLat: Double,
     currentTargetLon: Double,
     currentZoom: Double,
@@ -76,32 +82,50 @@ fun LineLayersOverlay(
         lineLayers.filter { it.isVisible }.associateBy { it.id }
     }
 
-    // 1. Pre-cache LatLng points for each line (1 computation per line vertex, NOT 60fps)
+    // 1. Pre-cache LatLng points and Geo Bounding Box for each line (1 computation per line vertex, NOT 60fps)
     val cachedLines = remember(allLines, imageWidth, imageHeight, zoomMax) {
         if (imageWidth <= 0 || imageHeight <= 0 || zoomMax <= 0) {
             emptyList()
         } else {
             allLines.mapNotNull { line ->
                 if (line.points.size < 2) return@mapNotNull null
+                var minLat = Double.MAX_VALUE
+                var maxLat = -Double.MAX_VALUE
+                var minLon = Double.MAX_VALUE
+                var maxLon = -Double.MAX_VALUE
+
                 val latLngs = line.points.map { pt ->
-                    CaveMapBounds.imagePixelsToLatLng(
+                    val latLng = CaveMapBounds.imagePixelsToLatLng(
                         pixelX = pt.first,
                         pixelY = pt.second,
                         imageWidth = imageWidth,
                         imageHeight = imageHeight,
                         maxZoom = zoomMax
                     )
+                    if (latLng.latitude < minLat) minLat = latLng.latitude
+                    if (latLng.latitude > maxLat) maxLat = latLng.latitude
+                    if (latLng.longitude < minLon) minLon = latLng.longitude
+                    if (latLng.longitude > maxLon) maxLon = latLng.longitude
+                    latLng
                 }
-                CachedLine(line = line, latLngPoints = latLngs)
+                CachedLine(
+                    line = line,
+                    latLngPoints = latLngs,
+                    minLat = minLat,
+                    maxLat = maxLat,
+                    minLon = minLon,
+                    maxLon = maxLon
+                )
             }
         }
     }
 
-    // 2. Fast screen projection per frame with immediate Bounding Box culling
+    // 2. Fast screen projection per frame with immediate Geo and Screen Bounding Box culling
     val projectedLines = remember(
         cachedLines,
         visibleLayersMap,
         projector,
+        visibleBoundsProvider,
         currentTargetLat,
         currentTargetLon,
         currentZoom,
@@ -111,10 +135,31 @@ fun LineLayersOverlay(
         if (projector == null || cachedLines.isEmpty()) {
             emptyList()
         } else {
-            val result = ArrayList<ProjectedLine>(cachedLines.size)
+            val visibleBounds = visibleBoundsProvider?.invoke()
+            val (minVisLat, maxVisLat, minVisLon, maxVisLon) = if (visibleBounds != null) {
+                val latMargin = (visibleBounds.latitudeNorth - visibleBounds.latitudeSouth).coerceAtLeast(0.0001) * 0.20
+                val lonMargin = (visibleBounds.longitudeEast - visibleBounds.longitudeWest).coerceAtLeast(0.0001) * 0.20
+                arrayOf(
+                    visibleBounds.latitudeSouth - latMargin,
+                    visibleBounds.latitudeNorth + latMargin,
+                    visibleBounds.longitudeWest - lonMargin,
+                    visibleBounds.longitudeEast + lonMargin
+                )
+            } else {
+                arrayOf(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)
+            }
+
+            val result = ArrayList<ProjectedLine>(cachedLines.size.coerceAtMost(120))
             for (k in cachedLines.indices) {
                 val cl = cachedLines[k]
                 val layer = visibleLayersMap[cl.line.layerId] ?: continue
+
+                // Fast Geo Bounding Box Culling: skips off-screen lines without calling JNI!
+                if (cl.maxLat < minVisLat || cl.minLat > maxVisLat ||
+                    cl.maxLon < minVisLon || cl.minLon > maxVisLon) {
+                    continue
+                }
+
                 val pts = cl.latLngPoints
 
                 var minX = Float.MAX_VALUE
@@ -132,8 +177,8 @@ fun LineLayersOverlay(
                     if (sp.y > maxY) maxY = sp.y
                 }
 
-                // Generous screen bounding box check (-200..3500 px) to avoid Path creation for far-off lines
-                if (maxX < -200f || minX > 3500f || maxY < -200f || minY > 3500f) {
+                // Generous screen bounding box check (-150..3500 px) to avoid Path creation for far-off lines
+                if (maxX < -150f || minX > 3500f || maxY < -150f || minY > 3500f) {
                     continue
                 }
 

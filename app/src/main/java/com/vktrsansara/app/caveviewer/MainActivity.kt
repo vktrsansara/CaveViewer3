@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -79,6 +80,7 @@ class MainActivity : ComponentActivity() {
                                 .statusBarsPadding()
                                 .navigationBarsPadding()
                         )
+                        .clipToBounds()
                 ) {
                     MainScreen(viewModel = mainViewModel)
                 }

@@ -24,6 +24,7 @@ import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
 import com.vktrsansara.app.caveviewer.ui.theme.AppColors
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
 
 /**
  * Pre-cached structure holding unchanging geographic LatLng and hazard state for each point.
@@ -33,6 +34,8 @@ import org.maplibre.android.geometry.LatLng
 private data class CachedPoint(
     val point: LayerPoint,
     val latLng: LatLng,
+    val lat: Double,
+    val lon: Double,
     val isHazard: Boolean
 )
 
@@ -51,6 +54,7 @@ fun PointLayersOverlay(
     imageHeight: Int,
     zoomMax: Int,
     projector: ((LatLng) -> Offset)?,
+    visibleBoundsProvider: (() -> LatLngBounds?)? = null,
     currentTargetLat: Double,
     currentTargetLon: Double,
     currentZoom: Double,
@@ -88,7 +92,13 @@ fun PointLayersOverlay(
                     imageHeight = imageHeight,
                     maxZoom = zoomMax
                 )
-                CachedPoint(point = pt, latLng = latLng, isHazard = isHazard)
+                CachedPoint(
+                    point = pt,
+                    latLng = latLng,
+                    lat = latLng.latitude,
+                    lon = latLng.longitude,
+                    isHazard = isHazard
+                )
             }
         }
     }
@@ -107,11 +117,12 @@ fun PointLayersOverlay(
         map
     }
 
-    // 3. Fast screen projection per frame using pre-cached LatLng
+    // 3. Fast screen projection per frame with Geo Culling before JNI
     val renderedPoints = remember(
         cachedPoints,
         layerMap,
         projector,
+        visibleBoundsProvider,
         currentTargetLat,
         currentTargetLon,
         currentZoom,
@@ -120,11 +131,31 @@ fun PointLayersOverlay(
         if (projector == null || cachedPoints.isEmpty()) {
             emptyList()
         } else {
-            val result = ArrayList<RenderedPoint>(cachedPoints.size)
+            val visibleBounds = visibleBoundsProvider?.invoke()
+            val (minVisLat, maxVisLat, minVisLon, maxVisLon) = if (visibleBounds != null) {
+                val latMargin = (visibleBounds.latitudeNorth - visibleBounds.latitudeSouth).coerceAtLeast(0.0001) * 0.20
+                val lonMargin = (visibleBounds.longitudeEast - visibleBounds.longitudeWest).coerceAtLeast(0.0001) * 0.20
+                arrayOf(
+                    visibleBounds.latitudeSouth - latMargin,
+                    visibleBounds.latitudeNorth + latMargin,
+                    visibleBounds.longitudeWest - lonMargin,
+                    visibleBounds.longitudeEast + lonMargin
+                )
+            } else {
+                arrayOf(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)
+            }
+
+            val result = ArrayList<RenderedPoint>(cachedPoints.size.coerceAtMost(100))
             for (i in cachedPoints.indices) {
                 val cp = cachedPoints[i]
                 val layer = layerMap[cp.point.layerId]
                 if (layer != null && layer.isVisible) {
+                    // Fast Geo Culling before JNI
+                    if (cp.lat < minVisLat || cp.lat > maxVisLat ||
+                        cp.lon < minVisLon || cp.lon > maxVisLon) {
+                        continue
+                    }
+
                     val screenOffset = projector(cp.latLng)
                     if (screenOffset.x.isFinite() && screenOffset.y.isFinite()) {
                         result.add(RenderedPoint(cp.point, layer, screenOffset, cp.isHazard))
