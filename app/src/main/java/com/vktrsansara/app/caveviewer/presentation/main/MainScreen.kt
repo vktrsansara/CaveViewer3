@@ -54,6 +54,7 @@ import com.vktrsansara.app.caveviewer.domain.model.CompassTapMode
 import com.vktrsansara.app.caveviewer.domain.model.IntersectionMode
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.ToolType
+import com.vktrsansara.app.caveviewer.domain.measure.MeasureUtils
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
 import com.vktrsansara.app.caveviewer.presentation.components.FloatingBottomBar
 import com.vktrsansara.app.caveviewer.presentation.components.FloatingDockAnchorLayout
@@ -638,6 +639,8 @@ fun MainScreen(
     // Handle system back gesture
     BackHandler(
         enabled = uiState.currentScreen != AppScreen.MAIN ||
+                uiState.isSearchModalOpen ||
+                uiState.isMenuExpanded ||
                 uiState.selectedPointForDetails != null ||
                 uiState.selectedLineForDetails != null ||
                 uiState.editingPointLayer != null ||
@@ -649,6 +652,8 @@ fun MainScreen(
                 uiState.dockedTools.isNotEmpty()
     ) {
         when {
+            uiState.isSearchModalOpen -> viewModel.handleIntent(MainUiIntent.DismissSearchModal)
+            uiState.isMenuExpanded -> viewModel.handleIntent(MainUiIntent.DismissMenu)
             uiState.selectedPointForDetails != null -> viewModel.handleIntent(MainUiIntent.DismissPointDetails)
             uiState.selectedLineForDetails != null -> viewModel.handleIntent(MainUiIntent.DismissLineDetails)
             uiState.editingPointLayer != null -> viewModel.handleIntent(MainUiIntent.ExitPointEditorMode)
@@ -895,8 +900,8 @@ fun MainScreenContent(
     ) {
         // Main content: active MapLibreViewer or NoProjectPlaceholder
         val activeDir = uiState.activeProjectDir
-        val isLineLayersVisible = (uiState.isLineLayersModeActive || uiState.editingLineLayer != null)
-        val isPointLayersVisible = (uiState.isPointLayersModeActive || uiState.editingPointLayer != null)
+        val isLineLayersVisible = (uiState.isLineLayersModeActive || uiState.editingLineLayer != null || uiState.searchedLines.isNotEmpty())
+        val isPointLayersVisible = (uiState.isPointLayersModeActive || uiState.editingPointLayer != null || uiState.searchedPoints.isNotEmpty())
         if (activeDir != null && uiState.hasActiveProject) {
             MapLibreViewer(
                 projectDir = activeDir,
@@ -943,17 +948,18 @@ fun MainScreenContent(
                     var pointHit = false
                     val curMeta = mapMetadata ?: uiState.activeProjectMetadata
                     val isMeasuringTools = isCalibrationMode || isAnyToolActive
-                    val isPointLayersActive = uiState.isPointLayersModeActive || uiState.editingPointLayer != null
-                    if (!isMeasuringTools && isPointLayersActive && curMeta != null && projector != null && uiState.allVisiblePoints.isNotEmpty()) {
+                    val isPointLayersActive = uiState.isPointLayersModeActive || uiState.editingPointLayer != null || uiState.searchedPoints.isNotEmpty()
+                    val pointsToCheck = if (uiState.isPointLayersModeActive || uiState.editingPointLayer != null) uiState.allVisiblePoints else uiState.searchedPoints
+                    if (!isMeasuringTools && isPointLayersActive && curMeta != null && projector != null && pointsToCheck.isNotEmpty()) {
                         try {
                             val clickedScreen = projector!!.invoke(clickedLatLng)
                             val hitRadiusPx = 28 * density.density
                             val hitRadiusSq = hitRadiusPx * hitRadiusPx
                             val layerMap = uiState.pointLayers.associateBy { it.id }
 
-                            val hit = uiState.allVisiblePoints.lastOrNull { point ->
+                            val hit = pointsToCheck.lastOrNull { point ->
                                 val layer = layerMap[point.layerId]
-                                if (layer != null && layer.isVisible) {
+                                if (layer != null && (layer.isVisible || uiState.searchedPoints.any { it.id == point.id })) {
                                     val pointLatLng = CaveMapBounds.imagePixelsToLatLng(
                                         pixelX = point.x,
                                         pixelY = point.y,
@@ -979,8 +985,9 @@ fun MainScreenContent(
 
                     // Line Hit-Test (Tap on any line segment)
                     var lineHit = false
-                    val isLineLayersActive = uiState.isLineLayersModeActive || uiState.editingLineLayer != null
-                    if (!pointHit && !isMeasuringTools && isLineLayersActive && curMeta != null && projector != null && uiState.editingLineLayer == null && uiState.editingPointLayer == null && uiState.allVisibleLines.isNotEmpty()) {
+                    val isLineLayersActive = uiState.isLineLayersModeActive || uiState.editingLineLayer != null || uiState.searchedLines.isNotEmpty()
+                    val linesToCheck = if (uiState.isLineLayersModeActive || uiState.editingLineLayer != null) uiState.allVisibleLines else uiState.searchedLines
+                    if (!pointHit && !isMeasuringTools && isLineLayersActive && curMeta != null && projector != null && uiState.editingLineLayer == null && uiState.editingPointLayer == null && linesToCheck.isNotEmpty()) {
                         try {
                             val clickedScreen = projector!!.invoke(clickedLatLng)
                             val lineHitThresholdPx = 20 * density.density
@@ -990,9 +997,9 @@ fun MainScreenContent(
                             var closestLine: LayerLine? = null
                             var minDistanceSq = Float.MAX_VALUE
 
-                            for (line in uiState.allVisibleLines) {
+                            for (line in linesToCheck) {
                                 val layer = lineLayerMap[line.layerId]
-                                if (layer != null && layer.isVisible && line.points.size >= 2) {
+                                if (layer != null && (layer.isVisible || uiState.searchedLines.any { it.id == line.id }) && line.points.size >= 2) {
                                     val screenPts = line.points.map { pt ->
                                         val latLng = CaveMapBounds.imagePixelsToLatLng(
                                             pixelX = pt.first,
@@ -1265,10 +1272,15 @@ fun MainScreenContent(
             val snapScreenPoint = snapTarget?.screenOffset
 
             // 1. Line Layers Vector Overlay (Core Stroke + Topographic Patterns + Selection Glow)
-            if (isLineLayersVisible && meta != null && uiState.lineLayers.isNotEmpty() && uiState.allVisibleLines.isNotEmpty()) {
+            val linesToRender = if (uiState.isLineLayersModeActive || uiState.editingLineLayer != null) {
+                uiState.allVisibleLines
+            } else {
+                uiState.searchedLines
+            }
+            if (isLineLayersVisible && meta != null && uiState.lineLayers.isNotEmpty() && linesToRender.isNotEmpty()) {
                 LineLayersOverlay(
                     lineLayers = uiState.lineLayers,
-                    allLines = uiState.allVisibleLines,
+                    allLines = linesToRender,
                     selectedLineId = uiState.selectedLineForDetails?.id,
                     imageWidth = meta.imageWidth,
                     imageHeight = meta.imageHeight,
@@ -1284,10 +1296,15 @@ fun MainScreenContent(
             }
 
             // 2. Point Layers Vector Overlay (Shapes, Colors, Label Badges)
-            if (isPointLayersVisible && meta != null && uiState.pointLayers.isNotEmpty() && uiState.allVisiblePoints.isNotEmpty()) {
+            val pointsToRender = if (uiState.isPointLayersModeActive || uiState.editingPointLayer != null) {
+                uiState.allVisiblePoints
+            } else {
+                uiState.searchedPoints
+            }
+            if (isPointLayersVisible && meta != null && uiState.pointLayers.isNotEmpty() && pointsToRender.isNotEmpty()) {
                 PointLayersOverlay(
                     pointLayers = uiState.pointLayers,
-                    allPoints = uiState.allVisiblePoints,
+                    allPoints = pointsToRender,
                     imageWidth = meta.imageWidth,
                     imageHeight = meta.imageHeight,
                     zoomMax = meta.zoomMax,
@@ -1762,6 +1779,7 @@ fun MainScreenContent(
                         point = selPoint,
                         layer = parentLayer,
                         isSimpleCrs = isSimpleCrs,
+                        canEdit = (uiState.isPointLayersModeActive || uiState.editingPointLayer != null),
                         onEditClick = {
                             onIntent(MainUiIntent.OpenEditPointDialog(selPoint))
                         },
@@ -1803,16 +1821,16 @@ fun MainScreenContent(
                         line = selLine,
                         layer = parentLayer,
                         ppm = ppm,
+                        canEdit = uiState.isLineLayersModeActive,
                         onEditClick = {
                             onIntent(MainUiIntent.OpenEditLineDialog(selLine))
                         },
                         onCenterMapClick = {
                             if (curMeta != null && selLine.points.isNotEmpty()) {
-                                val midIndex = selLine.points.size / 2
-                                val centerPt = selLine.points[midIndex]
+                                val midPt = MeasureUtils.calculateLineMidpointPx(selLine.points)
                                 val targetLatLng = CaveMapBounds.imagePixelsToLatLng(
-                                    pixelX = centerPt.first,
-                                    pixelY = centerPt.second,
+                                    pixelX = midPt.first,
+                                    pixelY = midPt.second,
                                     imageWidth = curMeta.imageWidth,
                                     imageHeight = curMeta.imageHeight,
                                     maxZoom = curMeta.zoomMax
@@ -1899,6 +1917,7 @@ fun MainScreenContent(
                 onTogglePointLayersMode = { onIntent(MainUiIntent.TogglePointLayersMode) },
                 isLineLayersModeActive = uiState.isLineLayersModeActive,
                 onToggleLineLayersMode = { onIntent(MainUiIntent.ToggleLineLayersMode) },
+                onDismiss = { onIntent(MainUiIntent.DismissMenu) },
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
@@ -1950,7 +1969,7 @@ fun MainScreenContent(
                         }
                         is SearchResultItem.LineResult -> {
                             if (result.line.points.isNotEmpty()) {
-                                val mid = result.line.points[result.line.points.size / 2]
+                                val mid = MeasureUtils.calculateLineMidpointPx(result.line.points)
                                 val targetLatLng = CaveMapBounds.imagePixelsToLatLng(
                                     pixelX = mid.first,
                                     pixelY = mid.second,

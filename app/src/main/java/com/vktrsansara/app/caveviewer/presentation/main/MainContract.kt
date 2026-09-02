@@ -142,7 +142,9 @@ data class MainUiState(
     // Layer Search State
     val isSearchModalOpen: Boolean = false,
     val searchHistory: List<String> = emptyList(),
-    val searchHighlightTarget: SearchHighlightTarget? = null
+    val searchHighlightTarget: SearchHighlightTarget? = null,
+    val searchedPoints: List<LayerPoint> = emptyList(),
+    val searchedLines: List<LayerLine> = emptyList()
 ) : UiState
 
 data class SearchHighlightTarget(

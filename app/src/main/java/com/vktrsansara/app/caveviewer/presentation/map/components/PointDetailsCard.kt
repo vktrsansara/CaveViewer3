@@ -58,6 +58,7 @@ fun PointDetailsCard(
     point: LayerPoint,
     layer: PointLayer,
     isSimpleCrs: Boolean = true,
+    canEdit: Boolean = false,
     onEditClick: () -> Unit,
     onCenterMapClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -108,16 +109,44 @@ fun PointDetailsCard(
                     )
                 }
 
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(24.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = "Закрыть",
-                        tint = Color(0xFFEF4444),
-                        modifier = Modifier.size(16.dp)
-                    )
+                    if (!canEdit) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(AppColors.bgSurface)
+                                .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple(color = AppColors.pressedColor),
+                                    onClick = onCenterMapClick
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.MyLocation,
+                                contentDescription = "Фокусировка на точке",
+                                tint = AccentSkyBlue,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Закрыть",
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
 
@@ -220,139 +249,141 @@ fun PointDetailsCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-            // 4. [РАЗДЕЛИТЕЛЬ 2]
-            HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
-            Spacer(modifier = Modifier.height(6.dp))
+            if (canEdit) {
+                Spacer(modifier = Modifier.height(6.dp))
+                // 4. [РАЗДЕЛИТЕЛЬ 2]
+                HorizontalDivider(thickness = 1.dp, color = AppColors.borderColor)
+                Spacer(modifier = Modifier.height(6.dp))
 
-            // 5. [КНОПКИ]: [Удалить] (Left) [Фокусировка] (Strict Center) [Изменить] (Right)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(28.dp)
-            ) {
-                // 1. Delete (Left) - Inline confirmation logic
-                Box(modifier = Modifier.align(Alignment.CenterStart)) {
-                    if (!isConfirmingDelete) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(AppColors.bgSurface)
-                                .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = ripple(color = AppColors.pressedColor),
-                                    onClick = { isConfirmingDelete = true }
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Delete,
-                                contentDescription = "Удалить точку",
-                                tint = Color(0xFFEF4444),
-                                modifier = Modifier.size(15.dp)
-                            )
-                        }
-                    } else {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Confirm Delete (Checkmark Red)
+                // 5. [КНОПКИ]: [Удалить] (Left) [Фокусировка] (Strict Center) [Изменить] (Right)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(28.dp)
+                ) {
+                    // 1. Delete (Left) - Inline confirmation logic
+                    Box(modifier = Modifier.align(Alignment.CenterStart)) {
+                        if (!isConfirmingDelete) {
                             Box(
                                 modifier = Modifier
                                     .size(28.dp)
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFFEF4444).copy(alpha = 0.15f))
-                                    .border(1.dp, Color(0xFFEF4444), RoundedCornerShape(6.dp))
+                                    .background(AppColors.bgSurface)
+                                    .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = ripple(color = AppColors.pressedColor),
-                                        onClick = {
-                                            isConfirmingDelete = false
-                                            onDeleteClick()
-                                        }
+                                        onClick = { isConfirmingDelete = true }
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Check,
-                                    contentDescription = "Подтвердить удаление",
+                                    imageVector = Icons.Rounded.Delete,
+                                    contentDescription = "Удалить точку",
                                     tint = Color(0xFFEF4444),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-
-                            // Cancel Delete (Cross Blue)
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(AccentSkyBlue.copy(alpha = 0.15f))
-                                    .border(1.dp, AccentSkyBlue, RoundedCornerShape(6.dp))
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = ripple(color = AppColors.pressedColor),
-                                        onClick = { isConfirmingDelete = false }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Close,
-                                    contentDescription = "Отмена удаления",
-                                    tint = AccentSkyBlue,
                                     modifier = Modifier.size(15.dp)
                                 )
                             }
+                        } else {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Confirm Delete (Checkmark Red)
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFFEF4444).copy(alpha = 0.15f))
+                                        .border(1.dp, Color(0xFFEF4444), RoundedCornerShape(6.dp))
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = ripple(color = AppColors.pressedColor),
+                                            onClick = {
+                                                isConfirmingDelete = false
+                                                onDeleteClick()
+                                            }
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = "Подтвердить удаление",
+                                        tint = Color(0xFFEF4444),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+
+                                // Cancel Delete (Cross Blue)
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(AccentSkyBlue.copy(alpha = 0.15f))
+                                        .border(1.dp, AccentSkyBlue, RoundedCornerShape(6.dp))
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = ripple(color = AppColors.pressedColor),
+                                            onClick = { isConfirmingDelete = false }
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = "Отмена удаления",
+                                        tint = AccentSkyBlue,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
+                            }
                         }
                     }
-                }
 
-                // 2. Focus / Center on Map (Strictly anchored at exact Center of the card)
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .align(Alignment.Center)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(AppColors.bgSurface)
-                        .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = AppColors.pressedColor),
-                            onClick = onCenterMapClick
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MyLocation,
-                        contentDescription = "Центрировать на карте",
-                        tint = AccentSkyBlue,
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
+                    // 2. Focus / Center on Map (Strictly anchored at exact Center of the card)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .align(Alignment.Center)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.bgSurface)
+                            .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = onCenterMapClick
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.MyLocation,
+                            contentDescription = "Центрировать на карте",
+                            tint = AccentSkyBlue,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
 
-                // 3. Edit (Right) - Pencil Icon
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .align(Alignment.CenterEnd)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(AppColors.bgSurface)
-                        .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(color = AppColors.pressedColor),
-                            onClick = onEditClick
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Edit,
-                        contentDescription = "Редактировать точку",
-                        tint = AccentSkyBlue,
-                        modifier = Modifier.size(15.dp)
-                    )
+                    // 3. Edit (Right) - Pencil Icon
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .align(Alignment.CenterEnd)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(AppColors.bgSurface)
+                            .border(1.dp, AppColors.borderColor, RoundedCornerShape(6.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(color = AppColors.pressedColor),
+                                onClick = onEditClick
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Edit,
+                            contentDescription = "Редактировать точку",
+                            tint = AccentSkyBlue,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
                 }
             }
         }

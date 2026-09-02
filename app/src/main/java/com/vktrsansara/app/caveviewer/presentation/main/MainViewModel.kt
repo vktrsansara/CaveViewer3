@@ -2439,7 +2439,7 @@ class MainViewModel(
                 }
             }
             is MainUiIntent.OpenSearchModal -> {
-                _uiState.update { it.copy(isSearchModalOpen = true) }
+                _uiState.update { it.copy(isSearchModalOpen = true, isMenuExpanded = false) }
             }
             is MainUiIntent.DismissSearchModal -> {
                 _uiState.update { it.copy(isSearchModalOpen = false) }
@@ -2451,6 +2451,8 @@ class MainViewModel(
                 _uiState.update {
                     it.copy(
                         searchHighlightTarget = null,
+                        searchedPoints = emptyList(),
+                        searchedLines = emptyList(),
                         selectedPointForDetails = null,
                         selectedLineForDetails = null
                     )
@@ -2464,6 +2466,10 @@ class MainViewModel(
                 }
                 when (item) {
                     is SearchResultItem.PointResult -> {
+                        val currentSearchedPoints = _uiState.value.searchedPoints.toMutableList()
+                        if (currentSearchedPoints.none { it.id == item.point.id }) {
+                            currentSearchedPoints.add(item.point)
+                        }
                         _uiState.update {
                             it.copy(
                                 isSearchModalOpen = false,
@@ -2472,16 +2478,17 @@ class MainViewModel(
                                     pixelX = item.point.x,
                                     pixelY = item.point.y
                                 ),
-                                isPointLayersModeActive = true,
-                                selectedPointForDetails = item.point
+                                searchedPoints = currentSearchedPoints,
+                                selectedPointForDetails = item.point,
+                                selectedLineForDetails = null
                             )
                         }
                     }
                     is SearchResultItem.LineResult -> {
-                        val midPt = if (item.line.points.isNotEmpty()) {
-                            item.line.points[item.line.points.size / 2]
-                        } else {
-                            0.0 to 0.0
+                        val midPt = MeasureUtils.calculateLineMidpointPx(item.line.points)
+                        val currentSearchedLines = _uiState.value.searchedLines.toMutableList()
+                        if (currentSearchedLines.none { it.id == item.line.id }) {
+                            currentSearchedLines.add(item.line)
                         }
                         _uiState.update {
                             it.copy(
@@ -2492,8 +2499,9 @@ class MainViewModel(
                                     pixelY = midPt.second,
                                     isLine = true
                                 ),
-                                isLineLayersModeActive = true,
-                                selectedLineForDetails = item.line
+                                searchedLines = currentSearchedLines,
+                                selectedLineForDetails = item.line,
+                                selectedPointForDetails = null
                             )
                         }
                     }

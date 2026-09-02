@@ -1,5 +1,6 @@
 package com.vktrsansara.app.caveviewer.presentation.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -149,9 +150,19 @@ fun MenuPopover(
     onTogglePointLayersMode: () -> Unit = {},
     isLineLayersModeActive: Boolean = false,
     onToggleLineLayersMode: () -> Unit = {},
+    onDismiss: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var currentLevel by remember { mutableStateOf(MenuLevel.MAIN) }
+
+    // Intercept system back press when menu is open: exit submenu or dismiss menu
+    BackHandler(enabled = isOpen) {
+        when (currentLevel) {
+            MenuLevel.BINDING -> currentLevel = MenuLevel.EDIT
+            MenuLevel.MAIN -> onDismiss()
+            else -> currentLevel = MenuLevel.MAIN
+        }
+    }
 
     // Reset submenu to MAIN whenever popover is closed
     LaunchedEffect(isOpen) {

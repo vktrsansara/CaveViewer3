@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.RectF
 import com.vktrsansara.app.caveviewer.data.database.ProjectDatabase
 import com.vktrsansara.app.caveviewer.domain.model.EntranceCoordinate
 import com.vktrsansara.app.caveviewer.domain.model.LayerFieldDefinition
@@ -133,10 +132,78 @@ object LegacyCaveViewerImporter {
 
             val rawWidth = charObj?.optInt("width", 0) ?: 0
             val rawHeight = charObj?.optInt("height", 0) ?: 0
+            val zoomMin = charObj?.optInt("zoom_min", 2) ?: 2
+            val zoomMax = charObj?.optInt("zoom_max", 6) ?: 6
+            val zoomDef = charObj?.optInt("zoom_default", 4) ?: 4
             val ppm = charObj?.optDouble("pixels_per_meter", 0.0) ?: 0.0
             val scale = charObj?.optDouble("scale", 10.0) ?: 10.0
             val angleNorth = charObj?.optDouble("angle_north", 0.0) ?: 0.0
             val crs = metaJson.optJSONObject("specifications")?.optJSONObject("crs")?.optJSONObject("properties")?.optString("name", "Simple") ?: "Simple"
+
+            // Проверяем наличие папки тайлов
+            val tilesSrcDir = tempExtractDir.walkTopDown().firstOrNull {
+                it.isDirectory && it.name.equals("tiles", ignoreCase = true)
+            }
+
+            var width = rawWidth
+            var height = rawHeight
+            var finalZoomMin = zoomMin
+            var finalZoomMax = zoomMax
+
+            if (tilesSrcDir != null && tilesSrcDir.exists()) {
+                val zoomDirs = tilesSrcDir.listFiles { f -> f.isDirectory }
+                    ?.mapNotNull { it.name.toIntOrNull() }
+                    ?: emptyList()
+                if (zoomDirs.isNotEmpty()) {
+                    if (finalZoomMin <= 0) finalZoomMin = zoomDirs.minOrNull() ?: 2
+                    if (finalZoomMax <= 0) finalZoomMax = zoomDirs.maxOrNull() ?: 6
+                    if (width <= 0 || height <= 0) {
+                        val maxZ = zoomDirs.maxOrNull() ?: finalZoomMax
+                        val maxZoomDir = File(tilesSrcDir, maxZ.toString())
+                        var maxCol = 0
+                        var maxRow = 0
+                        maxZoomDir.listFiles()?.forEach { item ->
+                            if (item.isDirectory) {
+                                val col = item.name.toIntOrNull() ?: return@forEach
+                                item.listFiles { f -> f.isFile }?.forEach { f ->
+                                    val row = f.nameWithoutExtension.toIntOrNull() ?: return@forEach
+                                    if (col > maxCol) maxCol = col
+                                    if (row > maxRow) maxRow = row
+                                }
+                            } else if (item.isFile) {
+                                val parts = item.nameWithoutExtension.split("_", "-")
+                                if (parts.size == 2) {
+                                    val col = parts[0].toIntOrNull() ?: return@forEach
+                                    val row = parts[1].toIntOrNull() ?: return@forEach
+                                    if (col > maxCol) maxCol = col
+                                    if (row > maxRow) maxRow = row
+                                }
+                            }
+                        }
+                        if (width <= 0) width = (maxCol + 1) * CaveMapBounds.TILE_SIZE
+                        if (height <= 0) height = (maxRow + 1) * CaveMapBounds.TILE_SIZE
+                    }
+                }
+            }
+
+            val finalZoomDef = zoomDef.coerceIn(finalZoomMin, finalZoomMax)
+
+            // Сохраняем оригинальные метаданные проекта в SQLite БЕЗ даунсемплинга и искажения зумов
+            db.saveMetadata(
+                MapMetadata(
+                    projectName = targetDir.name,
+                    imageWidth = width,
+                    imageHeight = height,
+                    tileSize = CaveMapBounds.TILE_SIZE,
+                    zoomMin = finalZoomMin,
+                    zoomMax = finalZoomMax,
+                    zoomDefault = finalZoomDef,
+                    pixelsPerMeter = ppm,
+                    scaleMeters = scale,
+                    angleNorth = angleNorth,
+                    crs = crs
+                )
+            )
 
             // 6. Локация и входы (V1: map_geo + map_about, V2: location + features)
             val geoObj = metaJson.optJSONObject("map_geo")
@@ -234,19 +301,56 @@ object LegacyCaveViewerImporter {
                 convertLinesGeoJson(linesFile, db, ppm)
             }
 
-            // 9. Генерация тайлов Web Mercator и сохранение исходного растра
-            processTilesAndImage(
-                tempExtractDir = tempExtractDir,
-                targetDir = targetDir,
-                metaWidth = rawWidth,
-                metaHeight = rawHeight,
-                ppm = ppm,
-                scale = scale,
-                angleNorth = angleNorth,
-                crs = crs,
-                db = db,
-                onProgress = onProgress
-            )
+            // 9. Сохраняем исходное изображение (если есть) в map/image.png без загрузки в память
+            val imageFile = tempExtractDir.walkTopDown().firstOrNull {
+                it.isFile && (it.name.equals("image.png", ignoreCase = true) ||
+                             it.name.equals("image.jpg", ignoreCase = true) ||
+                             it.name.equals("image.jpeg", ignoreCase = true))
+            }
+            if (imageFile != null) {
+                val mapDstDir = File(targetDir, "map").apply { mkdirs() }
+                try {
+                    imageFile.copyTo(File(mapDstDir, "image.png"), overwrite = true)
+                } catch (_: Exception) {}
+            }
+
+            // 10. Субпиксельное потайловое выравнивание Web Mercator без OutOfMemory
+            val tilesDstDir = File(targetDir, "tiles")
+            if (tilesSrcDir != null && tilesSrcDir.exists() && width > 0 && height > 0) {
+                onProgress(0.75f, "Субпиксельное выравнивание тайлов...")
+                realignTilesForMercator(
+                    srcDir = tilesSrcDir,
+                    dstDir = tilesDstDir,
+                    width = width,
+                    height = height,
+                    zoomMin = finalZoomMin,
+                    zoomMax = finalZoomMax,
+                    onProgress = { p, text ->
+                        onProgress(0.75f + p * 0.23f, text)
+                    }
+                )
+            } else if (imageFile != null && width > 0 && height > 0) {
+                // Если исходных тайлов не было, нарезаем из файла изображения
+                onProgress(0.75f, "Генерация тайлов Web Mercator...")
+                val bmp = BitmapFactory.decodeFile(imageFile.absolutePath)
+                if (bmp != null) {
+                    TileCutter.cutTiles(
+                        projectName = targetDir.name,
+                        projectDir = targetDir,
+                        sourceBitmap = bmp,
+                        onProgress = { cutProgress ->
+                            onProgress(
+                                0.75f + cutProgress.progressFraction * 0.23f,
+                                "Генерация тайлов: зум ${cutProgress.currentZoom} (${(cutProgress.progressFraction * 100).toInt()}%)..."
+                            )
+                        }
+                    )
+                    bmp.recycle()
+                }
+                File(tilesDstDir, ".v3_aligned").writeText("v3")
+            } else {
+                throw IllegalStateException("В архиве проекта не найдены ни папка с тайлами tiles/, ни изображение карты")
+            }
 
             onProgress(1.0f, "Конвертация успешно завершена!")
 
@@ -255,221 +359,130 @@ object LegacyCaveViewerImporter {
             Result.failure(e)
         } finally {
             dbInstance?.close()
-            // 10. Очистка временных файлов
+            // 11. Очистка временных файлов
             try {
                 tempExtractDir.deleteRecursively()
             } catch (_: Exception) {}
         }
     }
 
-    private suspend fun processTilesAndImage(
-        tempExtractDir: File,
-        targetDir: File,
-        metaWidth: Int,
-        metaHeight: Int,
-        ppm: Double,
-        scale: Double,
-        angleNorth: Double,
-        crs: String,
-        db: ProjectDatabase,
-        onProgress: (progress: Float, statusText: String) -> Unit
+    private fun realignTilesForMercator(
+        srcDir: File,
+        dstDir: File,
+        width: Int,
+        height: Int,
+        zoomMin: Int,
+        zoomMax: Int,
+        onProgress: (progress: Float, statusText: String) -> Unit = { _, _ -> }
     ) {
-        var sourceBitmap: Bitmap? = null
-
-        // 1. Проверяем наличие оригинального изображения
-        val imageFile = tempExtractDir.walkTopDown().firstOrNull {
-            it.isFile && (it.name.equals("image.png", ignoreCase = true) ||
-                         it.name.equals("image.jpg", ignoreCase = true) ||
-                         it.name.equals("image.jpeg", ignoreCase = true))
-        }
-
-        if (imageFile != null) {
-            onProgress(0.72f, "Загрузка изображения карты...")
-            sourceBitmap = decodeSampledBitmap(imageFile)
-        }
-
-        // 2. Если изображения нет в архиве, восстанавливаем полный растр из тайлов максимального зума
-        if (sourceBitmap == null) {
-            val tilesSrcDir = tempExtractDir.walkTopDown().firstOrNull {
-                it.isDirectory && it.name.equals("tiles", ignoreCase = true)
-            }
-            if (tilesSrcDir != null) {
-                onProgress(0.72f, "Сборка растрового плана из тайлов...")
-                sourceBitmap = reconstructBitmapFromTiles(tilesSrcDir, metaWidth, metaHeight)
-            }
-        }
-
-        if (sourceBitmap != null) {
-            val width = sourceBitmap.width
-            val height = sourceBitmap.height
-
-            // Сохраняем map/image.png
-            val mapDstDir = File(targetDir, "map").apply { mkdirs() }
-            val mapImageFile = File(mapDstDir, "image.png")
-            FileOutputStream(mapImageFile).use { out ->
-                sourceBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
-
-            // Нарезаем пирамиду тайлов Mercator с помощью TileCutter
-            onProgress(0.75f, "Генерация тайлов Web Mercator...")
-            TileCutter.cutTiles(
-                projectName = targetDir.name,
-                projectDir = targetDir,
-                sourceBitmap = sourceBitmap,
-                onProgress = { cutProgress ->
-                    onProgress(
-                        0.75f + cutProgress.progressFraction * 0.23f,
-                        "Генерация тайлов: зум ${cutProgress.currentZoom} (${(cutProgress.progressFraction * 100).toInt()}%)..."
-                    )
-                }
-            )
-
-            // Записываем метаданные с рассчитанными уровнями зума TileCutter
-            val (zMin, zMax, zDef) = TileCutter.calculateZoomLevels(width, height)
-            db.saveMetadata(
-                MapMetadata(
-                    projectName = targetDir.name,
-                    imageWidth = width,
-                    imageHeight = height,
-                    tileSize = CaveMapBounds.TILE_SIZE,
-                    zoomMin = zMin,
-                    zoomMax = zMax,
-                    zoomDefault = zDef,
-                    pixelsPerMeter = ppm,
-                    scaleMeters = scale,
-                    angleNorth = angleNorth,
-                    crs = crs
-                )
-            )
-
-            sourceBitmap.recycle()
-        } else {
-            throw IllegalStateException("В архиве проекта не найдены ни изображение карты, ни папка с тайлами tiles/")
-        }
-    }
-
-    private fun decodeSampledBitmap(file: File): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(file.absolutePath, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-
-        val maxMemory = Runtime.getRuntime().maxMemory()
-        val usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()
-        val availableMemory = maxMemory - usedMemory
-        val maxAllowedBytes = (availableMemory * 0.45).toLong().coerceAtMost(256L * 1024 * 1024)
-
-        var sampleSize = 1
-        var w = bounds.outWidth
-        var h = bounds.outHeight
-        val maxDim = 8192
-
-        while (w * h * 4L > maxAllowedBytes || w > maxDim || h > maxDim) {
-            sampleSize *= 2
-            w = bounds.outWidth / sampleSize
-            h = bounds.outHeight / sampleSize
-        }
-
-        val opts = BitmapFactory.Options().apply {
-            inSampleSize = sampleSize
-            inPreferredConfig = Bitmap.Config.ARGB_8888
-        }
-        return BitmapFactory.decodeFile(file.absolutePath, opts)
-    }
-
-    private fun reconstructBitmapFromTiles(tilesSrcDir: File, metaWidth: Int, metaHeight: Int): Bitmap? {
-        val zoomDirs = tilesSrcDir.listFiles { f -> f.isDirectory }
-            ?.mapNotNull { it.name.toIntOrNull() }
-            ?: return null
-        if (zoomDirs.isEmpty()) return null
-
-        val maxZoom = zoomDirs.maxOrNull() ?: return null
-        val maxZoomDir = File(tilesSrcDir, maxZoom.toString())
-
-        var maxCol = 0
-        var maxRow = 0
-        val tileEntries = mutableListOf<Triple<Int, Int, File>>()
-
-        maxZoomDir.listFiles()?.forEach { item ->
-            if (item.isDirectory) {
-                val col = item.name.toIntOrNull() ?: return@forEach
-                item.listFiles { f -> f.isFile }?.forEach { f ->
-                    val row = f.nameWithoutExtension.toIntOrNull() ?: return@forEach
-                    tileEntries.add(Triple(col, row, f))
-                    if (col > maxCol) maxCol = col
-                    if (row > maxRow) maxRow = row
-                }
-            } else if (item.isFile) {
-                val parts = item.nameWithoutExtension.split("_", "-")
-                if (parts.size == 2) {
-                    val col = parts[0].toIntOrNull() ?: return@forEach
-                    val row = parts[1].toIntOrNull() ?: return@forEach
-                    tileEntries.add(Triple(col, row, item))
-                    if (col > maxCol) maxCol = col
-                    if (row > maxRow) maxRow = row
-                }
-            }
-        }
-
-        if (tileEntries.isEmpty()) return null
-
-        val rawTargetWidth = if (metaWidth > 0) metaWidth else (maxCol + 1) * 256
-        val rawTargetHeight = if (metaHeight > 0) metaHeight else (maxRow + 1) * 256
-
-        // Safeguard against OutOfMemoryError on large reconstructed plans
-        val maxMemory = Runtime.getRuntime().maxMemory()
-        val usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()
-        val availableMemory = maxMemory - usedMemory
-        val maxAllowedBytes = (availableMemory * 0.35).toLong().coerceAtMost(192L * 1024 * 1024)
-        val maxDim = 6144
-
-        var downsample = 1
-        var curW = rawTargetWidth
-        var curH = rawTargetHeight
-        while (curW * curH * 4L > maxAllowedBytes || curW > maxDim || curH > maxDim) {
-            downsample *= 2
-            curW = rawTargetWidth / downsample
-            curH = rawTargetHeight / downsample
-        }
-
-        val targetWidth = curW.coerceAtLeast(1)
-        val targetHeight = curH.coerceAtLeast(1)
-
-        val bitmap = try {
-            Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
-        } catch (_: OutOfMemoryError) {
-            val fallbackW = (targetWidth / 2).coerceAtLeast(1)
-            val fallbackH = (targetHeight / 2).coerceAtLeast(1)
-            downsample *= 2
-            Bitmap.createBitmap(fallbackW, fallbackH, Bitmap.Config.ARGB_8888)
-        }
-
-        val canvas = Canvas(bitmap)
+        dstDir.mkdirs()
+        val tileSize = CaveMapBounds.TILE_SIZE.toDouble()
+        val totalWorldPixelsMax = (2.0.pow(zoomMax.toDouble())) * tileSize
+        val imageLeftPxMax = (totalWorldPixelsMax - width.toDouble()) / 2.0
+        val imageTopPxMax = (totalWorldPixelsMax - height.toDouble()) / 2.0
         val paint = Paint().apply {
             isFilterBitmap = true
             isAntiAlias = true
         }
 
-        val tileOpts = BitmapFactory.Options().apply {
-            if (downsample > 1) {
-                inSampleSize = downsample
-            }
-            inPreferredConfig = Bitmap.Config.ARGB_8888
-        }
+        val totalZooms = (zoomMax - zoomMin + 1).coerceAtLeast(1)
 
-        for ((col, row, file) in tileEntries) {
-            val tileBmp = BitmapFactory.decodeFile(file.absolutePath, tileOpts)
-            if (tileBmp != null) {
-                val dstLeft = (col * 256f) / downsample
-                val dstTop = (row * 256f) / downsample
-                val dstRight = dstLeft + (256f / downsample)
-                val dstBottom = dstTop + (256f / downsample)
-                val dstRect = RectF(dstLeft, dstTop, dstRight, dstBottom)
-                canvas.drawBitmap(tileBmp, null, dstRect, paint)
-                tileBmp.recycle()
+        for ((zoomIdx, z) in (zoomMin..zoomMax).withIndex()) {
+            val srcZoomDir = File(srcDir, z.toString())
+            if (!srcZoomDir.exists()) continue
+
+            onProgress(
+                zoomIdx.toFloat() / totalZooms,
+                "Выравнивание тайлов: зум $z из $zoomMax..."
+            )
+
+            val scale = 2.0.pow((z - zoomMax).toDouble())
+            val scaledW = width.toDouble() * scale
+            val scaledH = height.toDouble() * scale
+            val imageLeftPx = imageLeftPxMax * scale
+            val imageTopPx = imageTopPxMax * scale
+            val minTileX = floor(imageLeftPx / tileSize).toInt()
+            val minTileY = floor(imageTopPx / tileSize).toInt()
+            val maxTileX = floor((imageLeftPx + scaledW - 0.001) / tileSize).toInt()
+            val maxTileY = floor((imageTopPx + scaledH - 0.001) / tileSize).toInt()
+            val maxOldCol = floor((scaledW - 0.001) / tileSize).toInt()
+            val maxOldRow = floor((scaledH - 0.001) / tileSize).toInt()
+
+            for (tx in minTileX..maxTileX) {
+                val targetColDir = File(dstDir, "$z/$tx").apply { mkdirs() }
+                val tileWorldLeft = tx * tileSize
+                for (ty in minTileY..maxTileY) {
+                    val tileWorldTop = ty * tileSize
+                    val srcX0 = tileWorldLeft - imageLeftPx
+                    val srcY0 = tileWorldTop - imageTopPx
+                    val srcX1 = srcX0 + tileSize
+                    val srcY1 = srcY0 + tileSize
+                    val oldColMin = maxOf(0, floor(srcX0 / tileSize).toInt())
+                    val oldColMax = minOf(maxOldCol, floor((srcX1 - 0.001) / tileSize).toInt())
+                    val oldRowMin = maxOf(0, floor(srcY0 / tileSize).toInt())
+                    val oldRowMax = minOf(maxOldRow, floor((srcY1 - 0.001) / tileSize).toInt())
+
+                    if (oldColMin > oldColMax || oldRowMin > oldRowMax) {
+                        continue
+                    }
+
+                    var targetBitmap: Bitmap? = null
+                    var canvas: Canvas? = null
+                    var hasDrawn = false
+
+                    for (c in oldColMin..oldColMax) {
+                        for (r in oldRowMin..oldRowMax) {
+                            val oldTileFile = findOldTileFile(srcZoomDir, c, r)
+                            if (oldTileFile != null) {
+                                val oldBmp = BitmapFactory.decodeFile(oldTileFile.absolutePath)
+                                if (oldBmp != null) {
+                                    if (targetBitmap == null) {
+                                        targetBitmap = Bitmap.createBitmap(
+                                            CaveMapBounds.TILE_SIZE,
+                                            CaveMapBounds.TILE_SIZE,
+                                            Bitmap.Config.ARGB_8888
+                                        )
+                                        canvas = Canvas(targetBitmap)
+                                    }
+                                    val drawX = (c * tileSize + imageLeftPx - tileWorldLeft).toFloat()
+                                    val drawY = (r * tileSize + imageTopPx - tileWorldTop).toFloat()
+                                    canvas!!.drawBitmap(oldBmp, drawX, drawY, paint)
+                                    oldBmp.recycle()
+                                    hasDrawn = true
+                                }
+                            }
+                        }
+                    }
+
+                    if (targetBitmap != null && hasDrawn) {
+                        val outTileFile = File(targetColDir, "$ty.png")
+                        FileOutputStream(outTileFile).use { out ->
+                            targetBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        }
+                        targetBitmap.recycle()
+                    }
+                }
             }
         }
+        File(dstDir, ".v3_aligned").writeText("v3")
+    }
 
-        return bitmap
+    private fun findOldTileFile(zoomDir: File, col: Int, row: Int): File? {
+        val fPng = File(zoomDir, "$col/$row.png")
+        if (fPng.exists()) return fPng
+        val fJpg = File(zoomDir, "$col/$row.jpg")
+        if (fJpg.exists()) return fJpg
+        val fJpeg = File(zoomDir, "$col/$row.jpeg")
+        if (fJpeg.exists()) return fJpeg
+
+        val fFlatPng = File(zoomDir, "${col}_${row}.png")
+        if (fFlatPng.exists()) return fFlatPng
+        val fFlatJpg = File(zoomDir, "${col}_${row}.jpg")
+        if (fFlatJpg.exists()) return fFlatJpg
+        val fFlatDash = File(zoomDir, "${col}-${row}.png")
+        if (fFlatDash.exists()) return fFlatDash
+
+        return null
     }
 
     private fun convertPointsGeoJson(file: File, db: ProjectDatabase) {

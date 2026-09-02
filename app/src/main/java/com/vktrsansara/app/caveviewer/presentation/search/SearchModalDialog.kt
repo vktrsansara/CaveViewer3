@@ -1,5 +1,6 @@
 package com.vktrsansara.app.caveviewer.presentation.search
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -98,6 +99,8 @@ fun SearchModalDialog(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+
+    BackHandler(onBack = onDismiss)
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -505,7 +508,7 @@ fun SearchModalDialog(
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            text = "Очистить маркеры",
+                            text = "Очистить карту",
                             fontSize = 12.sp,
                             color = AccentSkyBlue
                         )

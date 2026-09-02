@@ -31,6 +31,37 @@ object MeasureUtils {
     }
 
     /**
+     * Calculates the midpoint (x, y) along a polyline or line segment in pixels.
+     * For a single segment (2 points), returns the exact geometric middle (p1 + p2) / 2.
+     * For a multi-segment line, returns the exact point along the line at half of its total length.
+     */
+    fun calculateLineMidpointPx(points: List<Pair<Double, Double>>): Pair<Double, Double> {
+        if (points.isEmpty()) return 0.0 to 0.0
+        if (points.size == 1) return points[0]
+        if (points.size == 2) {
+            return Pair(
+                (points[0].first + points[1].first) / 2.0,
+                (points[0].second + points[1].second) / 2.0
+            )
+        }
+        val totalLength = calculatePolylineLengthPx(points)
+        if (totalLength <= 0.0) return points[0]
+        val halfLength = totalLength / 2.0
+        var accumulated = 0.0
+        for (i in 0 until points.size - 1) {
+            val segLen = distancePx(points[i], points[i + 1])
+            if (accumulated + segLen >= halfLength && segLen > 0.0) {
+                val t = (halfLength - accumulated) / segLen
+                val mx = points[i].first + t * (points[i + 1].first - points[i].first)
+                val my = points[i].second + t * (points[i + 1].second - points[i].second)
+                return Pair(mx, my)
+            }
+            accumulated += segLen
+        }
+        return points[points.size / 2]
+    }
+
+    /**
      * Calculates the intersection point between two finite line segments (p1 -> p2) and (p3 -> p4).
      * Returns the (x, y) coordinates of the intersection if they cross, or null if parallel or disjoint.
      */
