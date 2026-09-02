@@ -55,6 +55,10 @@ data class MainUiState(
     val projectSavingName: String = "",
     val projectSavingProgress: Float = 0f,
     val projectSavingStatusText: String = "",
+    val isExportProjectDialogVisible: Boolean = false,
+    val isPasswordPromptDialogVisible: Boolean = false,
+    val passwordPromptError: String? = null,
+    val pendingImportUri: android.net.Uri? = null,
     val settings: AppSettings = AppSettings(),
     // Multi-Tool SideBar (Dock) State
     val dockedTools: List<ToolType> = emptyList(),
@@ -235,7 +239,11 @@ sealed interface MainUiIntent : UiIntent {
     data object NewProjectClicked : MainUiIntent
     data object ImportProjectClicked : MainUiIntent
     data class ImportProject(val uri: android.net.Uri) : MainUiIntent
+    data class SubmitImportPassword(val password: String) : MainUiIntent
+    data object DismissPasswordPromptDialog : MainUiIntent
     data object ExportProjectClicked : MainUiIntent
+    data object DismissExportProjectDialog : MainUiIntent
+    data class StartExportProject(val outputUri: android.net.Uri, val compressionLevel: Int, val password: String?) : MainUiIntent
     data object CloseActiveProject : MainUiIntent
 
     // Edit Menu actions

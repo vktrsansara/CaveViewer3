@@ -109,6 +109,8 @@ import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MapFilterDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MapFilterHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.components.SearchHighlightOverlay
 import com.vktrsansara.app.caveviewer.presentation.search.SearchModalDialog
+import com.vktrsansara.app.caveviewer.presentation.projects.ExportProjectDialog
+import com.vktrsansara.app.caveviewer.presentation.projects.PasswordPromptDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.MultiToolDockHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingHelpDialog
 import com.vktrsansara.app.caveviewer.presentation.map.dialogs.NorthBindingInputDialog
@@ -628,7 +630,7 @@ fun MainScreen(
         )
     }
 
-    // Tile / Project Import Progress Dialog
+    // Tile / Project Import / Export Progress Dialog
     if (uiState.isProjectSaving && uiState.currentScreen != AppScreen.CREATE_RASTER_PROJECT) {
         TileGenerationProgressDialog(
             projectName = uiState.projectSavingName,
@@ -638,9 +640,45 @@ fun MainScreen(
         )
     }
 
+    // Export Project Dialog
+    val activeProjName = uiState.activeProjectName
+    if (uiState.isExportProjectDialogVisible && activeProjName != null) {
+        ExportProjectDialog(
+            projectName = activeProjName,
+            metadata = uiState.activeProjectMetadata,
+            pointLayersCount = uiState.pointLayers.size,
+            lineLayersCount = uiState.lineLayers.size,
+            pointsCount = uiState.allVisiblePoints.size,
+            linesCount = uiState.allVisibleLines.size,
+            onExport = { outputUri, compressionLevel, password ->
+                viewModel.handleIntent(
+                    MainUiIntent.StartExportProject(
+                        outputUri = outputUri,
+                        compressionLevel = compressionLevel,
+                        password = password
+                    )
+                )
+            },
+            onDismiss = { viewModel.handleIntent(MainUiIntent.DismissExportProjectDialog) }
+        )
+    }
+
+    // Password Prompt Dialog for Encrypted Archives
+    if (uiState.isPasswordPromptDialogVisible) {
+        PasswordPromptDialog(
+            errorMessage = uiState.passwordPromptError,
+            onSubmit = { password ->
+                viewModel.handleIntent(MainUiIntent.SubmitImportPassword(password))
+            },
+            onDismiss = { viewModel.handleIntent(MainUiIntent.DismissPasswordPromptDialog) }
+        )
+    }
+
     // Handle system back gesture
     BackHandler(
         enabled = uiState.currentScreen != AppScreen.MAIN ||
+                uiState.isExportProjectDialogVisible ||
+                uiState.isPasswordPromptDialogVisible ||
                 uiState.isSearchModalOpen ||
                 uiState.isMenuExpanded ||
                 uiState.selectedPointForDetails != null ||
@@ -655,6 +693,8 @@ fun MainScreen(
                 uiState.dockedTools.isNotEmpty()
     ) {
         when {
+            uiState.isPasswordPromptDialogVisible -> viewModel.handleIntent(MainUiIntent.DismissPasswordPromptDialog)
+            uiState.isExportProjectDialogVisible -> viewModel.handleIntent(MainUiIntent.DismissExportProjectDialog)
             uiState.isSearchModalOpen -> viewModel.handleIntent(MainUiIntent.DismissSearchModal)
             uiState.isMenuExpanded -> viewModel.handleIntent(MainUiIntent.DismissMenu)
             uiState.isNavigationModeActive -> viewModel.handleIntent(MainUiIntent.ToggleNavigationMode(false))

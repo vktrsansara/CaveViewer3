@@ -19,6 +19,8 @@ import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.model.ToolType
 import com.vktrsansara.app.caveviewer.domain.repository.ProjectRepository
+import com.vktrsansara.app.caveviewer.domain.repository.PasswordRequiredException
+import com.vktrsansara.app.caveviewer.domain.repository.InvalidPasswordException
 import com.vktrsansara.app.caveviewer.domain.repository.SettingsRepository
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
 import kotlinx.coroutines.Dispatchers
@@ -337,10 +339,98 @@ class MainViewModel(
                                     isMenuExpanded = false
                                 )
                             }
+                            _effect.send(MainUiEffect.ShowToast("Проект успешно импортирован"))
                         },
                         onFailure = { error ->
-                            _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка импорта проекта"))
+                            if (error is PasswordRequiredException) {
+                                _uiState.update {
+                                    it.copy(
+                                        pendingImportUri = intent.uri,
+                                        isPasswordPromptDialogVisible = true,
+                                        passwordPromptError = null
+                                    )
+                                }
+                            } else {
+                                _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка импорта проекта"))
+                            }
                         }
+                    )
+                }
+            }
+            is MainUiIntent.SubmitImportPassword -> {
+                val uri = _uiState.value.pendingImportUri
+                if (uri == null) {
+                    _uiState.update { it.copy(isPasswordPromptDialogVisible = false) }
+                    return
+                }
+                _uiState.update {
+                    it.copy(
+                        isProjectSaving = true,
+                        projectSavingName = "Импорт проекта",
+                        projectSavingProgress = 0.05f,
+                        projectSavingStatusText = "Проверка пароля и распаковка..."
+                    )
+                }
+                viewModelScope.launch {
+                    val result = projectRepository.importProject(uri, intent.password) { progress, statusText ->
+                        _uiState.update {
+                            it.copy(
+                                projectSavingProgress = progress,
+                                projectSavingStatusText = statusText
+                            )
+                        }
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isProjectSaving = false,
+                            projectSavingName = "",
+                            projectSavingProgress = 0f,
+                            projectSavingStatusText = ""
+                        )
+                    }
+                    result.fold(
+                        onSuccess = { _ ->
+                            _uiState.update {
+                                it.copy(
+                                    pendingImportUri = null,
+                                    isPasswordPromptDialogVisible = false,
+                                    passwordPromptError = null
+                                )
+                            }
+                            loadProjectsList()
+                            _uiState.update {
+                                it.copy(
+                                    currentScreen = AppScreen.PROJECTS_LIST,
+                                    isMenuExpanded = false
+                                )
+                            }
+                            _effect.send(MainUiEffect.ShowToast("Проект успешно импортирован"))
+                        },
+                        onFailure = { error ->
+                            if (error is InvalidPasswordException) {
+                                _uiState.update {
+                                    it.copy(passwordPromptError = "Неверный пароль к проекту")
+                                }
+                            } else {
+                                _uiState.update {
+                                    it.copy(
+                                        pendingImportUri = null,
+                                        isPasswordPromptDialogVisible = false,
+                                        passwordPromptError = null
+                                    )
+                                }
+                                _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка импорта проекта"))
+                            }
+                        }
+                    )
+                }
+            }
+            is MainUiIntent.DismissPasswordPromptDialog -> {
+                _uiState.update {
+                    it.copy(
+                        pendingImportUri = null,
+                        isPasswordPromptDialogVisible = false,
+                        passwordPromptError = null
                     )
                 }
             }
@@ -354,12 +444,67 @@ class MainViewModel(
                 }
             }
             is MainUiIntent.ExportProjectClicked -> {
-                _uiState.update {
-                    it.copy(
-                        currentScreen = AppScreen.FEATURE_UNDER_DEVELOPMENT,
-                        underDevelopmentFeatureName = "Экспорт проекта",
-                        isMenuExpanded = false
-                    )
+                val activeName = _uiState.value.activeProjectName
+                if (activeName == null) {
+                    _uiState.update { it.copy(isMenuExpanded = false) }
+                    viewModelScope.launch {
+                        _effect.send(MainUiEffect.ShowToast("Сначала откройте проект для экспорта"))
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isExportProjectDialogVisible = true,
+                            isMenuExpanded = false
+                        )
+                    }
+                }
+            }
+            is MainUiIntent.DismissExportProjectDialog -> {
+                _uiState.update { it.copy(isExportProjectDialogVisible = false) }
+            }
+            is MainUiIntent.StartExportProject -> {
+                val activeName = _uiState.value.activeProjectName
+                if (activeName != null) {
+                    _uiState.update {
+                        it.copy(
+                            isExportProjectDialogVisible = false,
+                            isProjectSaving = true,
+                            projectSavingName = activeName,
+                            projectSavingProgress = 0.05f,
+                            projectSavingStatusText = "Подготовка к экспорту..."
+                        )
+                    }
+                    viewModelScope.launch {
+                        val result = projectRepository.exportProject(
+                            projectName = activeName,
+                            outputUri = intent.outputUri,
+                            compressionLevel = intent.compressionLevel,
+                            password = intent.password
+                        ) { progress, statusText ->
+                            _uiState.update {
+                                it.copy(
+                                    projectSavingProgress = progress,
+                                    projectSavingStatusText = statusText
+                                )
+                            }
+                        }
+                        _uiState.update {
+                            it.copy(
+                                isProjectSaving = false,
+                                projectSavingName = "",
+                                projectSavingProgress = 0f,
+                                projectSavingStatusText = ""
+                            )
+                        }
+                        result.fold(
+                            onSuccess = {
+                                _effect.send(MainUiEffect.ShowToast("Проект успешно экспортирован"))
+                            },
+                            onFailure = { error ->
+                                _effect.send(MainUiEffect.ShowToast(error.message ?: "Ошибка экспорта проекта"))
+                            }
+                        )
+                    }
                 }
             }
             is MainUiIntent.CloseActiveProject -> {

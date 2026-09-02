@@ -22,6 +22,14 @@ import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.ProjectInfo
 import com.vktrsansara.app.caveviewer.domain.repository.ProjectRepository
+import com.vktrsansara.app.caveviewer.domain.repository.PasswordRequiredException
+import com.vktrsansara.app.caveviewer.domain.repository.InvalidPasswordException
+import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
+import net.lingala.zip4j.model.ZipParameters
+import net.lingala.zip4j.model.enums.CompressionLevel
+import net.lingala.zip4j.model.enums.CompressionMethod
+import net.lingala.zip4j.model.enums.EncryptionMethod
+import net.lingala.zip4j.model.enums.AesKeyStrength
 import android.database.sqlite.SQLiteDatabase
 import android.util.Log
 import com.vktrsansara.app.caveviewer.domain.tile.TileCutProgress
@@ -428,6 +436,7 @@ class ProjectRepositoryImpl(
 
     override suspend fun importProject(
         archiveUri: Uri,
+        password: String?,
         onProgress: (progress: Float, statusText: String) -> Unit
     ): Result<String> = withContext(Dispatchers.IO) {
         val tempDir = File(context.cacheDir, "temp_import_${System.currentTimeMillis()}").apply { mkdirs() }
@@ -461,45 +470,91 @@ class ProjectRepositoryImpl(
                 }
             } ?: return@withContext Result.failure(Exception("Не удалось открыть выбранный файл архива"))
 
+            // 2. Check if archive is valid and whether it is password-protected using Zip4j
+            val zip4j = net.lingala.zip4j.ZipFile(tempZipFile)
+            if (!zip4j.isValidZipFile) {
+                return@withContext Result.failure(Exception("Выбранный файл не является корректным архивом проекта (.cvproj или .zip)"))
+            }
+
+            val isEncrypted = try { zip4j.isEncrypted } catch (_: Exception) { false }
+            if (isEncrypted) {
+                if (password.isNullOrEmpty()) {
+                    return@withContext Result.failure(PasswordRequiredException())
+                }
+                zip4j.setPassword(password.toCharArray())
+            }
+
             // Check for CaveViewer V1 legacy project structure (metadata.json without thismap.sqlite)
-            val zipEntries = java.util.zip.ZipFile(tempZipFile).use { it.entries().asSequence().map { e -> e.name }.toList() }
-            if (com.vktrsansara.app.caveviewer.data.importer.LegacyCaveViewerImporter.isLegacyProject(zipEntries)) {
-                return@withContext com.vktrsansara.app.caveviewer.data.importer.LegacyCaveViewerImporter.importLegacyZip(
-                    context = context,
-                    zipFile = tempZipFile,
-                    targetProjectsBaseDir = getProjectsBaseDir(),
-                    onProgress = onProgress
-                )
+            if (!isEncrypted) {
+                try {
+                    val zipEntries = java.util.zip.ZipFile(tempZipFile).use { it.entries().asSequence().map { e -> e.name }.toList() }
+                    if (com.vktrsansara.app.caveviewer.data.importer.LegacyCaveViewerImporter.isLegacyProject(zipEntries)) {
+                        return@withContext com.vktrsansara.app.caveviewer.data.importer.LegacyCaveViewerImporter.importLegacyZip(
+                            context = context,
+                            zipFile = tempZipFile,
+                            targetProjectsBaseDir = getProjectsBaseDir(),
+                            onProgress = onProgress
+                        )
+                    }
+                } catch (_: Exception) {}
             }
 
             onProgress(0.15f, "Подготовка к распаковке...")
 
-            // 2. Unpack archive to temp extracted directory with progress
+            // 3. Unpack archive to temp extracted directory with progress
             val extractDir = File(tempDir, "extracted").apply { mkdirs() }
-            unzipWithProgress(tempZipFile, extractDir) { entryIndex, totalEntries, _ ->
-                val frac = if (totalEntries > 0) entryIndex.toFloat() / totalEntries else 0f
-                val currentProgress = 0.15f + frac * 0.60f
-                onProgress(currentProgress, "Распаковка: $entryIndex из $totalEntries файлов...")
+            if (isEncrypted) {
+                try {
+                    val headers = zip4j.fileHeaders
+                    val totalHeaders = headers.size
+                    var extractedCount = 0
+                    var lastProgressTime = 0L
+
+                    for (header in headers) {
+                        zip4j.extractFile(header, extractDir.absolutePath)
+                        extractedCount++
+                        val now = System.currentTimeMillis()
+                        if (now - lastProgressTime > 80 || extractedCount == totalHeaders) {
+                            lastProgressTime = now
+                            val frac = extractedCount.toFloat() / totalHeaders
+                            onProgress(0.15f + frac * 0.60f, "Распаковка: $extractedCount из $totalHeaders файлов...")
+                        }
+                    }
+                } catch (e: net.lingala.zip4j.exception.ZipException) {
+                    val msg = e.message ?: ""
+                    if (msg.contains("Wrong Password", ignoreCase = true) ||
+                        msg.contains("password", ignoreCase = true) ||
+                        e.type == net.lingala.zip4j.exception.ZipException.Type.WRONG_PASSWORD) {
+                        return@withContext Result.failure(InvalidPasswordException())
+                    }
+                    throw e
+                }
+            } else {
+                unzipWithProgress(tempZipFile, extractDir) { entryIndex, totalEntries, _ ->
+                    val frac = if (totalEntries > 0) entryIndex.toFloat() / totalEntries else 0f
+                    val currentProgress = 0.15f + frac * 0.60f
+                    onProgress(currentProgress, "Распаковка: $entryIndex из $totalEntries файлов...")
+                }
             }
 
             onProgress(0.75f, "Проверка структуры проекта...")
 
-            // 3. Locate thismap.sqlite (search recursively for project root)
+            // 4. Locate thismap.sqlite (search recursively for project root)
             val sqliteFiles = extractDir.walkTopDown().filter { it.isFile && it.name.equals("thismap.sqlite", ignoreCase = true) }.toList()
             if (sqliteFiles.isEmpty()) {
-                return@withContext Result.failure(Exception("Некорректный архив: проект должен содержать thismap.sqlite и папку tiles"))
+                return@withContext Result.failure(Exception("Некорректный проект: архив должен содержать thismap.sqlite и папку tiles"))
             }
 
             val sqliteFile = sqliteFiles.first()
             val projectRoot = sqliteFile.parentFile ?: extractDir
 
-            // 4. Validate tiles folder
+            // 5. Validate tiles folder
             val tilesDir = File(projectRoot, "tiles")
             if (!tilesDir.exists() || !tilesDir.isDirectory) {
-                return@withContext Result.failure(Exception("Некорректный архив: проект должен содержать thismap.sqlite и папку tiles"))
+                return@withContext Result.failure(Exception("Некорректный проект: архив должен содержать thismap.sqlite и папку tiles"))
             }
 
-            // 5. Read project name from metadata or archive filename
+            // 6. Read project name from metadata or archive filename
             val db = getDatabase(sqliteFile)
             val metadata = try { db.getMetadata() } catch (e: Exception) { null }
             val rawName = metadata?.projectName?.takeIf { it.isNotBlank() }
@@ -511,7 +566,7 @@ class ProjectRepositoryImpl(
                 .trim()
                 .ifBlank { "Imported_Project" }
 
-            // 6. Create unique target directory in Documents/CaveViewer/Projects
+            // 7. Create unique target directory in Documents/CaveViewer/Projects
             val baseDir = getProjectsBaseDir()
             var finalName = sanitizedName
             var finalDir = File(baseDir, finalName)
@@ -523,7 +578,7 @@ class ProjectRepositoryImpl(
             }
             finalDir.mkdirs()
 
-            // 7. Copy project files into final directory with progress
+            // 8. Copy project files into final directory with progress
             onProgress(0.80f, "Сохранение проекта в хранилище...")
 
             projectRoot.listFiles()?.forEach { file ->
@@ -561,12 +616,213 @@ class ProjectRepositoryImpl(
 
             onProgress(1.0f, "Импорт успешно завершен!")
             Result.success(finalName)
+        } catch (e: PasswordRequiredException) {
+            Result.failure(e)
+        } catch (e: InvalidPasswordException) {
+            Result.failure(e)
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "Ошибка распаковки архива", e))
         } finally {
             try {
                 tempDir.deleteRecursively()
             } catch (_: Exception) {}
+        }
+    }
+
+    override suspend fun exportProject(
+        projectName: String,
+        outputUri: Uri,
+        compressionLevel: Int,
+        password: String?,
+        onProgress: (progress: Float, statusText: String) -> Unit
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val projectDir = getProjectDir(projectName)
+            ?: return@withContext Result.failure(IllegalStateException("Папка проекта «$projectName» не найдена"))
+
+        val tempExportFile = File(context.cacheDir, "export_${System.currentTimeMillis()}.cvproj")
+        try {
+            onProgress(0.05f, "Проверка структуры проекта...")
+
+            // 1. Проверяем и при необходимости автоматически склеиваем map/image.png из тайлов максимального зума
+            val mapDir = File(projectDir, "map").apply { mkdirs() }
+            val mapImageFile = File(mapDir, "image.png")
+            if (!mapImageFile.exists() || mapImageFile.length() == 0L) {
+                onProgress(0.08f, "Сборка исходного растра карты из тайлов...")
+                val stitched = reconstructImageFromTiles(projectDir)
+                if (!stitched) {
+                    Log.w("ProjectRepository", "Не удалось собрать map/image.png из тайлов")
+                }
+            }
+
+            // 2. Убеждаемся в наличии маркера .v3_aligned в папке тайлов
+            val tilesDir = File(projectDir, "tiles")
+            if (tilesDir.exists()) {
+                val alignedMarker = File(tilesDir, ".v3_aligned")
+                if (!alignedMarker.exists()) {
+                    try { alignedMarker.createNewFile() } catch (_: Exception) {}
+                }
+            }
+
+            // 3. Формируем список файлов для упаковки в корень архива
+            val filesToPack = mutableListOf<Pair<File, String>>()
+            val sqliteFile = File(projectDir, "thismap.sqlite")
+            if (sqliteFile.exists()) {
+                filesToPack.add(sqliteFile to "thismap.sqlite")
+            } else {
+                return@withContext Result.failure(IllegalStateException("В проекте отсутствует база данных thismap.sqlite"))
+            }
+
+            if (mapImageFile.exists() && mapImageFile.length() > 0L) {
+                filesToPack.add(mapImageFile to "map/image.png")
+            }
+
+            if (tilesDir.exists()) {
+                tilesDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                    val relPath = "tiles/" + file.relativeTo(tilesDir).path.replace('\\', '/')
+                    filesToPack.add(file to relPath)
+                }
+            }
+
+            if (filesToPack.isEmpty()) {
+                return@withContext Result.failure(IllegalStateException("В проекте нет файлов для экспорта"))
+            }
+
+            onProgress(0.15f, "Подготовка архива проекта...")
+
+            // 4. Настраиваем параметры Zip4j (сжатие и опциональное шифрование AES-256)
+            val zipMethod = if (compressionLevel == 0) CompressionMethod.STORE else CompressionMethod.DEFLATE
+            val zipCompLevel = when (compressionLevel) {
+                0 -> CompressionLevel.NO_COMPRESSION
+                1 -> CompressionLevel.FASTEST
+                9 -> CompressionLevel.MAXIMUM
+                else -> CompressionLevel.NORMAL
+            }
+            val hasPassword = !password.isNullOrBlank()
+
+            val baseParameters = ZipParameters().apply {
+                this.compressionMethod = zipMethod
+                this.compressionLevel = zipCompLevel
+                if (hasPassword) {
+                    this.isEncryptFiles = true
+                    this.encryptionMethod = EncryptionMethod.AES
+                    this.aesKeyStrength = AesKeyStrength.KEY_STRENGTH_256
+                }
+            }
+
+            // 5. Упаковываем файлы в tempExportFile через ZipOutputStream
+            val totalFiles = filesToPack.size
+            var packedFiles = 0
+            var lastProgressTime = 0L
+
+            FileOutputStream(tempExportFile).use { fos ->
+                val zos = if (hasPassword) {
+                    net.lingala.zip4j.io.outputstream.ZipOutputStream(fos, password!!.toCharArray())
+                } else {
+                    net.lingala.zip4j.io.outputstream.ZipOutputStream(fos)
+                }
+
+                zos.use { zipOut ->
+                    val buffer = ByteArray(64 * 1024)
+                    for ((file, entryName) in filesToPack) {
+                        val entryParams = ZipParameters(baseParameters).apply {
+                            fileNameInZip = entryName
+                        }
+                        zipOut.putNextEntry(entryParams)
+
+                        file.inputStream().use { input ->
+                            var read: Int
+                            while (input.read(buffer).also { read = it } >= 0) {
+                                zipOut.write(buffer, 0, read)
+                            }
+                        }
+                        zipOut.closeEntry()
+
+                        packedFiles++
+                        val now = System.currentTimeMillis()
+                        if (now - lastProgressTime > 80 || packedFiles == totalFiles) {
+                            lastProgressTime = now
+                            val frac = packedFiles.toFloat() / totalFiles
+                            val percent = (frac * 100).toInt()
+                            onProgress(0.15f + frac * 0.70f, "Сжатие: $packedFiles из $totalFiles файлов ($percent%)...")
+                        }
+                    }
+                }
+            }
+
+            onProgress(0.90f, "Сохранение файла проекта...")
+
+            // 6. Копируем готовый архив в outputUri через ContentResolver
+            context.contentResolver.openOutputStream(outputUri)?.use { outStream ->
+                tempExportFile.inputStream().use { inStream ->
+                    inStream.copyTo(outStream)
+                }
+            } ?: return@withContext Result.failure(IllegalStateException("Не удалось сохранить файл по выбранному пути"))
+
+            onProgress(1.0f, "Экспорт успешно завершен!")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        } finally {
+            try {
+                if (tempExportFile.exists()) tempExportFile.delete()
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun reconstructImageFromTiles(projectDir: File): Boolean {
+        return try {
+            val dbFile = File(projectDir, "thismap.sqlite")
+            if (!dbFile.exists()) return false
+            val db = getDatabase(dbFile)
+            val meta = db.getMetadata() ?: return false
+            val width = meta.imageWidth
+            val height = meta.imageHeight
+            val zoomMax = meta.zoomMax
+            if (width <= 0 || height <= 0 || zoomMax <= 0) return false
+
+            val tilesDir = File(projectDir, "tiles")
+            val zoomDir = File(tilesDir, zoomMax.toString())
+            if (!zoomDir.exists()) return false
+
+            val (range, imageTopLeft) = CaveMapBounds.calculateTileRange(width, height, zoomMax, zoomMax)
+            val (imageLeftPx, imageTopPx) = imageTopLeft
+            val tileSize = CaveMapBounds.TILE_SIZE
+
+            val fullBitmap = try {
+                Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            } catch (_: OutOfMemoryError) {
+                Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+            }
+            val canvas = android.graphics.Canvas(fullBitmap)
+            val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+
+            for (tileX in range.minTileX..range.maxTileX) {
+                for (tileY in range.minTileY..range.maxTileY) {
+                    val tileFile = File(zoomDir, "$tileX/$tileY.png")
+                    if (tileFile.exists()) {
+                        val tileBmp = BitmapFactory.decodeFile(tileFile.absolutePath)
+                        if (tileBmp != null) {
+                            val tileWorldLeft = tileX * tileSize
+                            val tileWorldTop = tileY * tileSize
+                            val destX = (tileWorldLeft - imageLeftPx).toInt()
+                            val destY = (tileWorldTop - imageTopPx).toInt()
+                            canvas.drawBitmap(tileBmp, destX.toFloat(), destY.toFloat(), paint)
+                            tileBmp.recycle()
+                        }
+                    }
+                }
+            }
+
+            val mapDir = File(projectDir, "map").apply { mkdirs() }
+            val mapImageFile = File(mapDir, "image.png")
+            FileOutputStream(mapImageFile).use { out ->
+                fullBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            fullBitmap.recycle()
+            mapImageFile.exists() && mapImageFile.length() > 0L
+        } catch (e: Exception) {
+            Log.e("ProjectRepository", "Error reconstructing map/image.png from tiles", e)
+            false
         }
     }
 

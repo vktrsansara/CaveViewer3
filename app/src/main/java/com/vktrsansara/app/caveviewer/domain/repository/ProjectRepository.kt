@@ -14,6 +14,9 @@ import com.vktrsansara.app.caveviewer.domain.tile.TileCutProgress
 import kotlinx.coroutines.flow.Flow
 import java.io.File
 
+open class PasswordRequiredException(message: String = "Проект защищен паролем. Введите пароль для импорта") : Exception(message)
+open class InvalidPasswordException(message: String = "Неверный пароль к проекту") : Exception(message)
+
 interface ProjectRepository {
     val activeProjectNameFlow: Flow<String?>
     suspend fun setActiveProjectName(name: String?)
@@ -24,8 +27,16 @@ interface ProjectRepository {
     ): Result<File>
     suspend fun importProject(
         archiveUri: Uri,
+        password: String? = null,
         onProgress: (progress: Float, statusText: String) -> Unit = { _, _ -> }
     ): Result<String>
+    suspend fun exportProject(
+        projectName: String,
+        outputUri: Uri,
+        compressionLevel: Int = 6,
+        password: String? = null,
+        onProgress: (progress: Float, statusText: String) -> Unit = { _, _ -> }
+    ): Result<Unit>
     suspend fun getProjectsList(): List<ProjectInfo>
     suspend fun getProjectDir(projectName: String): File?
     suspend fun deleteProject(projectName: String): Result<Unit>
