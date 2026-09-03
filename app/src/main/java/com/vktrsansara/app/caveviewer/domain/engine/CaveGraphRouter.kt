@@ -4,6 +4,7 @@ import com.vktrsansara.app.caveviewer.domain.model.CaveRoute
 import com.vktrsansara.app.caveviewer.domain.model.LayerLine
 import com.vktrsansara.app.caveviewer.domain.model.NavAlgorithm
 import com.vktrsansara.app.caveviewer.domain.model.NavigationResult
+import com.vktrsansara.app.caveviewer.domain.model.RouteSegment
 import java.util.PriorityQueue
 import kotlin.math.floor
 import kotlin.math.hypot
@@ -465,6 +466,7 @@ object CaveGraphRouter {
 
     private fun buildCaveRoute(pathResult: PathResult, isAlternative: Boolean): CaveRoute {
         val combinedPoints = mutableListOf<Pair<Double, Double>>()
+        val segments = mutableListOf<RouteSegment>()
         var totalLengthMeters = 0.0
         var totalWeightedDifficulty = 0.0
 
@@ -482,6 +484,14 @@ object CaveGraphRouter {
                 }
             }
 
+            segments.add(
+                RouteSegment(
+                    points = edgePts,
+                    difficulty = edge.difficulty,
+                    lengthMeters = edge.lengthMeters
+                )
+            )
+
             totalLengthMeters += edge.lengthMeters
             totalWeightedDifficulty += edge.lengthMeters * edge.difficulty
         }
@@ -494,6 +504,7 @@ object CaveGraphRouter {
 
         return CaveRoute(
             points = combinedPoints,
+            segments = segments,
             lengthMeters = (totalLengthMeters * 10.0).roundToInt() / 10.0,
             averageDifficulty = (avgDiff * 10f).roundToInt() / 10f,
             isAlternative = isAlternative

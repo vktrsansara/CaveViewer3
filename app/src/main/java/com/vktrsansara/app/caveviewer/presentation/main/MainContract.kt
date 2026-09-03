@@ -152,10 +152,12 @@ data class MainUiState(
     val searchedLines: List<LayerLine> = emptyList(),
     // Cave Navigation State (A* Route Finder)
     val isNavigationModeActive: Boolean = false,
+    val navigationWaypoints: List<Pair<Double, Double>> = emptyList(),
     val navigationStartPoint: Pair<Double, Double>? = null,
     val navigationEndPoint: Pair<Double, Double>? = null,
     val navigationPrimaryRoute: CaveRoute? = null,
     val navigationAlternativeRoute: CaveRoute? = null,
+    val isAlternativeRouteActive: Boolean = false,
     val isCalculatingRoute: Boolean = false,
     val navigationErrorMessage: String? = null
 ) : UiState
@@ -459,7 +461,9 @@ sealed interface MainUiIntent : UiIntent {
     // Cave Navigation (A* Route Finder) actions
     data class ToggleNavigationMode(val enabled: Boolean) : MainUiIntent
     data class SetNavigationMapPoint(val pixelX: Double, val pixelY: Double) : MainUiIntent
+    data object UndoNavigationPoint : MainUiIntent
     data object ResetNavigationPoints : MainUiIntent
+    data object ToggleNavigationActiveRoute : MainUiIntent
 }
 
 sealed interface MainUiEffect : UiEffect {

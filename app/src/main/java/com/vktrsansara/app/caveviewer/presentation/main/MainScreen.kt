@@ -78,6 +78,8 @@ import com.vktrsansara.app.caveviewer.presentation.map.components.LineLayersOver
 import com.vktrsansara.app.caveviewer.presentation.map.components.MapCursorOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.MultiToolSideBar
 import com.vktrsansara.app.caveviewer.presentation.map.components.CaveNavigatorOverlay
+import com.vktrsansara.app.caveviewer.presentation.map.components.NavigationSideControl
+import com.vktrsansara.app.caveviewer.presentation.map.components.getNavigationSideControlCloseOffset
 import com.vktrsansara.app.caveviewer.presentation.map.components.NorthBindingOverlay
 import com.vktrsansara.app.caveviewer.presentation.map.components.PointDetailsCard
 import com.vktrsansara.app.caveviewer.presentation.map.components.PointEditorSideControl
@@ -1415,10 +1417,10 @@ fun MainScreenContent(
             // 6. Cave Navigator Overlay (A* Route Finder)
             if (uiState.isNavigationModeActive && meta != null) {
                 CaveNavigatorOverlay(
-                    startPoint = uiState.navigationStartPoint,
-                    endPoint = uiState.navigationEndPoint,
+                    waypoints = uiState.navigationWaypoints,
                     primaryRoute = uiState.navigationPrimaryRoute,
                     alternativeRoute = uiState.navigationAlternativeRoute,
+                    isAlternativeActive = uiState.isAlternativeRouteActive,
                     imageWidth = meta.imageWidth,
                     imageHeight = meta.imageHeight,
                     zoomMax = meta.zoomMax,
@@ -1839,6 +1841,22 @@ fun MainScreenContent(
                         }
                     )
                 }
+            } else if (uiState.isNavigationModeActive) {
+                val hasAlt = uiState.navigationAlternativeRoute != null
+                val pointsCount = uiState.navigationWaypoints.size
+                FloatingDockAnchorLayout(
+                    closeButtonTopInBar = getNavigationSideControlCloseOffset(hasAlt, pointsCount),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    NavigationSideControl(
+                        hasAlternativeRoute = hasAlt,
+                        pointsCount = pointsCount,
+                        onToggleActiveRoute = { onIntent(MainUiIntent.ToggleNavigationActiveRoute) },
+                        onUndoPoint = { onIntent(MainUiIntent.UndoNavigationPoint) },
+                        onResetPoints = { onIntent(MainUiIntent.ResetNavigationPoints) },
+                        onClose = { onIntent(MainUiIntent.ToggleNavigationMode(false)) }
+                    )
+                }
             }
 
             // Selected Point Details Card
@@ -1929,14 +1947,12 @@ fun MainScreenContent(
             // Route Info Card (during active navigation mode)
             if (uiState.isNavigationModeActive) {
                 RouteInfoCard(
-                    startPoint = uiState.navigationStartPoint,
-                    endPoint = uiState.navigationEndPoint,
+                    waypointsCount = uiState.navigationWaypoints.size,
                     primaryRoute = uiState.navigationPrimaryRoute,
                     alternativeRoute = uiState.navigationAlternativeRoute,
+                    isAlternativeActive = uiState.isAlternativeRouteActive,
                     isCalculating = uiState.isCalculatingRoute,
                     errorMessage = uiState.navigationErrorMessage,
-                    onResetClick = { onIntent(MainUiIntent.ResetNavigationPoints) },
-                    onCloseClick = { onIntent(MainUiIntent.ToggleNavigationMode(false)) },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()

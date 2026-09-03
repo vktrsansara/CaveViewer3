@@ -11,10 +11,12 @@ import com.vktrsansara.app.caveviewer.domain.model.LayerFieldType
 import com.vktrsansara.app.caveviewer.domain.model.LayerLine
 import com.vktrsansara.app.caveviewer.domain.model.LayerPoint
 import com.vktrsansara.app.caveviewer.domain.model.LineLayer
+import com.vktrsansara.app.caveviewer.domain.model.CaveRoute
 import com.vktrsansara.app.caveviewer.domain.model.MapCameraPosition
 import com.vktrsansara.app.caveviewer.domain.model.MapLocation
 import com.vktrsansara.app.caveviewer.domain.model.MapMetadata
 import com.vktrsansara.app.caveviewer.domain.model.NavigationConfig
+import com.vktrsansara.app.caveviewer.domain.model.RouteSegment
 import com.vktrsansara.app.caveviewer.domain.model.PointLayer
 import com.vktrsansara.app.caveviewer.domain.model.ScaleBindingPoint
 import com.vktrsansara.app.caveviewer.domain.model.ToolType
@@ -23,6 +25,7 @@ import com.vktrsansara.app.caveviewer.domain.repository.PasswordRequiredExceptio
 import com.vktrsansara.app.caveviewer.domain.repository.InvalidPasswordException
 import com.vktrsansara.app.caveviewer.domain.repository.SettingsRepository
 import com.vktrsansara.app.caveviewer.engine.maplibre.CaveMapBounds
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -2663,10 +2666,12 @@ class MainViewModel(
                 _uiState.update {
                     it.copy(
                         isNavigationModeActive = enabled,
+                        navigationWaypoints = emptyList(),
                         navigationStartPoint = null,
                         navigationEndPoint = null,
                         navigationPrimaryRoute = null,
                         navigationAlternativeRoute = null,
+                        isAlternativeRouteActive = false,
                         isCalculatingRoute = false,
                         navigationErrorMessage = null,
                         isMenuExpanded = false
@@ -2676,74 +2681,167 @@ class MainViewModel(
             is MainUiIntent.ResetNavigationPoints -> {
                 _uiState.update {
                     it.copy(
+                        navigationWaypoints = emptyList(),
                         navigationStartPoint = null,
                         navigationEndPoint = null,
                         navigationPrimaryRoute = null,
                         navigationAlternativeRoute = null,
+                        isAlternativeRouteActive = false,
                         isCalculatingRoute = false,
                         navigationErrorMessage = null
                     )
                 }
             }
-            is MainUiIntent.SetNavigationMapPoint -> {
-                val currentState = _uiState.value
-                val clickPx = Pair(intent.pixelX, intent.pixelY)
-
-                if (currentState.navigationStartPoint == null) {
-                    // Тап 1: ставит Точку А (Старт 🟢)
+            is MainUiIntent.UndoNavigationPoint -> {
+                val currentPts = _uiState.value.navigationWaypoints
+                if (currentPts.isNotEmpty()) {
+                    val updatedPts = currentPts.dropLast(1)
                     _uiState.update {
                         it.copy(
-                            navigationStartPoint = clickPx,
-                            navigationEndPoint = null,
+                            navigationWaypoints = updatedPts,
+                            navigationStartPoint = updatedPts.firstOrNull(),
+                            navigationEndPoint = if (updatedPts.size >= 2) updatedPts.last() else null,
+                            isAlternativeRouteActive = false
+                        )
+                    }
+                    calculateMultiPointRoute(updatedPts)
+                }
+            }
+            is MainUiIntent.ToggleNavigationActiveRoute -> {
+                _uiState.update {
+                    it.copy(isAlternativeRouteActive = !it.isAlternativeRouteActive)
+                }
+            }
+            is MainUiIntent.SetNavigationMapPoint -> {
+                val clickPx = Pair(intent.pixelX, intent.pixelY)
+                val updatedPts = _uiState.value.navigationWaypoints + clickPx
+                _uiState.update {
+                    it.copy(
+                        navigationWaypoints = updatedPts,
+                        navigationStartPoint = updatedPts.first(),
+                        navigationEndPoint = if (updatedPts.size >= 2) updatedPts.last() else null,
+                        isAlternativeRouteActive = false
+                    )
+                }
+                calculateMultiPointRoute(updatedPts)
+            }
+        }
+    }
+
+    private fun calculateMultiPointRoute(waypoints: List<Pair<Double, Double>>) {
+        if (waypoints.size < 2) {
+            _uiState.update {
+                it.copy(
+                    isCalculatingRoute = false,
+                    navigationPrimaryRoute = null,
+                    navigationAlternativeRoute = null,
+                    navigationErrorMessage = null
+                )
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                isCalculatingRoute = true,
+                navigationErrorMessage = null
+            )
+        }
+
+        viewModelScope.launch(Dispatchers.Default) {
+            val meta = _uiState.value.activeProjectMetadata
+            val ppm = meta?.pixelsPerMeter ?: 0.0
+            val navConfig = meta?.navigationConfig ?: NavigationConfig()
+            val visibleLines = _uiState.value.allVisibleLines
+
+            if (waypoints.size == 2) {
+                val result = CaveGraphRouter.findRoute(
+                    lines = visibleLines,
+                    startPx = waypoints[0],
+                    endPx = waypoints[1],
+                    pixelsPerMeter = ppm,
+                    algorithm = navConfig.algorithm,
+                    quality = navConfig.quality,
+                    isAlternativeEnabled = navConfig.isAlternativeRouteEnabled
+                )
+
+                _uiState.update {
+                    it.copy(
+                        isCalculatingRoute = false,
+                        navigationPrimaryRoute = result.primaryRoute,
+                        navigationAlternativeRoute = result.alternativeRoute,
+                        navigationErrorMessage = result.errorMessage
+                    )
+                }
+            } else {
+                // Маршрут через 3 и более точек: последовательный обход каждого участка
+                val allLegRoutes = mutableListOf<CaveRoute>()
+                var legError: String? = null
+
+                for (i in 0 until waypoints.size - 1) {
+                    val legResult = CaveGraphRouter.findRoute(
+                        lines = visibleLines,
+                        startPx = waypoints[i],
+                        endPx = waypoints[i + 1],
+                        pixelsPerMeter = ppm,
+                        algorithm = navConfig.algorithm,
+                        quality = navConfig.quality,
+                        isAlternativeEnabled = false
+                    )
+
+                    if (legResult.primaryRoute != null) {
+                        allLegRoutes.add(legResult.primaryRoute)
+                    } else {
+                        legError = "Маршрут между точками ${i + 1} и ${i + 2} не найден"
+                        break
+                    }
+                }
+
+                if (legError != null || allLegRoutes.size < waypoints.size - 1) {
+                    _uiState.update {
+                        it.copy(
+                            isCalculatingRoute = false,
                             navigationPrimaryRoute = null,
                             navigationAlternativeRoute = null,
-                            navigationErrorMessage = null
+                            navigationErrorMessage = legError ?: "Маршрут не найден"
                         )
-                    }
-                } else if (currentState.navigationEndPoint == null) {
-                    // Тап 2: ставит Точку Б (Финиш 🔴) и запускает расчет A*
-                    val startPt = currentState.navigationStartPoint
-                    val endPt = clickPx
-                    _uiState.update {
-                        it.copy(
-                            navigationEndPoint = endPt,
-                            isCalculatingRoute = true,
-                            navigationErrorMessage = null
-                        )
-                    }
-
-                    viewModelScope.launch(Dispatchers.Default) {
-                        val meta = _uiState.value.activeProjectMetadata
-                        val ppm = meta?.pixelsPerMeter ?: 0.0
-                        val navConfig = meta?.navigationConfig ?: NavigationConfig()
-                        val visibleLines = _uiState.value.allVisibleLines
-
-                        val result = CaveGraphRouter.findRoute(
-                            lines = visibleLines,
-                            startPx = startPt,
-                            endPx = endPt,
-                            pixelsPerMeter = ppm,
-                            algorithm = navConfig.algorithm,
-                            quality = navConfig.quality,
-                            isAlternativeEnabled = navConfig.isAlternativeRouteEnabled
-                        )
-
-                        _uiState.update {
-                            it.copy(
-                                isCalculatingRoute = false,
-                                navigationPrimaryRoute = result.primaryRoute,
-                                navigationAlternativeRoute = result.alternativeRoute,
-                                navigationErrorMessage = result.errorMessage
-                            )
-                        }
                     }
                 } else {
-                    // Обе точки уже установлены: сбрасываем и ставим новую точку А
+                    // Объединяем участки в единый маршрут
+                    val combinedPoints = mutableListOf<Pair<Double, Double>>()
+                    val combinedSegments = mutableListOf<RouteSegment>()
+                    var totalLen = 0.0
+                    var totalWeightedDiff = 0.0
+
+                    for (leg in allLegRoutes) {
+                        if (combinedPoints.isEmpty()) {
+                            combinedPoints.addAll(leg.points)
+                        } else if (leg.points.size > 1) {
+                            combinedPoints.addAll(leg.points.subList(1, leg.points.size))
+                        }
+                        combinedSegments.addAll(leg.segments)
+                        totalLen += leg.lengthMeters
+                        totalWeightedDiff += leg.lengthMeters * leg.averageDifficulty
+                    }
+
+                    val avgDiff = if (totalLen > 0.0) {
+                        ((totalWeightedDiff / totalLen) * 10.0).roundToInt() / 10.0
+                    } else {
+                        1.0
+                    }
+
+                    val fullRoute = CaveRoute(
+                        points = combinedPoints,
+                        segments = combinedSegments,
+                        lengthMeters = (totalLen * 10.0).roundToInt() / 10.0,
+                        averageDifficulty = avgDiff.toFloat(),
+                        isAlternative = false
+                    )
+
                     _uiState.update {
                         it.copy(
-                            navigationStartPoint = clickPx,
-                            navigationEndPoint = null,
-                            navigationPrimaryRoute = null,
+                            isCalculatingRoute = false,
+                            navigationPrimaryRoute = fullRoute,
                             navigationAlternativeRoute = null,
                             navigationErrorMessage = null
                         )
