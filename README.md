@@ -3,6 +3,7 @@
 [![Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-green.svg?logo=android)](https://developer.android.com/jetpack/compose)
 [![Architecture](https://img.shields.io/badge/Architecture-MVI%20%2B%20Clean-orange.svg)]()
 [![MapLibre](https://img.shields.io/badge/Engine-MapLibre%20Native-brightgreen.svg)](https://maplibre.org)
+---
 **CaveViewer3** — высокопроизводительное мобильное Android-приложение для просмотра, калибровки, точных измерений и векторного аннотирования спелеологических топосъемок, планов пещер и крупномасштабных растровых карт.
 ---
 ## 🌟 Основные возможности
